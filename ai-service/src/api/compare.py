@@ -1,29 +1,33 @@
-"""
-POST /compare — 向量比对端点
-输入：两个 128 维向量（或一个查询向量 + 一个候选向量列表）
-输出：余弦相似度
+"""Vector comparison endpoint."""
 
-注：融合打分在后端 Node.js 做，AI 服务只负责向量比对
-"""
 from fastapi import APIRouter
 from pydantic import BaseModel
-from utils.vector import cosine_similarity
+import numpy as np
 
-router = APIRouter()
+from ..utils.vector import cosine_similarity, l2_distance
+
+router = APIRouter(prefix="/compare", tags=["compare"])
 
 
 class CompareRequest(BaseModel):
-    vector_a: list[float]  # 128 维向量
-    vector_b: list[float]   # 128 维向量
+    vector_a: list[float]
+    vector_b: list[float]
 
 
 class CompareResponse(BaseModel):
-    similarity: float  # -1.0 ~ 1.0，余弦相似度
-    distance: float   # 0.0 ~ 2.0，余弦距离
+    cosine_similarity: float
+    l2_distance: float
 
 
-@router.post("", response_model=CompareResponse)
-async def compare_vectors(req: CompareRequest):
-    sim = cosine_similarity(req.vector_a, req.vector_b)
-    dist = 1.0 - sim
-    return CompareResponse(similarity=sim, distance=dist)
+@router.post("/vector", response_model=CompareResponse)
+async def compare_vectors(body: CompareRequest):
+    """
+    Compute similarity between two 128-dim vectors.
+    """
+    a = np.array(body.vector_a, dtype=np.float32)
+    b = np.array(body.vector_b, dtype=np.float32)
+
+    return CompareResponse(
+        cosine_similarity=cosine_similarity(a, b),
+        l2_distance=l2_distance(a, b),
+    )

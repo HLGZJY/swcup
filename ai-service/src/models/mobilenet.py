@@ -1,46 +1,65 @@
-"""
-MobileNetV2 特征提取模型
-输出 128 维向量（阶段一训练后冻结 backbone，只训练输出层）
-"""
+"""MobileNetV2 model for 128-dim feature extraction."""
+
 import torch
 import torch.nn as nn
-import torchvision.models.mobilenet_v2 as mobilenet_v2
+import numpy as np
+from torchvision import models
 
 
 class MobileNetV2_128d(nn.Module):
     """
-    MobileNetV2 迁移学习：冻结 backbone，输出 128 维向量
+    MobileNetV2 backbone + 128-dim output head.
+    Outputs L2-normalized 128-dim feature vector.
     """
 
-    def __init__(self, pretrained: bool = True):
+    def __init__(self, embedding_dim: int = 128):
         super().__init__()
-        # 加载预训练权重
-        weights = mobilenet_v2.Weights.DEFAULT if pretrained else None
-        base_model = mobilenet_v2(weights=weights)
+        backbone = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
+        # Remove the original classifier
+        self.features = backbone.features
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        # 去掉最后的分类层，留下 feature extractor
-        self.features = base_model.features
-
-        # Adaptive AvgPool → 128维输出
-        self.embed_dim = 128
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(in_features=1280, out_features=self.embed_dim, bias=False)
+        # 128-dim embedding head
+        self.embedding = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(1280, embedding_dim),
+        )
+        self._embedding_dim = embedding_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
-        x = self.pool(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        # L2 归一化（度量学习常用）
+        x = self.avgpool(x)
+        x = self.embedding(x)
+        # L2 normalize
         x = nn.functional.normalize(x, p=2, dim=1)
         return x
 
-    def load_weights(self, path: str):
-        """加载训练好的权重"""
-        state_dict = torch.load(path, map_location="cpu")
-        self.load_state_dict(state_dict)
-        self.eval()
+    @property
+    def embedding_dim(self) -> int:
+        return self._embedding_dim
 
 
-def get_model(pretrained: bool = True) -> MobileNetV2_128d:
-    return MobileNetV2_128d(pretrained=pretrained)
+def load_model(weights_path: str | None = None, embedding_dim: int = 128) -> MobileNetV2_128d:
+    """
+    Load model, optionally from saved weights.
+    Uses pretrained ImageNet weights if no weights_path provided.
+    """
+    model = MobileNetV2_128d(embedding_dim=embedding_dim)
+
+    if weights_path:
+        state_dict = torch.load(weights_path, map_location='cpu')
+        model.load_state_dict(state_dict)
+
+    model.eval()
+    return model
+
+
+def extract_feature(model: MobileNetV2_128d, img_tensor: torch.Tensor) -> np.ndarray:
+    """
+    Extract 128-dim feature vector from an image tensor.
+    Input: img_tensor shape (B, 3, 224, 224)
+    Output: numpy array shape (128,)
+    """
+    with torch.no_grad():
+        feat = model(img_tensor)
+    return feat.cpu().numpy().flatten()

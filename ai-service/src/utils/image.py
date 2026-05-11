@@ -1,74 +1,57 @@
-"""
-图片预处理工具
-将 base64 / PIL Image / 文件路径 → 标准化 Tensor
-"""
-import base64
+"""Image preprocessing utilities."""
+
 import io
+import base64
+import cv2
+import numpy as np
 from PIL import Image
-import torch
-import torchvision.transforms as T
+from torchvision import transforms
 
-
-# ImageNet 标准化参数
+# Standard ImageNet normalization
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-transform = T.Compose([
-    T.Resize((224, 224)),
-    T.ToTensor(),
-    T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
 ])
 
 
-def load_image_from_base64(image_base64: str) -> Image.Image:
-    """从 base64 字符串加载 PIL Image"""
-    # 去掉 data:image/...;base64, 前缀（如果有）
-    if "," in image_base64:
-        image_base64 = image_base64.split(",")[1]
-    image_bytes = base64.b64decode(image_base64)
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    return image
+def base64_to_image(base64_str: str) -> Image.Image:
+    """Decode base64 string to PIL Image."""
+    # Remove data URI prefix if present
+    if ',' in base64_str:
+        base64_str = base64_str.split(',')[1]
+    img_bytes = base64.b64decode(base64_str)
+    img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+    return img
 
 
-def load_image_from_path(path: str) -> Image.Image:
-    """从文件路径加载 PIL Image"""
-    return Image.open(path).convert("RGB")
+def image_to_tensor(img: Image.Image) -> "torch.Tensor":
+    """Convert PIL Image to normalized tensor."""
+    return transform(img)
 
 
-def pil_to_tensor(image: Image.Image) -> torch.Tensor:
-    """PIL Image → 标准化 Tensor (1, 3, 224, 224)"""
-    return transform(image).unsqueeze(0)
+def pil_to_cv2(img: Image.Image) -> np.ndarray:
+    """Convert PIL Image to OpenCV BGR format."""
+    return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
 
-def check_image_quality(image: Image.Image) -> tuple[str, float]:
-    """
-    简化版图片质量检测：模糊度 + 亮度
-    返回 (quality: str, score: float 0~1)
-    """
-    import cv2
-    import numpy as np
+def cv2_to_pil(img: np.ndarray) -> Image.Image:
+    """Convert OpenCV BGR to PIL RGB."""
+    return Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
-    # 转 CV 格式
-    cv_img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+def calculate_blur_score(img: Image.Image) -> float:
+    """Calculate blur score using Laplacian variance. Higher = sharper."""
+    cv_img = pil_to_cv2(img)
     gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-    # 1. 模糊度（Laplacian 方差）
-    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-    # 方差越大越清晰，阈值 100 主观设定
-    blur_score = min(laplacian_var / 100.0, 1.0)
 
-    # 2. 亮度（不在过暗/过曝范围）
-    mean_brightness = gray.mean() / 255.0
-    brightness_score = 1.0 - abs(mean_brightness - 0.5) * 2
-
-    # 综合得分
-    score = 0.5 * blur_score + 0.5 * brightness_score
-
-    if score >= 0.6:
-        quality = "ok"
-    elif score >= 0.3:
-        quality = "low"
-    else:
-        quality = "poor"
-
-    return quality, float(score)
+def calculate_brightness(img: Image.Image) -> float:
+    """Calculate average brightness (0-255)."""
+    cv_img = pil_to_cv2(img)
+    hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+    return float(hsv[:, :, 2].mean())

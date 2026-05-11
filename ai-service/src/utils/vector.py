@@ -1,22 +1,18 @@
-"""
-向量计算工具
-余弦相似度：两个 128 维向量 → 相似度分数
-"""
+"""Vector similarity computation."""
+
 import numpy as np
+from numpy.linalg import norm
 
 
-def cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
-    """计算余弦相似度，输入/输出均为 Python list"""
-    a = np.array(vec_a, dtype=np.float32)
-    b = np.array(vec_b, dtype=np.float32)
-    dot = np.dot(a, b)
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    if norm_a == 0 or norm_b == 0:
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Compute cosine similarity between two vectors. Range: [-1, 1]."""
+    a = a.flatten()
+    b = b.flatten()
+    if norm(a) == 0 or norm(b) == 0:
         return 0.0
-    return float(dot / (norm_a * norm_b))
+    return float(np.dot(a, b) / (norm(a) * norm(b)))
 
 
-def cosine_distance(vec_a: list[float], vec_b: list[float]) -> float:
-    """余弦距离 = 1 - 余弦相似度"""
-    return 1.0 - cosine_similarity(vec_a, vec_b)
+def l2_distance(a: np.ndarray, b: np.ndarray) -> float:
+    """Compute L2 (Euclidean) distance between two vectors."""
+    return float(norm(a.flatten() - b.flatten()))

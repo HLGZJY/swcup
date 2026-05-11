@@ -1,16 +1,17 @@
-"""
-鼻纹智救 - AI推理服务
-FastAPI 入口，参考 dog-nose-print 结构
-"""
+"""FastAPI entry point for AI inference service."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 
-from api import detect, extract, compare
+from .api import detect, extract, compare
 
-app = FastAPI(title="鼻纹智救 AI服务", version="0.1.0")
+app = FastAPI(
+    title="鼻纹智救 - AI 推理服务",
+    description="MobileNetV2 128维向量特征提取 + 活体检测",
+    version="0.1.0",
+)
 
-# CORS
+# CORS for local dev
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,21 +20,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
-app.include_router(detect.router, prefix="/detect", tags=["活体检测"])
-app.include_router(extract.router, prefix="/extract", tags=["特征提取"])
-app.include_router(compare.router, prefix="/compare", tags=["向量比对"])
-
-
-@app.get("/")
-async def welcome():
-    return {"message": "鼻纹智救 AI服务", "version": "0.1.0"}
+# Register routers
+app.include_router(detect.router)
+app.include_router(extract.router)
+app.include_router(compare.router)
 
 
 @app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+async def health():
+    """Health check endpoint."""
+    return {"status": "ok", "service": "ai-service"}
 
 
-if __name__ == "__main__":
-    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)
+@app.get("/")
+async def root():
+    return {"message": "鼻纹智救 AI 服务运行中", "docs": "/docs"}

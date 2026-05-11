@@ -1,0 +1,22 @@
+$uni-primary: #FF6B6B;
+$uni-primary-light: #FFF0F0;
+$uni-success: #07C160;
+$uni-warning: #FF9F00;
+$uni-error: #E53A3A;
+$uni-info: #909399;
+
+$uni-text-color: #1A1A1A;
+$uni-border-color: #EEEEEE;
+$uni-bg-color: #F5F5F5;
+
+:root {
+  --theme-color: #FF6B6B;
+  --theme-light: #FFF0F0;
+  --text-primary: #1A1A1A;
+  --text-secondary: #666666;
+  --border-color: #EEEEEE;
+  --bg-white: #FFFFFF;
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --shadow-sm: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}

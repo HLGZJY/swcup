@@ -1,39 +1,49 @@
-"""
-POST /extract/feature — 特征提取端点
-输入：base64 图片
-输出：128 维向量（list[float]）
-使用 MobileNetV2 预训练权重（无训练权重时直接输出特征）
-"""
+"""Feature extraction endpoint."""
+
+import torch
+from PIL import Image
 from fastapi import APIRouter
 from pydantic import BaseModel
-import torch
+import numpy as np
 
-from models.mobilenet import get_model
-from utils.image import load_image_from_base64, pil_to_tensor
+from ..models.mobilenet import load_model, extract_feature
+from ..utils.image import base64_to_image, image_to_tensor
 
-router = APIRouter()
+router = APIRouter(prefix="/extract", tags=["extract"])
 
-# 加载预训练 MobileNetV2（全局单例）
-model = get_model(pretrained=True)
-model.eval()
+# Global model (lazy load on first request)
+_model = None
+
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = load_model(weights_path=None, embedding_dim=128)
+    return _model
 
 
 class ExtractRequest(BaseModel):
-    image: str  # base64 编码的图片字符串
+    image: str  # base64 encoded image
 
 
 class ExtractResponse(BaseModel):
-    vector: list[float]  # 128 维归一化向量
-    shape: list[int]     # (128,)
+    vector: list[float]  # 128-dim
+    embedding_dim: int
 
 
 @router.post("/feature", response_model=ExtractResponse)
-async def extract_feature(req: ExtractRequest):
-    image = load_image_from_base64(req.image)
-    tensor = pil_to_tensor(image)  # (1, 3, 224, 224)
+async def extract_feature_endpoint(body: ExtractRequest):
+    """
+    Extract 128-dim feature vector from a base64 image.
+    Uses MobileNetV2 pretrained on ImageNet (no fine-tuning yet).
+    """
+    img = base64_to_image(body.image)
+    tensor = image_to_tensor(img).unsqueeze(0)  # (1, 3, 224, 224)
 
-    with torch.no_grad():
-        vector = model(tensor)  # (1, 128)
+    model = get_model()
+    vector = extract_feature(model, tensor)  # (128,)
 
-    vector_list = vector.squeeze(0).tolist()
-    return ExtractResponse(vector=vector_list, shape=[128])
+    return ExtractResponse(
+        vector=vector.tolist(),
+        embedding_dim=128,
+    )
