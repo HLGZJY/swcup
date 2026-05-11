@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+  <rect fill="#F0F0F0" width="400" height="200"/>
+  <path d="M0 100 Q100 50 200 100 T400 100" stroke="#DDDDDD" stroke-width="2" fill="none"/>
+  <path d="M0 150 Q150 100 300 150 T400 150" stroke="#DDDDDD" stroke-width="2" fill="none"/>
+  <circle cx="200" cy="100" r="8" fill="#FF6B6B"/>
+  <circle cx="200" cy="100" r="16" stroke="#FF6B6B" stroke-width="2" fill="none" opacity="0.5"/>
+  <text x="200" y="195" text-anchor="middle" fill="#999999" font-size="12">地图加载中</text>
+</svg>
