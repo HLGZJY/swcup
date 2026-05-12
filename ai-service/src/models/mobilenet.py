@@ -12,7 +12,7 @@ class MobileNetV2_128d(nn.Module):
     Outputs L2-normalized 128-dim feature vector.
     """
 
-    def __init__(self, embedding_dim: int = 128):
+    def __init__(self, embedding_dim: int = 128, num_classes: int = None):
         super().__init__()
         backbone = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1)
         # Remove the original classifier
@@ -24,7 +24,10 @@ class MobileNetV2_128d(nn.Module):
             nn.Flatten(),
             nn.Linear(1280, embedding_dim),
         )
+        # Classification head (128 -> num_classes), trained with cross-entropy
+        self.classifier = nn.Linear(embedding_dim, num_classes) if num_classes else None
         self._embedding_dim = embedding_dim
+        self._num_classes = num_classes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)

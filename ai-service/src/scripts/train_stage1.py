@@ -18,8 +18,8 @@ from PIL import Image
 import numpy as np
 from tqdm import tqdm
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add ai-service root to path (parent of src/)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.models.mobilenet import MobileNetV2_128d
 
 
@@ -102,7 +102,7 @@ class DummyDataset(Dataset):
 
 def build_model(num_classes: int = None, embedding_dim: int = 128, pretrained: bool = True):
     """Build MobileNetV2 + 128-dim head."""
-    model = MobileNetV2_128d(embedding_dim=embedding_dim)
+    model = MobileNetV2_128d(embedding_dim=embedding_dim, num_classes=num_classes)
 
     if pretrained:
         # Already loaded from torchvision weights in __init__
@@ -129,10 +129,7 @@ def train_epoch(model, dataloader, criterion, optimizer, device, epoch: int):
 
         optimizer.zero_grad()
         features = model(imgs)  # (B, 128)
-
-        # Simple cross-entropy on top of embedding (proxy for now)
-        # In stage 2 we replace this with ArcFace/Triplet loss
-        logits = nn.functional.linear(features, model.embedding[-1].weight[:len(dataloader.dataset.classes) if hasattr(dataloader.dataset, 'classes') else 100, :])
+        logits = model.classifier(features)  # (B, num_classes)
         loss = criterion(logits, labels)
 
         loss.backward()
@@ -160,8 +157,7 @@ def evaluate(model, dataloader, criterion, device, epoch: int):
             imgs = imgs.to(device)
             labels = labels.to(device)
             features = model(imgs)
-            # Use last layer weight as proxy classifier
-            logits = nn.functional.linear(features, model.embedding[-1].weight[:len(dataloader.dataset.classes) if hasattr(dataloader.dataset, 'classes') else 100, :])
+            logits = model.classifier(features)
             loss = criterion(logits, labels)
             total_loss += loss.item() * imgs.size(0)
             _, predicted = features.max(1)
