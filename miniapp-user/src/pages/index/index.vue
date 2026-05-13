@@ -378,7 +378,7 @@ function onCollect() {
 
 .animal-list {
   flex: 1;
-  padding: 24rpx;
+  padding: 24rpx 0;
 }
 
 .list-empty {
@@ -408,7 +408,7 @@ function onCollect() {
   background: #FFFFFF;
   border-radius: 16rpx;
   overflow: hidden;
-  margin-bottom: 24rpx;
+  margin: 0 24rpx 24rpx;
   display: flex;
   min-height: 220rpx;
   box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
