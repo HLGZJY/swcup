@@ -8,6 +8,18 @@
       </view>
     </view>
 
+    <!-- 角色筛选 -->
+    <view class="filter-tabs">
+      <view
+        v-for="tab in roleTabs"
+        :key="tab.value"
+        :class="['filter-tab', { active: currentRole === tab.value }]"
+        @click="onFilterRole(tab.value)"
+      >
+        <text>{{ tab.label }}</text>
+      </view>
+    </view>
+
     <!-- 用户列表 -->
     <scroll-view class="list-area" scroll-y>
       <view class="total-bar">
@@ -39,10 +51,18 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetUsers } from '@/services/mock'
+import { mockGetUsers, mockUsers } from '@/services/mock'
 
 const keyword = ref('')
 const users = ref<any[]>([])
+
+const roleTabs = [
+  { label: '全部', value: 'all' },
+  { label: '普通用户', value: 'user' },
+  { label: '管理员', value: 'admin' },
+  { label: '机构', value: 'org' }
+]
+const currentRole = ref('all')
 
 const roleMap: Record<string, string> = {
   user: '普通用户', admin: '管理员', org: '机构'
@@ -68,6 +88,15 @@ function onSearch() {
       }
     }
   })
+}
+
+function onFilterRole(role: string) {
+  currentRole.value = role
+  if (role === 'all') {
+    users.value = [...mockUsers]
+  } else {
+    users.value = mockUsers.filter(u => u.role === role)
+  }
 }
 
 function formatDate(isoString: string) {
@@ -99,6 +128,26 @@ function formatDate(isoString: string) {
 
 .search-icon { font-size: 28rpx; margin-right: 12rpx; }
 .search-input { flex: 1; font-size: 26rpx; }
+
+.filter-tabs {
+  display: flex;
+  background: #FFFFFF;
+  padding: 0 16rpx;
+  border-bottom: 1rpx solid #EEEEEE;
+}
+
+.filter-tab {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.filter-tab.active {
+  color: #FF6B6B;
+  font-weight: 600;
+}
 
 .list-area {
   flex: 1;

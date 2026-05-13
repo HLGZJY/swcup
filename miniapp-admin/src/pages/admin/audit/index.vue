@@ -25,37 +25,13 @@
         <text class="empty-text">暂无待审核事件</text>
       </view>
 
-      <view
+      <audit-event-card
         v-for="item in events"
         :key="item.event_id"
-        class="audit-card"
-      >
-        <view class="card-header">
-          <text class="event-type" :class="'type-' + item.event_type">{{ eventTypeMap[item.event_type] }}</text>
-          <text class="event-time">{{ formatTime(item.created_at) }}</text>
-        </view>
-
-        <view class="card-body">
-          <text class="event-desc">{{ item.description }}</text>
-          <view class="event-meta">
-            <text>📍 {{ item.address }}</text>
-            <text>👤 {{ item.reporter_id }}</text>
-          </view>
-          <view class="fusion-info" v-if="item.fusion_score">
-            <text class="fusion-tag">融合得分: {{ (item.fusion_score * 100).toFixed(0) }}%</text>
-            <text class="dup-tag" v-if="item.is_duplicate">疑似重复</text>
-          </view>
-        </view>
-
-        <view class="card-actions">
-          <view class="action-reject" @click="onRejectEvent(item.event_id)">
-            <text>驳回</text>
-          </view>
-          <view class="action-confirm" @click="onConfirmEvent(item.event_id)">
-            <text>确认</text>
-          </view>
-        </view>
-      </view>
+        :event="item"
+        @confirm="onConfirmEvent(item.event_id)"
+        @reject="onRejectEvent(item.event_id)"
+      />
     </view>
 
     <!-- 认领审核列表 -->
@@ -112,6 +88,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { mockGetAdminEvents, mockGetAdminClaims, mockConfirmEvent, mockRejectEvent, mockApproveClaim, mockRejectClaim } from '@/services/mock'
+import AuditEventCard from '@/components/audit-event-card/index.vue'
 
 const currentTab = ref('events')
 const events = ref<any[]>([])
@@ -124,6 +101,14 @@ const eventTypeMap: Record<string, string> = {
 }
 
 onMounted(async () => {
+  // 读取 URL 参数初始化 Tab
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1]
+  const options = (currentPage as any).options || {}
+  if (options.type === 'claims') {
+    currentTab.value = 'claims'
+  }
+
   const [eRes, cRes] = await Promise.all([
     mockGetAdminEvents({ status: 'pending' }),
     mockGetAdminClaims({ status: 'pending' })
@@ -302,70 +287,19 @@ async function onRejectClaim(claimId: string) {
   margin-bottom: 16rpx;
 }
 
-.event-type {
-  font-size: 22rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-  background: #E8FDF8;
-  color: #0FBF9F;
-}
-
-.type-report { background: #E8FDF8; color: #0FBF9F; }
-.type-rescue { background: #FFF0F0; color: #FF6B6B; }
-.type-medical { background: #FFF8E8; color: #FF9F00; }
-
-.event-time {
-  font-size: 22rpx;
-  color: #999999;
-}
-
 .claim-title {
   font-size: 28rpx;
   font-weight: 600;
   color: #1A1A1A;
 }
 
-.card-body {
-  margin-bottom: 20rpx;
-}
-
-.event-desc {
-  font-size: 26rpx;
-  color: #1A1A1A;
-  display: block;
-  margin-bottom: 12rpx;
-}
-
-.event-meta {
-  display: flex;
-  gap: 24rpx;
-  margin-bottom: 12rpx;
-}
-
-.event-meta text {
+.event-time {
   font-size: 22rpx;
   color: #999999;
 }
 
-.fusion-info {
-  display: flex;
-  gap: 12rpx;
-}
-
-.fusion-tag {
-  font-size: 22rpx;
-  color: #FF6B6B;
-  background: #FFF0F0;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-}
-
-.dup-tag {
-  font-size: 22rpx;
-  color: #FF9F00;
-  background: #FFF8E8;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
+.card-body {
+  margin-bottom: 20rpx;
 }
 
 .user-info {

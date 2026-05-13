@@ -81,7 +81,9 @@ export const mockStats = {
   claimedAnimals: 12,
   pendingEvents: 8,
   pendingClaims: 3,
-  todayReports: 5
+  todayReports: 5,
+  todayResolved: 3,
+  todayProcessing: 2
 }
 
 // ============ API 函数 ============
@@ -146,6 +148,13 @@ export function mockGetAnimals(params = {}) {
       let list = [...mockAnimals]
       if (params.species) list = list.filter(a => a.species === params.species)
       if (params.status) list = list.filter(a => a.status === params.status)
+      if (params.keyword) {
+        list = list.filter(a =>
+          a.breed.includes(params.keyword) ||
+          a.color.includes(params.keyword) ||
+          a.address.includes(params.keyword)
+        )
+      }
       resolve({ code: 0, data: { total: list.length, list } })
     }, 400)
   })

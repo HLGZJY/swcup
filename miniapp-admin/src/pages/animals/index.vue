@@ -61,6 +61,8 @@ const currentStatus = ref('all')
 const animals = ref<any[]>([])
 const loading = ref(false)
 const hasMore = ref(true)
+const page = ref(1)
+const pageSize = 10
 
 const statusTabs = [
   { label: '全部', value: 'all' },
@@ -77,18 +79,28 @@ onMounted(() => {
   loadAnimals()
 })
 
-async function loadAnimals() {
+async function loadAnimals(append = false) {
   if (loading.value) return
   loading.value = true
 
-  const params: any = {}
+  if (!append) {
+    page.value = 1
+    animals.value = []
+  }
+
+  const params: any = { page: page.value, pageSize }
   if (currentStatus.value !== 'all') params.status = currentStatus.value
   if (keyword.value) params.keyword = keyword.value
 
   const res: any = await mockGetAnimals(params)
   if (res.code === 0) {
-    animals.value = res.data.list
+    if (append) {
+      animals.value.push(...res.data.list)
+    } else {
+      animals.value = res.data.list
+    }
     hasMore.value = res.data.total > animals.value.length
+    if (hasMore.value) page.value++
   }
   loading.value = false
 }
@@ -106,16 +118,11 @@ function onFilter(status: string) {
 
 function onLoadMore() {
   if (!hasMore.value) return
-  loadAnimals()
+  loadAnimals(true)
 }
 
 function showAnimalDetail(animal: any) {
-  const statusText = statusMap[animal.status] || animal.status
-  uni.showModal({
-    title: `${animal.breed} (${animal.color})`,
-    content: `状态: ${statusText}\n性别: ${animal.gender === 'male' ? '公' : '母'}\n年龄: ${animal.age_estimate}\n地址: ${animal.address}\n备注: ${animal.notes || '无'}`,
-    showCancel: false
-  })
+  uni.navigateTo({ url: `/pages/animals/detail/index?animal_id=${animal.animal_id}` })
 }
 </script>
 

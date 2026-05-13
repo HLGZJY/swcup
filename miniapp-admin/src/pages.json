@@ -40,6 +40,13 @@
         "navigationBarBackgroundColor": "#FFFFFF",
         "navigationBarTextStyle": "black"
       }
+    },
+    {
+      "path": "pages/animals/detail/index",
+      "style": {
+        "navigationBarTitleText": "动物档案详情",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
     }
   ],
   "globalStyle": {
@@ -59,6 +66,12 @@
         "text": "首页",
         "iconPath": "static/tab-home.png",
         "selectedIconPath": "static/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/admin/audit/index",
+        "text": "审核",
+        "iconPath": "static/tab-audit.png",
+        "selectedIconPath": "static/tab-audit-active.png"
       },
       {
         "pagePath": "pages/animals/index",

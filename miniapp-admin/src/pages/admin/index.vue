@@ -12,32 +12,14 @@
     <!-- 快捷统计卡片 -->
     <view class="stats-card">
       <view class="stat-row">
-        <view class="stat-item">
-          <text class="stat-num">{{ stats.totalAnimals }}</text>
-          <text class="stat-label">动物总数</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-num lost">{{ stats.lostAnimals }}</text>
-          <text class="stat-label">走失中</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-num found">{{ stats.foundAnimals }}</text>
-          <text class="stat-label">发现中</text>
-        </view>
+        <stat-card :value="stats.totalAnimals" label="动物总数" color="#0FBF9F" />
+        <stat-card :value="stats.lostAnimals" label="走失中" color="#FF6B6B" />
+        <stat-card :value="stats.foundAnimals" label="发现中" color="#0FBF9F" />
       </view>
       <view class="stat-row">
-        <view class="stat-item">
-          <text class="stat-num claimed">{{ stats.claimedAnimals }}</text>
-          <text class="stat-label">待认领</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-num pending">{{ stats.pendingEvents }}</text>
-          <text class="stat-label">待审核事件</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-num claim">{{ stats.pendingClaims }}</text>
-          <text class="stat-label">待审核认领</text>
-        </view>
+        <stat-card :value="stats.claimedAnimals" label="待认领" color="#FF9F00" />
+        <stat-card :value="stats.pendingEvents" label="待审核事件" color="#FF6B6B" />
+        <stat-card :value="stats.pendingClaims" label="待审核认领" color="#FF9F00" />
       </view>
     </view>
 
@@ -51,12 +33,12 @@
         </view>
         <view class="today-divider"></view>
         <view class="today-item">
-          <text class="today-num">3</text>
+          <text class="today-num">{{ stats.todayResolved }}</text>
           <text class="today-label">已完成</text>
         </view>
         <view class="today-divider"></view>
         <view class="today-item">
-          <text class="today-num">2</text>
+          <text class="today-num">{{ stats.todayProcessing }}</text>
           <text class="today-label">处理中</text>
         </view>
       </view>
@@ -126,7 +108,7 @@ import { mockGetStats } from '@/services/mock'
 
 const stats = ref({
   totalAnimals: 0, lostAnimals: 0, foundAnimals: 0, claimedAnimals: 0,
-  pendingEvents: 0, pendingClaims: 0, todayReports: 0
+  pendingEvents: 0, pendingClaims: 0, todayReports: 0, todayResolved: 0, todayProcessing: 0
 })
 
 onMounted(async () => {
@@ -185,31 +167,6 @@ function goToPage(url: string) {
 
 .stat-row:last-child {
   margin-bottom: 0;
-}
-
-.stat-item {
-  flex: 1;
-  text-align: center;
-}
-
-.stat-num {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: #0FBF9F;
-  display: block;
-}
-
-.stat-num.lost { color: #FF6B6B; }
-.stat-num.found { color: #0FBF9F; }
-.stat-num.claimed { color: #FF9F00; }
-.stat-num.pending { color: #FF6B6B; }
-.stat-num.claim { color: #FF9F00; }
-
-.stat-label {
-  font-size: 22rpx;
-  color: #999999;
-  display: block;
-  margin-top: 4rpx;
 }
 
 .today-card {
