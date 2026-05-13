@@ -56,6 +56,22 @@
         "navigationBarBackgroundColor": "#FFFFFF",
         "navigationBarTextStyle": "black"
       }
+    },
+    {
+      "path": "pages/my-reports/index",
+      "style": {
+        "navigationBarTitleText": "我的上报",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/my-claims/index",
+      "style": {
+        "navigationBarTitleText": "认领记录",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
     }
   ],
   "globalStyle": {

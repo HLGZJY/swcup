@@ -225,6 +225,7 @@ export const mockClaims = [
 
 /**
  * 鼻纹采集
+ * 真实请求：{ nose_photo(base64), species, location_lat, location_lng, description }
  */
 export function mockNoseCollect(params) {
   return new Promise((resolve) => {
@@ -328,6 +329,7 @@ export function mockReportEvent(params) {
 
 /**
  * 提交认领申请
+ * 真实请求：{ animal_id, event_id, notes }
  */
 export function mockSubmitClaim(params) {
   return new Promise((resolve) => {
@@ -375,7 +377,8 @@ export function mockGetCurrentUser() {
 }
 
 /**
- * 模拟登录
+ * 模拟登录（微信登录流程：先 wx.login() 获取 code，再传 code 登录）
+ * 真实请求：{ code, nickname, avatar_url }
  */
 export function mockLogin(params) {
   return new Promise((resolve) => {

@@ -133,9 +133,29 @@ async function onLogin() {
 
   uni.showLoading({ title: '登录中...' })
 
+  // 微信登录：先通过 wx.login() 获取 code
+  let wxCode = ''
+  try {
+    const codeResult = await new Promise<{ code: string }>((resolve, reject) => {
+      wx.login({
+        success: (res) => {
+          if (res.code) resolve({ code: res.code })
+          else reject(new Error('获取 code 失败'))
+        },
+        fail: () => reject(new Error('wx.login 失败'))
+      })
+    })
+    wxCode = codeResult.code
+  } catch (err: any) {
+    uni.hideLoading()
+    uni.showToast({ title: err.message, icon: 'none' })
+    return
+  }
+
   const res: any = await mockLogin({
-    avatar: avatarUrl.value,
+    code: wxCode,
     nickname: nickname.value.trim(),
+    avatar_url: avatarUrl.value,
     phone: phone.value || undefined
   })
 

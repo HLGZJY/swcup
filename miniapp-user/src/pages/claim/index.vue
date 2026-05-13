@@ -108,6 +108,7 @@ import { ref, computed, onMounted } from 'vue'
 import { mockGetAnimalDetail, mockSubmitClaim } from '@/services/mock'
 
 const animal = ref<any>(null)
+const eventId = ref('')
 const form = ref({
   real_name: '',
   phone: '',
@@ -141,14 +142,16 @@ const canSubmit = computed(() => {
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const animalId = currentPage?.options?.animal_id
+  const { animal_id, event_id } = currentPage?.options || {}
 
-  if (animalId) {
-    const res: any = await mockGetAnimalDetail(animalId)
+  if (animal_id) {
+    const res: any = await mockGetAnimalDetail(animal_id)
     if (res.code === 0) {
       animal.value = res.data
     }
   }
+
+  eventId.value = event_id || ''
 })
 
 function chooseImage() {
@@ -179,6 +182,7 @@ async function onSubmit() {
   uni.showLoading({ title: '提交中...' })
   const res: any = await mockSubmitClaim({
     animal_id: animal.value?.animal_id,
+    event_id: eventId.value,
     notes: form.value.description
   })
 

@@ -55,32 +55,9 @@
         <text class="menu-text">认领记录</text>
         <text class="menu-arrow">›</text>
       </view>
-
-      <!-- 鼻纹档案 -->
-      <view class="menu-item" @click="goToNoseProfiles">
-        <text class="menu-icon">👃</text>
-        <text class="menu-text">我的鼻纹档案</text>
-        <text class="menu-count">{{ noseProfileCount }}个</text>
-        <text class="menu-arrow">›</text>
-      </view>
-
-      <!-- 消息通知 -->
-      <view class="menu-item" @click="goToMessages">
-        <text class="menu-icon">🔔</text>
-        <text class="menu-text">消息通知</text>
-        <view class="menu-badge" v-if="unreadCount > 0">{{ unreadCount }}</view>
-        <text class="menu-arrow">›</text>
-      </view>
     </view>
 
     <view class="menu-section">
-      <!-- 设置 -->
-      <view class="menu-item" @click="goToSettings">
-        <text class="menu-icon">⚙️</text>
-        <text class="menu-text">设置</text>
-        <text class="menu-arrow">›</text>
-      </view>
-
       <!-- 帮助与反馈 -->
       <view class="menu-item" @click="goToHelp">
         <text class="menu-icon">❓</text>
@@ -121,9 +98,6 @@ const stats = ref({
   approvedCount: 0
 })
 
-const noseProfileCount = ref(1)
-const unreadCount = ref(0)
-
 const roleLabel = computed(() => {
   const map: Record<string, string> = {
     user: '普通用户',
@@ -162,23 +136,11 @@ function onEditAvatar() {
 }
 
 function goToMyReports() {
-  uni.showToast({ title: '我的上报（开发中）', icon: 'none' })
+  uni.navigateTo({ url: '/pages/my-reports/index' })
 }
 
 function goToMyClaims() {
-  uni.showToast({ title: '认领记录（开发中）', icon: 'none' })
-}
-
-function goToNoseProfiles() {
-  uni.showToast({ title: '鼻纹档案（开发中）', icon: 'none' })
-}
-
-function goToMessages() {
-  uni.showToast({ title: '消息通知（开发中）', icon: 'none' })
-}
-
-function goToSettings() {
-  uni.showToast({ title: '设置（开发中）', icon: 'none' })
+  uni.navigateTo({ url: '/pages/my-claims/index' })
 }
 
 function goToHelp() {

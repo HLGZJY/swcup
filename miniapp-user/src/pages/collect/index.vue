@@ -146,8 +146,10 @@ import { mockNoseCollect, mockNoseCompare } from '@/services/mock'
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
 const nosePhoto = ref('')
-const locationText = ref('北京市朝阳区（定位中...）')
+const locationText = ref('定位中...')
 const collectResult = ref<any>(null)
+const locationLat = ref(0)
+const locationLng = ref(0)
 
 const steps = ['选择物种', '拍摄鼻纹', '确认提交']
 const tips = [
@@ -178,10 +180,12 @@ function getLocation() {
   uni.getLocation({
     type: 'gcj02',
     success: (res) => {
+      locationLat.value = res.latitude
+      locationLng.value = res.longitude
       locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
     },
     fail: () => {
-      locationText.value = '北京市朝阳区（定位失败）'
+      locationText.value = '定位失败'
     }
   })
 }
@@ -231,7 +235,10 @@ async function onNext() {
 
   const collectRes: any = await mockNoseCollect({
     nose_photo: nosePhoto.value,
-    species: selectedSpecies.value
+    species: selectedSpecies.value,
+    location_lat: locationLat.value,
+    location_lng: locationLng.value,
+    description: `鼻纹正面照，${speciesLabel.value}`
   })
 
   if (collectRes.code !== 0) {
