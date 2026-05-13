@@ -119,7 +119,8 @@ onMounted(async () => {
 })
 
 function goToAudit(type: string) {
-  uni.navigateTo({ url: `/pages/admin/audit/index?type=${type}` })
+  // 审核中心已加入 TabBar，用 reLaunch 可携带参数并打开 TabBar 页面
+  uni.reLaunch({ url: `/pages/admin/audit/index?type=${type}` })
 }
 
 function goToPage(url: string) {
