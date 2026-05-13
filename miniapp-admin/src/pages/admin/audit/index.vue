@@ -20,7 +20,13 @@
 
     <!-- 事件审核列表 -->
     <view v-if="currentTab === 'events'">
-      <view class="empty-state" v-if="events.length === 0">
+      <!-- 加载状态 -->
+      <view class="loading-state" v-if="loading">
+        <text class="loading-icon">⏳</text>
+        <text class="loading-text">加载中...</text>
+      </view>
+      <!-- 空状态（仅在非加载且无数据时显示） -->
+      <view class="empty-state" v-else-if="events.length === 0">
         <text class="empty-icon">✅</text>
         <text class="empty-text">暂无待审核事件</text>
       </view>
@@ -36,7 +42,13 @@
 
     <!-- 认领审核列表 -->
     <view v-if="currentTab === 'claims'">
-      <view class="empty-state" v-if="claims.length === 0">
+      <!-- 加载状态 -->
+      <view class="loading-state" v-if="loading">
+        <text class="loading-icon">⏳</text>
+        <text class="loading-text">加载中...</text>
+      </view>
+      <!-- 空状态（仅在非加载且无数据时显示） -->
+      <view class="empty-state" v-else-if="claims.length === 0">
         <text class="empty-icon">🏠</text>
         <text class="empty-text">暂无待审核认领</text>
       </view>
@@ -95,6 +107,7 @@ const events = ref<any[]>([])
 const claims = ref<any[]>([])
 const pendingEvents = ref(0)
 const pendingClaims = ref(0)
+const loading = ref(true)
 
 const eventTypeMap: Record<string, string> = {
   report: '上报', rescue: '救助', medical: '医疗', adopt: '领养', transfer: '转运', release: '放归'
@@ -122,6 +135,7 @@ onMounted(async () => {
     claims.value = cRes.data.list
     pendingClaims.value = cRes.data.total
   }
+  loading.value = false
 })
 
 function switchTab(tab: string) {
@@ -261,6 +275,23 @@ async function onRejectClaim(claimId: string) {
   flex-direction: column;
   align-items: center;
   padding: 120rpx 0;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+}
+
+.loading-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999999;
 }
 
 .empty-icon {
