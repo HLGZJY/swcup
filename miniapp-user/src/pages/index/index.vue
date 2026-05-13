@@ -456,6 +456,7 @@ function onCollect() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .breed {
@@ -470,12 +471,15 @@ function onCollect() {
 
 .gender {
   font-size: 28rpx;
+  flex-shrink: 0;
+  margin-left: 8rpx;
 }
 
 .info-detail {
   display: flex;
   flex-direction: column;
   gap: 4rpx;
+  min-width: 0;
 }
 
 .detail-item {
@@ -518,6 +522,11 @@ function onCollect() {
 .time {
   font-size: 20rpx;
   color: #999999;
+  flex-shrink: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .action-btn {
@@ -526,6 +535,7 @@ function onCollect() {
   font-size: 22rpx;
   padding: 8rpx 20rpx;
   border-radius: 20rpx;
+  flex-shrink: 0;
 }
 
 .load-more, .no-more {
