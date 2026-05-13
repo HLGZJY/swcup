@@ -7,14 +7,19 @@
         <text class="location-text">{{ locationText }}</text>
         <text class="refresh-icon" v-if="refreshing">⟳</text>
       </view>
-      <view class="search-bar">
-        <text class="search-icon">🔍</text>
-        <input
-          class="search-input"
-          placeholder="搜索走失/发现的动物"
-          v-model="searchKeyword"
-          @confirm="onSearch"
-        />
+      <view class="search-row">
+        <view class="search-bar">
+          <text class="search-icon">🔍</text>
+          <input
+            class="search-input"
+            placeholder="搜索走失/发现的动物"
+            v-model="searchKeyword"
+            @confirm="onSearch"
+          />
+        </view>
+        <view class="collect-btn" @click="onCollect">
+          <text>采集</text>
+        </view>
       </view>
     </view>
 
@@ -103,12 +108,6 @@
         <text>— 没有更多了 —</text>
       </view>
     </scroll-view>
-
-    <!-- 悬浮按钮 -->
-    <view class="fab" @click="onCollect">
-      <text class="fab-icon">👃</text>
-      <text class="fab-text">采集鼻纹</text>
-    </view>
   </view>
 </template>
 
@@ -258,7 +257,7 @@ function onCollect() {
 
 .home-header {
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  padding: 16rpx 24rpx 24rpx;
+  padding: 16rpx 24rpx 20rpx;
 }
 
 .location-bar {
@@ -290,7 +289,14 @@ function onCollect() {
   to { transform: rotate(360deg); }
 }
 
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
 .search-bar {
+  flex: 1;
   display: flex;
   align-items: center;
   background: #FFFFFF;
@@ -307,6 +313,23 @@ function onCollect() {
   flex: 1;
   font-size: 26rpx;
   color: #1A1A1A;
+}
+
+.collect-btn {
+  background: rgba(255,255,255,0.25);
+  border: 1rpx solid rgba(255,255,255,0.4);
+  border-radius: 40rpx;
+  padding: 16rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.collect-btn text {
+  font-size: 26rpx;
+  color: #FFFFFF;
+  font-weight: 600;
 }
 
 .filter-tabs {
@@ -387,6 +410,7 @@ function onCollect() {
   overflow: hidden;
   margin-bottom: 24rpx;
   display: flex;
+  min-height: 220rpx;
   box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
 }
 
@@ -424,6 +448,8 @@ function onCollect() {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .info-header {
@@ -436,6 +462,10 @@ function onCollect() {
   font-size: 28rpx;
   font-weight: 600;
   color: #1A1A1A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .gender {
@@ -452,7 +482,11 @@ function onCollect() {
   font-size: 22rpx;
   color: #666666;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .detail-icon {
@@ -477,6 +511,8 @@ function onCollect() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+  margin-top: 8rpx;
 }
 
 .time {
@@ -497,29 +533,5 @@ function onCollect() {
   padding: 24rpx;
   font-size: 24rpx;
   color: #999999;
-}
-
-.fab {
-  position: fixed;
-  right: 32rpx;
-  bottom: 180rpx;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  color: #FFFFFF;
-  padding: 20rpx 28rpx;
-  border-radius: 40rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 4rpx 20rpx rgba(15, 191, 159, 0.4);
-}
-
-.fab-icon {
-  font-size: 40rpx;
-}
-
-.fab-text {
-  font-size: 22rpx;
-  font-weight: 600;
-  margin-top: 4rpx;
 }
 </style>
