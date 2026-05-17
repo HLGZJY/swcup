@@ -3,6 +3,14 @@
 </template>
 
 <script setup lang="ts">
+import { onLaunch } from '@dcloudio/uni-app'
+onLaunch(() => {
+  // 全局路由拦截：无 token 则跳转登录页
+  const token = uni.getStorageSync('token')
+  if (!token) {
+    uni.reLaunch({ url: '/pages/login/login' })
+  }
+})
 </script>
 
 <style lang="scss">

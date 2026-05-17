@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { mockGetCurrentUser, mockGetClaims } from '@/services/mock'
+import { apiGetCurrentUser, apiGetMyClaims } from '@/services/api'
 
 const user = ref<any>({
   nickname: '加载中...',
@@ -109,8 +109,8 @@ const roleLabel = computed(() => {
 
 onMounted(async () => {
   const [userRes, claimRes] = await Promise.all([
-    mockGetCurrentUser(),
-    mockGetClaims()
+    apiGetCurrentUser(),
+    apiGetMyClaims()
   ])
 
   if (userRes.code === 0) {

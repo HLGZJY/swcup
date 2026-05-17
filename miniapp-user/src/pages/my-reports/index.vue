@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { apiGetMyEvents } from '@/services/api'
 
 const reports = ref<any[]>([])
 const loading = ref(false)
@@ -57,29 +58,10 @@ const eventTypeMap: Record<string, string> = {
 
 onMounted(async () => {
   loading.value = true
-  // 真实接口：GET /api/user/events
-  // Mock：暂无，用本地模拟数据
-  await new Promise(resolve => setTimeout(resolve, 500))
-  reports.value = [
-    {
-      event_id: 'e001',
-      animal_id: 'a001',
-      event_type: 'report',
-      occurred_at: '2026-05-10T15:30:00Z',
-      address: '北京市朝阳区建外SOHO',
-      description: '发现时正在觅食，比较亲人',
-      status: 'pending'
-    },
-    {
-      event_id: 'e003',
-      animal_id: null,
-      event_type: 'rescue',
-      occurred_at: '2026-05-08T10:00:00Z',
-      address: '北京市朝阳区国贸CBD',
-      description: '受伤柴犬，已送医',
-      status: 'resolved'
-    }
-  ]
+  try {
+    const res: any = await apiGetMyEvents()
+    reports.value = res.data || []
+  } catch (e) {}
   loading.value = false
 })
 

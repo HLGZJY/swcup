@@ -6,7 +6,7 @@
         <text class="logo-icon">🐾</text>
       </view>
       <text class="brand-name">鼻纹智救</text>
-      <text class="brand-slogan">AI 流浪动物 · 防重复救助</text>
+      <text class="brand-slogan">管理后台</text>
     </view>
 
     <!-- 登录表单 -->
@@ -17,7 +17,7 @@
         <input
           type="text"
           class="form-input"
-          placeholder="请输入手机号"
+          placeholder="请输入管理员手机号"
           v-model="phone"
           maxlength="11"
           inputmode="numeric"
@@ -43,19 +43,12 @@
       >
         登录
       </button>
-
-      <!-- 注册入口 -->
-      <view class="register-row">
-        <text class="register-text">还没有账号？</text>
-        <text class="register-link" @click="onRegister">立即注册</text>
-      </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { apiLogin, apiRegister } from '@/services/api'
 
 const phone = ref('')
 const password = ref('')
@@ -80,86 +73,78 @@ async function onLogin() {
   uni.showLoading({ title: '登录中...' })
 
   try {
-    const res: any = await apiLogin(phone.value, password.value)
-
-    // 保存登录态
-    uni.setStorageSync('token', res.data.token)
-    uni.setStorageSync('user_info', res.data.user)
+    const res: any = await uni.request({
+      url: 'http://192.168.32.1:3000/auth/login',
+      method: 'POST',
+      data: { phone: phone.value, password: password.value }
+    })
 
     uni.hideLoading()
-    uni.showToast({ title: '登录成功', icon: 'success' })
-    setTimeout(() => {
-      uni.switchTab({ url: '/pages/index/index' })
-    }, 800)
+
+    if (res.data.code === 0) {
+      uni.setStorageSync('token', res.data.data.token)
+      uni.setStorageSync('user_info', res.data.data.user)
+      uni.setStorageSync('role', res.data.data.user.role)
+      uni.showToast({ title: '登录成功', icon: 'success' })
+      setTimeout(() => {
+        uni.reLaunch({ url: '/pages/admin/index' })
+      }, 800)
+    }
+    // 其他错误由 api.js 拦截器处理
   } catch (err: any) {
     uni.hideLoading()
-    // 错误已由拦截器统一处理，这里只做兜底
-    if (err.code === 40301) {
-      uni.showToast({ title: '手机号或密码错误', icon: 'none' })
-    }
+    uni.showToast({ title: '网络异常，请检查网络', icon: 'none' })
   }
-}
-
-function onRegister() {
-  uni.showModal({
-    title: '注册',
-    content: '注册功能开发中，请联系管理员创建账号',
-    showCancel: false
-  })
 }
 </script>
 
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #E8FDF8 0%, #F5F5F5 100%);
+  background: linear-gradient(135deg, #1A1A1A 0%, #333333 100%);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 0 48rpx;
 }
 
 .brand-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0 60rpx;
+  padding: 120rpx 0 80rpx;
 }
 
 .brand-logo {
   width: 120rpx;
   height: 120rpx;
-  background: linear-gradient(135deg, #0FBF9F, #07C160);
-  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 24rpx;
-  box-shadow: 0 8rpx 32rpx rgba(15, 191, 159, 0.3);
 }
 
 .logo-icon {
-  font-size: 60rpx;
+  font-size: 64rpx;
 }
 
 .brand-name {
-  font-size: 40rpx;
+  font-size: 48rpx;
   font-weight: 700;
-  color: #1A1A1A;
+  color: #FFFFFF;
 }
 
 .brand-slogan {
-  font-size: 24rpx;
-  color: #999999;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.6);
   margin-top: 8rpx;
 }
 
 .login-form {
-  width: 100%;
   background: #FFFFFF;
+  margin: 0 32rpx;
   border-radius: 24rpx;
-  padding: 48rpx 32rpx;
-  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
+  padding: 48rpx 40rpx;
 }
 
 .form-item {
@@ -168,67 +153,35 @@ function onRegister() {
 
 .form-label {
   font-size: 26rpx;
-  color: #1A1A1A;
-  font-weight: 600;
+  color: #666666;
   display: block;
   margin-bottom: 12rpx;
 }
 
 .form-input {
-  width: 100%;
   height: 88rpx;
-  background: #F8F8F8;
+  background: #F5F5F5;
   border-radius: 16rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
-  box-sizing: border-box;
-}
-
-.form-input::placeholder {
-  color: #CCCCCC;
 }
 
 .login-btn {
   width: 100%;
-  height: 96rpx;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  border-radius: 48rpx;
+  height: 88rpx;
+  background: #FF6B6B;
   color: #FFFFFF;
   font-size: 30rpx;
   font-weight: 600;
+  border-radius: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  box-shadow: 0 4rpx 20rpx rgba(15, 191, 159, 0.3);
   margin-top: 16rpx;
+  border: none;
 }
 
 .login-btn.disabled {
   background: #CCCCCC;
-  box-shadow: none;
-}
-
-.login-btn::after {
-  border: none;
-}
-
-.register-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 32rpx;
-}
-
-.register-text {
-  font-size: 24rpx;
-  color: #999999;
-}
-
-.register-link {
-  font-size: 24rpx;
-  color: #0FBF9F;
-  margin-left: 8rpx;
 }
 </style>

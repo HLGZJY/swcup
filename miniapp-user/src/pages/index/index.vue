@@ -61,7 +61,7 @@
         <view class="card-photo-wrap">
           <image
             class="card-photo"
-            :src="animal.photos[0] || '/static/mock/dog-placeholder.png'"
+            :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'"
             mode="aspectFill"
           />
           <view :class="['status-tag', 'status-' + animal.status]">
@@ -113,7 +113,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetAnimals } from '@/services/mock'
+import { apiGetAnimals } from '@/services/api'
 
 const locationText = ref('北京市朝阳区')
 const searchKeyword = ref('')
@@ -154,14 +154,13 @@ async function loadAnimals() {
   if (loading.value) return
   loading.value = true
 
-  const params: any = {}
+  const params: any = { page: page.value, limit: 20 }
   if (currentFilter.value !== 'all') {
     params.status = currentFilter.value
   }
 
-  const res: any = await mockGetAnimals(params)
-
-  if (res.code === 0) {
+  try {
+    const res: any = await apiGetAnimals(params)
     if (page.value === 1) {
       animalList.value = res.data.list
     } else {
@@ -169,16 +168,17 @@ async function loadAnimals() {
     }
     hasMore.value = res.data.list.length >= 20
 
-    // 更新 tab counts
-    const allRes: any = await mockGetAnimals()
-    if (allRes.code === 0) {
-      filterTabs.value[0].count = allRes.data.total
-      filterTabs.value[1].count = allRes.data.list.filter((a: any) => a.status === 'lost').length
-      filterTabs.value[2].count = allRes.data.list.filter((a: any) => a.status === 'found').length
-      filterTabs.value[3].count = allRes.data.list.filter((a: any) => a.status === 'claimed').length
+    // 更新 tab counts（仅第一页时）
+    if (page.value === 1) {
+      try {
+        const allRes: any = await apiGetAnimals({ limit: 100 })
+        filterTabs.value[0].count = allRes.data.total
+        filterTabs.value[1].count = allRes.data.list.filter((a: any) => a.status === 'lost').length
+        filterTabs.value[2].count = allRes.data.list.filter((a: any) => a.status === 'found').length
+        filterTabs.value[3].count = allRes.data.list.filter((a: any) => a.status === 'claimed').length
+      } catch (e) {}
     }
-  }
-
+  } catch (err) {}
   loading.value = false
 }
 

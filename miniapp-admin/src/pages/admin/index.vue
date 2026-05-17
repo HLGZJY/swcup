@@ -7,6 +7,10 @@
         <text class="admin-title">管理后台</text>
         <text class="admin-sub">鼻纹智救 · 管理员</text>
       </view>
+      <view class="logout-btn" @click="handleLogout">
+        <text class="logout-icon">🚪</text>
+        <text class="logout-text">退出</text>
+      </view>
     </view>
 
     <!-- 快捷统计卡片 -->
@@ -104,7 +108,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetStats } from '@/services/mock'
+import { apiGetStats } from '@/services/api'
 
 const stats = ref({
   totalAnimals: 0, lostAnimals: 0, foundAnimals: 0, claimedAnimals: 0,
@@ -112,10 +116,12 @@ const stats = ref({
 })
 
 onMounted(async () => {
-  const res: any = await mockGetStats()
-  if (res.code === 0) {
-    stats.value = res.data
-  }
+  try {
+    const res: any = await apiGetStats()
+    if (res.code === 0) {
+      stats.value = res.data
+    }
+  } catch (e) {}
 })
 
 function goToAudit(type: string) {
@@ -125,6 +131,12 @@ function goToAudit(type: string) {
 
 function goToPage(url: string) {
   uni.switchTab({ url })
+}
+
+function handleLogout() {
+  uni.removeStorageSync('token')
+  uni.removeStorageSync('adminInfo')
+  uni.reLaunch({ url: '/pages/login/login' })
 }
 </script>
 
@@ -151,6 +163,27 @@ function goToPage(url: string) {
   color: rgba(255,255,255,0.6);
   display: block;
   margin-top: 4rpx;
+}
+
+.logout-btn {
+  position: absolute;
+  top: 32rpx;
+  right: 24rpx;
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.15);
+  border-radius: 32rpx;
+  padding: 12rpx 20rpx;
+}
+
+.logout-icon {
+  font-size: 24rpx;
+  margin-right: 6rpx;
+}
+
+.logout-text {
+  font-size: 22rpx;
+  color: #FFFFFF;
 }
 
 .stats-card {

@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetAdminEvents } from '@/services/mock'
+import { apiGetAdminEvents } from '@/services/api'
 
 const keyword = ref('')
 const currentStatus = ref('all')
@@ -84,7 +84,9 @@ const eventTypeMap: Record<string, string> = {
   report: '上报', rescue: '救助', medical: '医疗', adopt: '领养', transfer: '转运', release: '放归'
 }
 
+// TabBar 页面切换时 onMounted 触发
 onMounted(() => {
+  console.log('[DEBUG] events onMounted fired, calling loadEvents')
   loadEvents()
 })
 
@@ -92,14 +94,17 @@ async function loadEvents() {
   if (loading.value) return
   loading.value = true
 
-  const params: any = {}
+const params: any = { page: 1, limit: 20 }
   if (currentStatus.value !== 'all') params.status = currentStatus.value
+  if (keyword.value) params.keyword = keyword.value
 
-  const res: any = await mockGetAdminEvents(params)
-  if (res.code === 0) {
-    events.value = res.data.list
-    hasMore.value = res.data.total > events.value.length
-  }
+  try {
+    console.log('[PAGE] apiGetAdminEvents called'); const res: any = await apiGetAdminEvents(params)
+    if (res.code === 0) {
+      events.value = res.data?.list || []
+      hasMore.value = (res.data?.total || 0) > events.value.length
+    }
+  } catch (e) {}
   loading.value = false
 }
 
@@ -159,8 +164,7 @@ function formatTime(isoString: string) {
 .filter-tabs {
   display: flex;
   background: #FFFFFF;
-  padding: 0 16rpx;
-  border-bottom: 1rpx solid #EEEEEE;
+  padding: 0 36rpx;
 }
 
 .filter-tab {
@@ -178,7 +182,7 @@ function formatTime(isoString: string) {
 
 .list-area {
   flex: 1;
-  padding: 24rpx;
+  padding: 32rpx 36rpx;
 }
 
 .empty-state {
@@ -193,9 +197,9 @@ function formatTime(isoString: string) {
 
 .event-card {
   background: #FFFFFF;
-  border-radius: 12rpx;
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
 }
 
 .event-header {

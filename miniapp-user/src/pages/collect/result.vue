@@ -46,7 +46,7 @@
         </view>
         <image
           class="match-photo"
-          :src="item.animal.photos[0] || '/static/mock/dog-placeholder.png'"
+          :src="item.animal?.photos?.[0] || '/static/mock/dog-placeholder.png'"
           mode="aspectFill"
         />
         <view class="match-info">
@@ -87,28 +87,38 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { mockNoseCompare } from '@/services/mock'
+import { apiNoseCompare } from '@/services/api'
 
 const compareResult = ref<any>(null)
 const selectedSpecies = ref('dog')
-const vectorId = ref('')
+const noseId = ref('')
 
 onMounted(async () => {
   // 从 URL 参数读取采集时传递的数据
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { vector_id, species } = currentPage.options || {}
+  const { nose_id, species } = currentPage.options || {}
 
-  vectorId.value = vector_id || ''
+  noseId.value = nose_id || ''
   selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
 
+  if (!noseId.value) {
+    uni.showToast({ title: '缺少鼻纹ID', icon: 'none' })
+    return
+  }
+
   uni.showLoading({ title: '比对中...' })
-  const result: any = await mockNoseCompare({
-    species: selectedSpecies.value,
-    vector_id: vectorId.value
-  })
-  compareResult.value = result.data
-  uni.hideLoading()
+  try {
+    const result: any = await apiNoseCompare({
+      nose_id: noseId.value,
+      species: selectedSpecies.value
+    })
+    compareResult.value = result.data
+  } catch (e) {
+    // 错误由拦截器处理
+  } finally {
+    uni.hideLoading()
+  }
 })
 
 const statusTextMap: Record<string, string> = {

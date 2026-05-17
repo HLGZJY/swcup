@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockAnimals } from '@/services/mock'
+import { apiGetAdminAnimalDetail } from '@/services/api'
 
 const animal = ref<any>(null)
 
@@ -69,12 +69,19 @@ const genderMap: Record<string, string> = { male: '公', female: '母', unknown:
 const ageMap: Record<string, string> = { puppy: '幼年', adult: '成年', senior: '老年' }
 const healthMap: Record<string, string> = { healthy: '健康', injured: '受伤', ill: '生病', unknown: '未知' }
 
-onMounted(() => {
+onMounted(async () => {
   const pages = uni.getCurrentPages()
   const currentPage = pages[pages.length - 1]
   const options = (currentPage as any).options || {}
-  const found = mockAnimals.find(a => a.animal_id === options.animal_id)
-  animal.value = found || null
+  const animalId = options.animal_id
+  if (!animalId) return
+
+  try {
+    const res: any = await apiGetAdminAnimalDetail(animalId)
+    if (res.code === 0) {
+      animal.value = res.data
+    }
+  } catch (e) {}
 })
 
 function formatTime(isoString?: string) {

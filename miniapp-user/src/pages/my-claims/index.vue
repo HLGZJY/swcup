@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetClaims } from '@/services/mock'
+import { apiGetMyClaims } from '@/services/api'
 
 const claims = ref<any[]>([])
 const loading = ref(false)
@@ -47,10 +47,10 @@ const statusMap: Record<string, string> = {
 
 onMounted(async () => {
   loading.value = true
-  const res: any = await mockGetClaims()
-  if (res.code === 0) {
+  try {
+    const res: any = await apiGetMyClaims()
     claims.value = res.data
-  }
+  } catch (e) {}
   loading.value = false
 })
 

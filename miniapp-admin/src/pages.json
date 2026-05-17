@@ -1,6 +1,14 @@
 {
   "pages": [
     {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "管理员登录",
+        "navigationBarBackgroundColor": "#1A1A1A",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
       "path": "pages/admin/index",
       "style": {
         "navigationBarTitleText": "管理后台",

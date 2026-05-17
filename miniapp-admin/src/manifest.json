@@ -1,6 +1,6 @@
 {
-    "name" : "user",
-    "appid" : "__UNI__F204D0E",
+    "name" : "admin",
+    "appid" : "__UNI__76CD871",
     "description" : "",
     "versionName" : "1.0.0",
     "versionCode" : "100",
@@ -54,7 +54,12 @@
         "setting" : {
             "urlCheck" : false
         },
-        "usingComponents" : true
+        "usingComponents" : true,
+        "permission" : {
+            "scope.userLocation" : {
+                "desc" : "用于查看动物位置和管理"
+            }
+        }
     },
     "mp-alipay" : {
         "usingComponents" : true

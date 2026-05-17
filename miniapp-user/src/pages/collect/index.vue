@@ -141,20 +141,21 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { mockNoseCollect, mockNoseCompare } from '@/services/mock'
+import { apiNoseCollect } from '@/services/api'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
 const nosePhoto = ref('')
+const nosePhotoBase64 = ref('') // Base64 格式用于上传
 const locationText = ref('定位中...')
 const collectResult = ref<any>(null)
-const locationLat = ref(0)
-const locationLng = ref(0)
+const locationLat = ref<number | null>(null)
+const locationLng = ref<number | null>(null)
 
 const steps = ['选择物种', '拍摄鼻纹', '确认提交']
 const tips = [
   '保持光线充足，避免强烈反光',
-  '鼻头正对镜头，距离15-30cm',
+  '鼻头正对镜头，距离10-20cm',
   '确保鼻纹纹路清晰可见',
   '避免拍摄到嘴唇或毛发干扰'
 ]
@@ -171,11 +172,11 @@ const speciesLabel = computed(() => {
 
 const canNext = computed(() => {
   if (currentStep.value === 0) return true
-  if (currentStep.value === 1) return !!nosePhoto.value || true // 允许跳过
+  if (currentStep.value === 1) return !!nosePhoto.value
   return true
 })
 
-// 获取位置
+// 获取位置（gcj02 坐标系，与腾讯/高德地图一致）
 function getLocation() {
   uni.getLocation({
     type: 'gcj02',
@@ -184,8 +185,14 @@ function getLocation() {
       locationLng.value = res.longitude
       locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
     },
-    fail: () => {
-      locationText.value = '定位失败'
+    fail: (err) => {
+      console.error('GPS 获取失败', err)
+      locationText.value = '定位失败，请开启位置权限'
+      uni.showToast({
+        title: '需要定位权限才能记录救助位置',
+        icon: 'none',
+        duration: 3000
+      })
     }
   })
 }
@@ -201,12 +208,67 @@ function onImageError(e: any) {
   // 占位图加载失败时隐藏
 }
 
+/**
+ * 图片压缩 + 转 Base64
+ * 大小上限 5MB，超过则压缩到质量 0.8，宽高 ≤ 1024px
+ */
+function fileToBase64(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.getFileInfo({
+      filePath,
+      success: (info) => {
+        const sizeMB = info.size / 1024 / 1024
+        if (sizeMB <= 5) {
+          // 不超过5MB，直接转 Base64
+          uni.getFileSystemManager().readFile({
+            filePath,
+            encoding: 'base64',
+            success: (res) => {
+              resolve('data:image/jpeg;base64,' + res.data)
+            },
+            fail: reject
+          })
+        } else {
+          // 超过5MB，需要压缩
+          uni.compressImage({
+            src: filePath,
+            quality: 80,
+            success: (compressRes) => {
+              uni.getFileSystemManager().readFile({
+                filePath: compressRes.tempFilePath,
+                encoding: 'base64',
+                success: (res2) => {
+                  resolve('data:image/jpeg;base64,' + res2.data)
+                },
+                fail: reject
+              })
+            },
+            fail: reject
+          })
+        }
+      },
+      fail: reject
+    })
+  })
+}
+
 function onOpenCamera() {
   uni.chooseImage({
     count: 1,
     sourceType: ['camera'],
-    success: (res) => {
-      nosePhoto.value = res.tempFilePaths[0]
+    success: async (res) => {
+      const filePath = res.tempFilePaths[0]
+      nosePhoto.value = filePath // 用于本地预览
+
+      uni.showLoading({ title: '处理图片...' })
+      try {
+        nosePhotoBase64.value = await fileToBase64(filePath)
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '图片处理失败', icon: 'none' })
+        return
+      }
+      uni.hideLoading()
     },
     fail: () => {
       uni.showToast({ title: '请允许相机权限', icon: 'none' })
@@ -216,6 +278,7 @@ function onOpenCamera() {
 
 function onRetake() {
   nosePhoto.value = ''
+  nosePhotoBase64.value = ''
 }
 
 function onBack() {
@@ -230,32 +293,44 @@ async function onNext() {
     return
   }
 
-  // 提交采集
-  uni.showLoading({ title: '采集中...' })
-
-  const collectRes: any = await mockNoseCollect({
-    nose_photo: nosePhoto.value,
-    species: selectedSpecies.value,
-    location_lat: locationLat.value,
-    location_lng: locationLng.value,
-    description: `鼻纹正面照，${speciesLabel.value}`
-  })
-
-  if (collectRes.code !== 0) {
-    uni.hideLoading()
-    uni.showToast({ title: collectRes.message || '采集失败', icon: 'none' })
+  if (!nosePhotoBase64.value) {
+    uni.showToast({ title: '请先拍摄鼻纹照片', icon: 'none' })
     return
   }
 
-  collectResult.value = collectRes.data
-  uni.setStorageSync('vector_id', collectRes.data.vector_id)
+  // 提交采集
+  uni.showLoading({ title: '采集中...' })
 
-  // 跳转到结果页（URL 参数传递 vector_id 和 species）
-  uni.navigateTo({
-    url: `/pages/collect/result?vector_id=${collectRes.data.vector_id}&species=${selectedSpecies.value}`
-  })
+  try {
+    const collectRes: any = await apiNoseCollect({
+      nose_photo: nosePhotoBase64.value,
+      species: selectedSpecies.value,
+      animal_id: null,
+      location_lat: locationLat.value ?? 0,
+      location_lng: locationLng.value ?? 0,
+      device_id: 'miniapp_user',
+      timestamp: new Date().toISOString()
+    })
 
-  uni.hideLoading()
+    collectResult.value = collectRes.data
+    uni.setStorageSync('vector_id', collectRes.data.nose_id)
+
+    uni.hideLoading()
+    uni.showToast({ title: '采集成功', icon: 'success' })
+
+    // 跳转到结果页（URL 参数传递 nose_id 和 species）
+    setTimeout(() => {
+      uni.navigateTo({
+        url: `/pages/collect/result?nose_id=${collectRes.data.nose_id}&species=${selectedSpecies.value}`
+      })
+    }, 1000)
+  } catch (e: any) {
+    uni.hideLoading()
+    // 错误已由拦截器处理，这里只做兜底提示
+    if (!e.code) {
+      uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+    }
+  }
 }
 </script>
 

@@ -23,31 +23,10 @@
     <view class="form-section">
       <text class="form-title">认领信息</text>
 
-      <!-- 真实姓名 -->
-      <view class="form-item">
-        <text class="form-label">真实姓名 <text class="required">*</text></text>
-        <input class="form-input" v-model="form.real_name" placeholder="请输入您的真实姓名" />
-      </view>
-
       <!-- 手机号 -->
       <view class="form-item">
         <text class="form-label">手机号 <text class="required">*</text></text>
         <input class="form-input" v-model="form.phone" type="number" placeholder="请输入您的手机号" maxlength="11" />
-      </view>
-
-      <!-- 与动物关系 -->
-      <view class="form-item">
-        <text class="form-label">与动物关系 <text class="required">*</text></text>
-        <view class="relation-grid">
-          <view
-            v-for="rel in relations"
-            :key="rel.value"
-            :class="['relation-chip', { selected: form.relation === rel.value }]"
-            @click="form.relation = rel.value"
-          >
-            <text>{{ rel.label }}</text>
-          </view>
-        </view>
       </view>
 
       <!-- 认领说明 -->
@@ -105,14 +84,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { mockGetAnimalDetail, mockSubmitClaim } from '@/services/mock'
+import { apiGetAnimalDetail, apiSubmitClaim } from '@/services/api'
 
 const animal = ref<any>(null)
 const eventId = ref('')
 const form = ref({
-  real_name: '',
   phone: '',
-  relation: '',
   description: '',
   proof_photos: [] as string[],
   agreed: false
@@ -125,16 +102,8 @@ const notices = [
   '如有疑问请联系官方客服'
 ]
 
-const relations = [
-  { value: 'owner', label: '主人' },
-  { value: 'family', label: '家人' },
-  { value: 'friend', label: '朋友代领' }
-]
-
 const canSubmit = computed(() => {
-  return form.value.real_name &&
-    form.value.phone.length === 11 &&
-    form.value.relation &&
+  return form.value.phone.length === 11 &&
     form.value.description.length >= 10 &&
     form.value.agreed
 })
@@ -145,9 +114,11 @@ onMounted(async () => {
   const { animal_id, event_id } = currentPage?.options || {}
 
   if (animal_id) {
-    const res: any = await mockGetAnimalDetail(animal_id)
-    if (res.code === 0) {
+    try {
+      const res: any = await apiGetAnimalDetail(animal_id)
       animal.value = res.data
+    } catch (e) {
+      // animal not found, ignore
     }
   }
 
@@ -180,21 +151,26 @@ async function onSubmit() {
   if (!canSubmit.value) return
 
   uni.showLoading({ title: '提交中...' })
-  const res: any = await mockSubmitClaim({
-    animal_id: animal.value?.animal_id,
-    event_id: eventId.value,
-    notes: form.value.description
-  })
+  try {
+    const res: any = await apiSubmitClaim({
+      animal_id: animal.value?.animal_id,
+      event_id: eventId.value || null,
+      notes: form.value.description,
+      contact_method: 'phone',
+      contact_value: form.value.phone
+    })
 
-  if (res.code === 0) {
+    uni.hideLoading()
     uni.showToast({ title: '提交成功', icon: 'success' })
     setTimeout(() => {
       uni.switchTab({ url: '/pages/user/index' })
     }, 1500)
-  } else {
-    uni.showToast({ title: res.message || '提交失败', icon: 'none' })
+  } catch (e: any) {
+    uni.hideLoading()
+    if (!e.code) {
+      uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+    }
   }
-  uni.hideLoading()
 }
 </script>
 

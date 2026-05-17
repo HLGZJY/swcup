@@ -33,7 +33,7 @@
         class="animal-row"
         @click="showAnimalDetail(animal)"
       >
-        <image class="animal-photo" :src="animal.photos[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+        <image class="animal-photo" :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
         <view class="animal-info">
           <view class="info-header">
             <text class="breed">{{ animal.breed }}</text>
@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetAnimals } from '@/services/mock'
+import { apiGetAdminAnimals } from '@/services/api'
 
 const keyword = ref('')
 const currentStatus = ref('all')
@@ -75,7 +75,9 @@ const statusMap: Record<string, string> = {
   lost: '走失', found: '发现', claimed: '待认领', archived: '归档'
 }
 
+// TabBar 页面切换时 onMounted 触发，加载数据
 onMounted(() => {
+  console.log('[DEBUG] animals onMounted fired, calling loadAnimals')
   loadAnimals()
 })
 
@@ -88,32 +90,34 @@ async function loadAnimals(append = false) {
     animals.value = []
   }
 
-  const params: any = { page: page.value, pageSize }
+  const params: any = { page: page.value, limit: pageSize }
   if (currentStatus.value !== 'all') params.status = currentStatus.value
   if (keyword.value) params.keyword = keyword.value
 
-  const res: any = await mockGetAnimals(params)
-  if (res.code === 0) {
-    if (append) {
-      animals.value.push(...res.data.list)
-    } else {
-      animals.value = res.data.list
+  try {
+    console.log('[PAGE] apiGetAdminAnimals called, params=', JSON.stringify(params)); const res: any = await apiGetAdminAnimals(params)
+    if (res.code === 0) {
+      if (append) {
+        animals.value.push(...res.data?.list || [])
+      } else {
+        animals.value = res.data?.list || []
+      }
+      hasMore.value = (res.data?.total || 0) > animals.value.length
+      if (hasMore.value) page.value++
     }
-    hasMore.value = res.data.total > animals.value.length
-    if (hasMore.value) page.value++
-  }
+  } catch (e) {}
   loading.value = false
 }
 
 function onSearch() {
   animals.value = []
-  loadAnimals()
+  console.log('[PAGE>>] loadAnimals called'); loadAnimals()
 }
 
 function onFilter(status: string) {
   currentStatus.value = status
   animals.value = []
-  loadAnimals()
+  console.log('[PAGE>>] loadAnimals called'); loadAnimals()
 }
 
 function onLoadMore() {
@@ -161,8 +165,7 @@ function showAnimalDetail(animal: any) {
 .filter-tabs {
   display: flex;
   background: #FFFFFF;
-  padding: 0 16rpx;
-  border-bottom: 1rpx solid #EEEEEE;
+  padding: 0 36rpx;
 }
 
 .filter-tab {
@@ -180,7 +183,7 @@ function showAnimalDetail(animal: any) {
 
 .list-area {
   flex: 1;
-  padding: 24rpx;
+  padding: 32rpx 36rpx;
 }
 
 .empty-state {
@@ -204,9 +207,9 @@ function showAnimalDetail(animal: any) {
   display: flex;
   align-items: center;
   background: #FFFFFF;
-  border-radius: 12rpx;
-  padding: 20rpx;
-  margin-bottom: 16rpx;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
 }
 
 .animal-photo {

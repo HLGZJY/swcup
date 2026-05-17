@@ -4,7 +4,7 @@
     <view class="card-photo-wrap">
       <image
         class="card-photo"
-        :src="animal.photos[0] || '/static/mock/dog-placeholder.png'"
+        :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'"
         mode="aspectFill"
       />
       <view v-if="showStatus" :class="['status-tag', 'status-' + animal.status]">

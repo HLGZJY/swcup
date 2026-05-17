@@ -3,10 +3,10 @@
     <!-- 主图轮播 -->
     <view class="photo-section">
       <swiper class="photo-swiper" circular :indicator-dots="true" indicator-color="rgba(255,255,255,0.4)" indicator-active-color="#FFFFFF">
-        <swiper-item v-for="(photo, idx) in animal.photos" :key="idx">
+        <swiper-item v-for="(photo, idx) in (animal.photos || [])" :key="idx">
           <image class="photo" :src="photo || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
         </swiper-item>
-        <swiper-item v-if="animal.photos.length === 0">
+        <swiper-item v-if="(animal.photos || []).length === 0">
           <image class="photo" src="/static/mock/dog-placeholder.png" mode="aspectFill" />
         </swiper-item>
       </swiper>
@@ -145,7 +145,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetAnimalDetail } from '@/services/mock'
+import { apiGetAnimalDetail } from '@/services/api'
 
 const animal = ref<any>(null)
 const showFuseScore = ref(false)
@@ -169,16 +169,18 @@ onMounted(async () => {
   const animalId = currentPage?.options?.animal_id || 'a001'
 
   uni.showLoading({ title: '加载中...' })
-  const res: any = await mockGetAnimalDetail(animalId)
-  if (res.code === 0) {
-    animal.value = res.data
+  try {
+    const res: any = await apiGetAnimalDetail(animalId)
+    if (res.code === 0) {
+      animal.value = res.data
+    }
     // 检查是否有融合得分
     const score = uni.getStorageSync('currentFuseScore')
     if (score) {
       showFuseScore.value = true
       fuseScore.value = score
     }
-  }
+  } catch (e) {}
   uni.hideLoading()
 })
 

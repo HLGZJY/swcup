@@ -18,8 +18,8 @@
       </view>
     </view>
 
-    <!-- 事件审核列表 -->
-    <view v-if="currentTab === 'events'">
+<!-- 事件审核列表 -->
+    <view v-if="currentTab === 'events'" class="tab-content">
       <!-- 加载状态 -->
       <view class="loading-state" v-if="loading">
         <text class="loading-icon">⏳</text>
@@ -40,8 +40,8 @@
       />
     </view>
 
-    <!-- 认领审核列表 -->
-    <view v-if="currentTab === 'claims'">
+<!-- 认领审核列表 -->
+    <view v-if="currentTab === 'claims'" class="tab-content">
       <!-- 加载状态 -->
       <view class="loading-state" v-if="loading">
         <text class="loading-icon">⏳</text>
@@ -70,7 +70,7 @@
           </view>
 
           <view class="animal-preview">
-            <image class="animal-thumb" :src="item.animal?.photos[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+            <image class="animal-thumb" :src="item.animal?.photos?.[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
             <view class="animal-meta">
               <text class="animal-breed">{{ item.animal?.breed }}</text>
               <text class="animal-color">{{ item.animal?.color }}</text>
@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetAdminEvents, mockGetAdminClaims, mockConfirmEvent, mockRejectEvent, mockApproveClaim, mockRejectClaim } from '@/services/mock'
+import { apiGetAdminEvents, apiGetAdminClaims, apiConfirmEvent, apiRejectEvent, apiApproveClaim, apiRejectClaim, apiUpdateAnimal } from '@/services/api'
 import AuditEventCard from '@/components/audit-event-card/index.vue'
 
 const currentTab = ref('events')
@@ -113,30 +113,37 @@ const eventTypeMap: Record<string, string> = {
   report: '上报', rescue: '救助', medical: '医疗', adopt: '领养', transfer: '转运', release: '放归'
 }
 
-onMounted(async () => {
-  // 读取 URL 参数初始化 Tab
+// TabBar 切换时 onMounted 触发
+onMounted(() => {
+  console.log('[DEBUG] audit onMounted fired, calling loadAuditData')
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1]
   const options = (currentPage as any).options || {}
   if (options.type === 'claims') {
     currentTab.value = 'claims'
   }
-
-  const [eRes, cRes] = await Promise.all([
-    mockGetAdminEvents({ status: 'pending' }),
-    mockGetAdminClaims({ status: 'pending' })
-  ])
-
-  if (eRes.code === 0) {
-    events.value = eRes.data.list
-    pendingEvents.value = eRes.data.total
-  }
-  if (cRes.code === 0) {
-    claims.value = cRes.data.list
-    pendingClaims.value = cRes.data.total
-  }
-  loading.value = false
+  console.log('[PAGE>>] loadAuditData called'); loadAuditData()
 })
+
+async function loadAuditData() {
+  loading.value = true
+  try {
+const [eRes, cRes] = await Promise.all([
+      apiGetAdminEvents({ status: 'pending' }),
+      apiGetAdminClaims({ status: 'pending' })
+    ])
+
+    if (eRes.code === 0) {
+      events.value = eRes.data?.list || []
+      pendingEvents.value = eRes.data?.total || 0
+    }
+    if (cRes.code === 0) {
+      claims.value = cRes.data?.list || []
+      pendingClaims.value = cRes.data?.total || 0
+    }
+  } catch (e) {}
+  loading.value = false
+}
 
 function switchTab(tab: string) {
   currentTab.value = tab
@@ -153,12 +160,12 @@ async function onConfirmEvent(eventId: string) {
     content: '确定要确认该事件为重复吗？',
     success: async (res) => {
       if (res.confirm) {
-        const r: any = await mockConfirmEvent(eventId)
-        if (r.code === 0) {
+        try {
+          await apiConfirmEvent(eventId)
           uni.showToast({ title: '已确认', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value--
-        }
+        } catch (e) {}
       }
     }
   })
@@ -170,29 +177,36 @@ async function onRejectEvent(eventId: string) {
     content: '确定要驳回该事件吗？',
     success: async (res) => {
       if (res.confirm) {
-        const r: any = await mockRejectEvent(eventId)
-        if (r.code === 0) {
+        try {
+          await apiRejectEvent(eventId)
           uni.showToast({ title: '已驳回', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value--
-        }
+        } catch (e) {}
       }
     }
   })
 }
 
 async function onApproveClaim(claimId: string) {
+  const claim = claims.value.find(c => c.claim_id === claimId)
+  if (!claim) return
+
   uni.showModal({
     title: '批准认领',
     content: '确定要批准该认领申请吗？',
     success: async (res) => {
       if (res.confirm) {
-        const r: any = await mockApproveClaim(claimId)
-        if (r.code === 0) {
+        try {
+          await apiApproveClaim(claimId)
+          // 手动将动物状态改为 claimed
+          if (claim.animal_id) {
+            await apiUpdateAnimal(claim.animal_id, { status: 'claimed' })
+          }
           uni.showToast({ title: '已批准', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value--
-        }
+        } catch (e) {}
       }
     }
   })
@@ -204,12 +218,12 @@ async function onRejectClaim(claimId: string) {
     content: '确定要驳回该认领申请吗？',
     success: async (res) => {
       if (res.confirm) {
-        const r: any = await mockRejectClaim(claimId)
-        if (r.code === 0) {
+        try {
+          await apiRejectClaim(claimId)
           uni.showToast({ title: '已驳回', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value--
-        }
+        } catch (e) {}
       }
     }
   })
@@ -225,8 +239,8 @@ async function onRejectClaim(claimId: string) {
 .audit-tabs {
   display: flex;
   background: #FFFFFF;
-  padding: 0 32rpx;
-  border-bottom: 1rpx solid #EEEEEE;
+  padding: 0 28rpx;
+  border-bottom: 1rpx solid #F0F0F0;
 }
 
 .tab-item {
@@ -277,6 +291,10 @@ async function onRejectClaim(claimId: string) {
   padding: 120rpx 0;
 }
 
+.tab-content {
+  padding: 28rpx;
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -306,9 +324,9 @@ async function onRejectClaim(claimId: string) {
 
 .audit-card {
   background: #FFFFFF;
-  margin: 24rpx;
+  margin: 28rpx;
   border-radius: 16rpx;
-  padding: 24rpx;
+  padding: 28rpx;
 }
 
 .card-header {

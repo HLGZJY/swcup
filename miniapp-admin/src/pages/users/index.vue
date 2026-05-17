@@ -51,10 +51,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mockGetUsers, mockUsers } from '@/services/mock'
+import { apiGetAdminUsers } from '@/services/api'
 
 const keyword = ref('')
 const users = ref<any[]>([])
+const allUsers = ref<any[]>([])
 
 const roleTabs = [
   { label: '全部', value: 'all' },
@@ -68,35 +69,45 @@ const roleMap: Record<string, string> = {
   user: '普通用户', admin: '管理员', org: '机构'
 }
 
-onMounted(async () => {
-  const res: any = await mockGetUsers()
-  if (res.code === 0) {
-    users.value = res.data.list
-  }
+// TabBar 页面切换时 onMounted 触发
+onMounted(() => {
+  console.log('[DEBUG] users onMounted fired, calling loadUsers')
+  loadUsers()
 })
 
-function onSearch() {
-  // filter locally for mock
-  mockGetUsers().then((res: any) => {
-    if (res.code === 0) {
-      if (keyword.value) {
-        users.value = res.data.list.filter((u: any) =>
-          u.nickname.includes(keyword.value) || u.phone.includes(keyword.value)
-        )
-      } else {
-        users.value = res.data.list
-      }
+async function loadUsers() {
+  try {
+    const res: any = await apiGetAdminUsers()
+if (res.code === 0) {
+      allUsers.value = res.data?.list || []
+      users.value = allUsers.value
     }
+  } catch (e) {}
+}
+
+function onSearch() {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) {
+    users.value = allUsers.value
+    return
+  }
+  users.value = allUsers.value.filter((u: any) => {
+    return u.nickname.toLowerCase().includes(kw) || u.phone.includes(kw)
   })
 }
 
 function onFilterRole(role: string) {
   currentRole.value = role
-  if (role === 'all') {
-    users.value = [...mockUsers]
-  } else {
-    users.value = mockUsers.filter(u => u.role === role)
+  const kw = keyword.value.trim().toLowerCase()
+  if (role === 'all' && !kw) {
+    users.value = allUsers.value
+    return
   }
+  users.value = allUsers.value.filter((u: any) => {
+    const matchRole = role === 'all' || u.role === role
+    const matchKw = !kw || u.nickname.toLowerCase().includes(kw) || u.phone.includes(kw)
+    return matchRole && matchKw
+  })
 }
 
 function formatDate(isoString: string) {

@@ -89,7 +89,7 @@ function formatTime(isoString: string) {
 .audit-card {
   background: #2A2A2A;
   border-radius: 16rpx;
-  padding: 24rpx;
+  padding: 28rpx;
   margin-bottom: 20rpx;
   border: 1rpx solid #3A3A3A;
 }
