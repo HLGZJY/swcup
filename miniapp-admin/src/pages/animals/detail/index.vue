@@ -156,7 +156,34 @@ function openMap() {
 .address { font-size: 26rpx; color: #666; display: block; margin-bottom: 16rpx; }
 .address-wrap { display: flex; align-items: center; }
 .address-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; }
-.map-placeholder { background: #F5F5F5; border-radius: 12rpx; padding: 32rpx; text-align: center; font-size: 24rpx; color: #999; }
+.map-placeholder {
+  height: 320rpx;
+  background: linear-gradient(135deg, #E8FDF8 0%, #D0F0E8 100%);
+  border-radius: 24rpx;
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  position: relative;
+  overflow: hidden;
+}
+.map-placeholder::before {
+  content: '';
+  display: block;
+  width: 80rpx;
+  height: 80rpx;
+  background: url('../../static/icons/icon-mappin.png') center/contain no-repeat;
+  opacity: 0.5;
+}
+.map-placeholder text {
+  font-size: 24rpx;
+  color: #666;
+  background: rgba(255,255,255,0.7);
+  padding: 8rpx 24rpx;
+  border-radius: 20rpx;
+}
 .time-item { display: flex; justify-content: space-between; padding: 8rpx 0; border-bottom: 1rpx solid #F5F5F5; }
 .time-item:last-child { border-bottom: none; }
 .notes { font-size: 26rpx; color: #666; line-height: 1.6; }

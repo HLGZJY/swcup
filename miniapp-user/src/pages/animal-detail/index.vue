@@ -452,7 +452,7 @@ function onClaim() {
   display: block;
   width: 64rpx;
   height: 64rpx;
-  background: url('/static/icons/icon-mappin.png') center/contain no-repeat;
+  background: url('../../../static/icons/icon-mappin.png') center/contain no-repeat;
   opacity: 0.6;
   margin-bottom: 8rpx;
 }
