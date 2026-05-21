@@ -50,11 +50,12 @@
     "quickapp" : {},
     /* 小程序特有相关 */
     "mp-weixin" : {
-        "appid" : "",
+        "appid" : "wx21bdaa579562ec11",
         "setting" : {
             "urlCheck" : false
         },
         "usingComponents" : true,
+        "requiredPrivateInfos" : [ "chooseLocation", "getLocation", "openLocation" ],
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "用于查看动物位置和管理"
