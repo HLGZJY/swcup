@@ -2,8 +2,8 @@
   <view class="page">
     <!-- 品牌区 -->
     <view class="brand-section">
-      <view class="brand-logo">
-        <text class="logo-icon">🐾</text>
+      <view class="brand-card">
+        <image class="logo-icon" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
       </view>
       <text class="brand-name">鼻纹智救</text>
       <text class="brand-slogan">管理后台</text>
@@ -101,7 +101,7 @@ async function onLogin() {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1A1A1A 0%, #333333 100%);
+  background: linear-gradient(160deg, #F0FBF8 0%, #F7F8FA 50%, #FFF5F5 100%);
   display: flex;
   flex-direction: column;
 }
@@ -110,45 +110,50 @@ async function onLogin() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 120rpx 0 80rpx;
+  padding: 160rpx 0 60rpx;
 }
 
-.brand-logo {
-  width: 120rpx;
-  height: 120rpx;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 30rpx;
+.brand-card {
+  width: 140rpx;
+  height: 140rpx;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  border-radius: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24rpx;
+  margin-bottom: 32rpx;
+  box-shadow: 0 8rpx 32rpx rgba(15, 191, 159, 0.25);
 }
 
 .logo-icon {
-  font-size: 64rpx;
+  width: 80rpx;
+  height: 80rpx;
 }
 
 .brand-name {
-  font-size: 48rpx;
+  font-size: 52rpx;
   font-weight: 700;
-  color: #FFFFFF;
+  color: #1A1A1A;
+  letter-spacing: 2rpx;
 }
 
 .brand-slogan {
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 8rpx;
+  color: #999999;
+  margin-top: 10rpx;
+  letter-spacing: 4rpx;
 }
 
 .login-form {
   background: #FFFFFF;
-  margin: 0 32rpx;
-  border-radius: 24rpx;
-  padding: 48rpx 40rpx;
+  margin: 0 40rpx;
+  border-radius: 28rpx;
+  padding: 52rpx 44rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
 }
 
 .form-item {
-  margin-bottom: 32rpx;
+  margin-bottom: 36rpx;
 }
 
 .form-label {
@@ -156,20 +161,33 @@ async function onLogin() {
   color: #666666;
   display: block;
   margin-bottom: 12rpx;
+  font-weight: 500;
 }
 
 .form-input {
   height: 88rpx;
-  background: #F5F5F5;
+  background: #F7F8FA;
+  border: 2rpx solid #EEEEEE;
   border-radius: 16rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
+  color: #1A1A1A;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: #0FBF9F;
+  background: #FFFFFF;
+}
+
+.form-input::placeholder {
+  color: #BBBBBB;
 }
 
 .login-btn {
   width: 100%;
   height: 88rpx;
-  background: #FF6B6B;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
   color: #FFFFFF;
   font-size: 30rpx;
   font-weight: 600;
@@ -179,9 +197,12 @@ async function onLogin() {
   justify-content: center;
   margin-top: 16rpx;
   border: none;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+  transition: opacity 0.2s, box-shadow 0.2s;
 }
 
 .login-btn.disabled {
   background: #CCCCCC;
+  box-shadow: none;
 }
 </style>
