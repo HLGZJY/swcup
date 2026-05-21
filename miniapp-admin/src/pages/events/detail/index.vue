@@ -113,12 +113,18 @@ function formatTime(isoString?: string) {
 }
 
 function openMap() {
-  if (!event.value?.location_lat) return
+  if (!event.value?.location_lat || !event.value?.location_lng) {
+    uni.showToast({ title: '暂无位置坐标', icon: 'none' })
+    return
+  }
   uni.openLocation({
     latitude: event.value.location_lat,
     longitude: event.value.location_lng,
     name: event.value.address,
-    fail: () => uni.showToast({ title: '地图打开失败', icon: 'none' })
+    fail: (err) => {
+      console.error('openLocation fail', err)
+      uni.showToast({ title: '地图打开失败', icon: 'none' })
+    }
   })
 }
 

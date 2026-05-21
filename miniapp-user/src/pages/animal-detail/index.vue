@@ -238,12 +238,16 @@ function formatDate(isoString: string) {
 }
 
 function openMap() {
-  if (!animal.value?.location_lat) return
+  if (!animal.value?.location_lat || !animal.value?.location_lng) {
+    uni.showToast({ title: '暂无位置坐标', icon: 'none' })
+    return
+  }
   uni.openLocation({
     latitude: animal.value.location_lat,
     longitude: animal.value.location_lng,
     name: animal.value.address,
-    fail: () => {
+    fail: (err) => {
+      console.error('openLocation fail', err)
       uni.showToast({ title: '地图打开失败', icon: 'none' })
     }
   })
