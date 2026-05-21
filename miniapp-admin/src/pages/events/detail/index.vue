@@ -40,8 +40,8 @@
           <text class="address">{{ event.address }}</text>
         </view>
         <view class="map-preview" @click="openMap" v-if="event.location_lat">
-          <image class="map-thumb" :src="getStaticMapUrl(event.location_lat, event.location_lng)" mode="aspectFill" />
           <view class="map-overlay">
+            <image class="map-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
             <text>点击查看地图</text>
           </view>
         </view>
@@ -133,13 +133,6 @@ function openMap() {
   })
 }
 
-function getStaticMapUrl(lat: number | string, lng: number | string) {
-  const key = 'OB4BZ-D4W3R-BMFVO-3CJEN-3Y6LZ-G7F6Q'
-  const latStr = String(lat)
-  const lngStr = String(lng)
-  return `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
-}
-
 function goToAnimal(animalId: string) {
   uni.navigateTo({ url: `/pages/animals/detail/index?animal_id=${animalId}` })
 }
@@ -181,9 +174,10 @@ function goToAnimal(animalId: string) {
   position: relative;
 }
 
-.map-thumb {
-  width: 100%;
-  height: 100%;
+.map-icon {
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
 }
 
 .map-overlay {

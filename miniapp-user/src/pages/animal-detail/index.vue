@@ -67,8 +67,8 @@
       </view>
       <text class="address-text">{{ animal.address }}</text>
       <view class="map-preview" v-if="animal.location_lat" @click="openMap">
-        <image class="map-thumb" :src="getStaticMapUrl(animal.location_lat, animal.location_lng)" mode="aspectFill" />
         <view class="map-overlay">
+          <image class="map-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
           <text>点击查看地图</text>
         </view>
       </view>
@@ -256,10 +256,13 @@ function openMap() {
 }
 
 function getStaticMapUrl(lat: number | string, lng: number | string) {
+  console.log('getStaticMapUrl 被调用, lat:', lat, 'lng:', lng)
   const key = 'OB4BZ-D4W3R-BMFVO-3CJEN-3Y6LZ-G7F6Q'
   const latStr = String(lat)
   const lngStr = String(lng)
-  return `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
+  const url = `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
+  console.log('生成的地图URL:', url)
+  return url
 }
 
 function onShare() {
@@ -438,9 +441,10 @@ function onClaim() {
   position: relative;
 }
 
-.map-thumb {
-  width: 100%;
-  height: 100%;
+.map-icon {
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
 }
 
 .map-overlay {
