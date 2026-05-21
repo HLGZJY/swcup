@@ -31,7 +31,7 @@
       <view class="info-grid">
         <view class="info-cell">
           <text class="cell-label">物种</text>
-          <text class="cell-value">{{ animal.species === 'dog' ? '🐕 狗狗' : animal.species === 'cat' ? '🐱 猫咪' : '🐾 其他' }}</text>
+          <text class="cell-value">{{ animal.species === 'dog' ? '🐶 狗狗' : animal.species === 'cat' ? '🐱 猫咪' : '🐾 其他' }}</text>
         </view>
         <view class="info-cell">
           <text class="cell-label">颜色</text>
@@ -47,7 +47,7 @@
         </view>
         <view class="info-cell">
           <text class="cell-label">是否绝育</text>
-          <text class="cell-value">{{ animal.sterilized ? '✅ 已绝育' : '❌ 未绝育' }}</text>
+          <text class="cell-value">{{ animal.sterilized ? '✓ 已绝育' : '✗ 未绝育' }}</text>
         </view>
         <view class="info-cell">
           <text class="cell-label">发现时间</text>
@@ -59,7 +59,10 @@
     <!-- 位置信息 -->
     <view class="section location-section" @click="openMap">
       <view class="section-header">
-        <text class="section-title">📍 发现地点</text>
+        <view class="section-title-wrap">
+          <image class="section-title-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+          <text class="section-title">发现地点</text>
+        </view>
         <text class="map-nav">导航 ›</text>
       </view>
       <text class="address-text">{{ animal.address }}</text>
@@ -73,7 +76,10 @@
 
     <!-- 备注信息 -->
     <view class="section notes-section" v-if="animal.notes">
-      <text class="section-title">📝 备注信息</text>
+      <view class="section-title-wrap">
+        <image class="section-title-icon" src="/static/icons/icon-filetext.png" mode="aspectFit" />
+        <text class="section-title">备注信息</text>
+      </view>
       <text class="notes-text">{{ animal.notes }}</text>
     </view>
 
@@ -117,11 +123,11 @@
     <view class="bottom-bar" v-if="animal.status !== 'claimed'">
       <view class="bar-left">
         <view class="bar-icon-btn" @click="onShare">
-          <text class="icon">📤</text>
+          <image class="icon-img" src="/static/icons/icon-share.png" mode="aspectFit" />
           <text class="label">分享</text>
         </view>
         <view class="bar-icon-btn" @click="onCollect">
-          <text class="icon">👃</text>
+          <image class="icon-img" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
           <text class="label">鼻纹</text>
         </view>
       </view>
@@ -182,6 +188,12 @@ onMounted(async () => {
     }
   } catch (e) {}
   uni.hideLoading()
+
+  // 启用分享菜单
+  uni.showShareMenu({
+    withShareTicket: true,
+    menus: ['shareAppMessage', 'shareTimeline']
+  })
 })
 
 function formatDate(isoString: string) {
@@ -203,6 +215,24 @@ function openMap() {
 
 function onShare() {
   uni.showToast({ title: '分享功能', icon: 'none' })
+}
+
+function onShareAppMessage() {
+  const animal = animal.value
+  return {
+    title: `${animal.breed} ${statusMap[animal.status]} | ${animal.address}`,
+    imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+    path: `/pages/animal-detail/index?animal_id=${animal.animal_id}`
+  }
+}
+
+function onShareTimeline() {
+  const animal = animal.value
+  return {
+    title: `${animal.breed} ${statusMap[animal.status]}`,
+    imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+    query: `animal_id=${animal.animal_id}`
+  }
 }
 
 function onCollect() {
@@ -333,6 +363,18 @@ function onClaim() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.section-title-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.section-title-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .section-title {
@@ -491,6 +533,11 @@ function onClaim() {
 
 .icon {
   font-size: 36rpx;
+}
+
+.icon-img {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .label {
