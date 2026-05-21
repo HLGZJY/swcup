@@ -217,24 +217,6 @@ function onShare() {
   uni.showToast({ title: '分享功能', icon: 'none' })
 }
 
-function onShareAppMessage() {
-  const animal = animal.value
-  return {
-    title: `${animal.breed} ${statusMap[animal.status]} | ${animal.address}`,
-    imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
-    path: `/pages/animal-detail/index?animal_id=${animal.animal_id}`
-  }
-}
-
-function onShareTimeline() {
-  const animal = animal.value
-  return {
-    title: `${animal.breed} ${statusMap[animal.status]}`,
-    imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
-    query: `animal_id=${animal.animal_id}`
-  }
-}
-
 function onCollect() {
   uni.navigateTo({ url: '/pages/collect/index' })
 }
@@ -245,6 +227,26 @@ function onClaim() {
     url: `/pages/claim/index?animal_id=${animal.value.animal_id}`
   })
 }
+
+// uni-app page lifecycle handlers for WeChat sharing
+definePageConfig({
+  onShareAppMessage() {
+    if (!animal.value) return {}
+    return {
+      title: `${animal.value.breed} ${statusMap[animal.value.status]} | ${animal.value.address}`,
+      imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
+      path: `/pages/animal-detail/index?animal_id=${animal.value.animal_id}`
+    }
+  },
+  onShareTimeline() {
+    if (!animal.value) return {}
+    return {
+      title: `${animal.value.breed} ${statusMap[animal.value.status]}`,
+      imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
+      query: `animal_id=${animal.value.animal_id}`
+    }
+  }
+})
 </script>
 
 <style scoped lang="scss">
