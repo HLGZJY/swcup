@@ -166,6 +166,7 @@
 | 3.5 AI权重加载 | 🟡 进行中 | 队长 | 加载stage1_oxford.pth替代ImageNet |
 | 3.6 管理端错误处理优化 | 🟢 完成 | 队员 | 空catch统一toast提示+console.error |
 | 3.7 用户端错误处理优化 | 🟢 完成 | 队员 | 空catch统一toast提示+console.error |
+| 3.8 管理端用户列表分页 | 🟢 完成 | 队员 | 分页+搜索+筛选后端支持 |
 
 ---
 
