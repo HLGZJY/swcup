@@ -204,6 +204,7 @@ function goToDetail(eventId: string) {
 .list-area {
   flex: 1;
   padding: 28rpx;
+  box-sizing: border-box;
 }
 
 .empty-state {

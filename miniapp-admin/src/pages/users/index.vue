@@ -211,6 +211,7 @@ const goToDetail = (userId: number) => {
 .list-area {
   flex: 1;
   padding: 28rpx;
+  box-sizing: border-box;
 }
 
 .total-bar {
