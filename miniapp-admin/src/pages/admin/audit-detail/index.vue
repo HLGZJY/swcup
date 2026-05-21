@@ -262,7 +262,7 @@ function onConfirm() {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await apiProcessEvent(event_id.value)
+          await apiConfirmEvent(event_id.value, { animal_id: selectedId.value })
           uni.showToast({ title: '已合并', icon: 'success' })
           setTimeout(() => uni.navigateBack(), 1500)
         } catch (e) {
