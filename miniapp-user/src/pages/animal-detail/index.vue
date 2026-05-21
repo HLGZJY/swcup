@@ -149,6 +149,40 @@
   </view>
 </template>
 
+<script>
+export default {
+  data() {
+    return {
+      statusMap: {
+        lost: '走失中', found: '发现中', claimed: '待认领', archived: '已归档'
+      }
+    }
+  },
+  onShareAppMessage() {
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1]
+    const animal = currentPage.animal
+    if (!animal) return {}
+    return {
+      title: `${animal.breed} ${this.statusMap[animal.status]} | ${animal.address}`,
+      imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+      path: `/pages/animal-detail/index?animal_id=${animal.animal_id}`
+    }
+  },
+  onShareTimeline() {
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1]
+    const animal = currentPage.animal
+    if (!animal) return {}
+    return {
+      title: `${animal.breed} ${this.statusMap[animal.status]}`,
+      imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+      query: `animal_id=${animal.animal_id}`
+    }
+  }
+}
+</script>
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { apiGetAnimalDetail } from '@/services/api'
@@ -226,27 +260,6 @@ function onClaim() {
   uni.navigateTo({
     url: `/pages/claim/index?animal_id=${animal.value.animal_id}`
   })
-}
-
-// uni-app page lifecycle handlers for WeChat sharing
-definePageConfig({
-  onShareAppMessage() {
-    if (!animal.value) return {}
-    return {
-      title: `${animal.value.breed} ${statusMap[animal.value.status]} | ${animal.value.address}`,
-      imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
-      path: `/pages/animal-detail/index?animal_id=${animal.value.animal_id}`
-    }
-  },
-  onShareTimeline() {
-    if (!animal.value) return {}
-    return {
-      title: `${animal.value.breed} ${statusMap[animal.value.status]}`,
-      imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
-      query: `animal_id=${animal.value.animal_id}`
-    }
-  }
-})
 </script>
 
 <style scoped lang="scss">
