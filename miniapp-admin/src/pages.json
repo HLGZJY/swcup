@@ -63,6 +63,14 @@
         "navigationBarTitleText": "动物档案详情",
         "navigationBarBackgroundColor": "#FFFFFF"
       }
+    },
+    {
+      "path": "pages/events/detail/index",
+      "style": {
+        "navigationBarTitleText": "事件详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
     }
   ],
   "globalStyle": {

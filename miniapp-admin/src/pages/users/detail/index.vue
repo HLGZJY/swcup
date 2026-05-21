@@ -215,7 +215,7 @@ const currentUserId = ref<number | null>(null)
 onMounted(async () => {
   // 获取当前登录用户
   const stored = uni.getStorageSync('user_info')
-  if (stored) {
+  if (stored && typeof stored === 'string' && stored.trim()) {
     try {
       currentUserId.value = JSON.parse(stored).user_id
     } catch (e) {
