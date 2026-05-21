@@ -7,6 +7,11 @@
 
 <script setup lang="ts">
 // 全局样式在 uni.scss 中定义
+import { shareAppMessage, shareTimeline } from '@/utils/page-share'
+
+// 注册全局分享
+onShareAppMessage(shareAppMessage)
+onShareTimeline(shareTimeline)
 </script>
 
 <style lang="scss">
