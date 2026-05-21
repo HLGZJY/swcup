@@ -132,7 +132,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiConfirmEvent, apiRejectEvent, apiProcessEvent, resolveImageUrl } from '@/services/api'
+import { apiGetAdminAuditDetail, apiConfirmEvent, apiRejectEvent, apiProcessEvent, resolveImageUrl } from '@/services/api'
 
 const event_id = ref('')
 const event = ref<any>({
@@ -161,56 +161,34 @@ const statusMap: Record<string, string> = {
   pending: '待审核', confirmed: '已确认', rejected: '已驳回', processed: '已处理'
 }
 
+const loading = ref(false)
+
 onMounted(() => {
   const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const query = (currentPage as any).options || {}
-
-  event_id.value = query.event_id || ''
-
-  // Mock data
-  event.value = {
-    event_type: 'report',
-    status: 'pending',
-    description: '在小区附近发现一只走失犬只，请协助处理',
-    address: '北京市朝阳区望京街道某小区',
-    created_at: new Date().toISOString(),
-    photos: []
-  }
-
-  fusion_score.value = 0.64
-  vector_similarity.value = 0.72
-  gps_similarity.value = 0.55
-  image_similarity.value = 0.68
-  text_match_rate.value = 0.41
-
-  candidates.value = [
-    {
-      animal_id: 'A001',
-      breed: '柴犬',
-      color: '黄色',
-      address: '北京市朝阳区望京街道某小区',
-      fusion_score: 0.81,
-      is_recommended: true,
-      photos: []
-    },
-    {
-      animal_id: 'A002',
-      breed: '田园犬',
-      color: '白色',
-      address: '北京市朝阳区望京街道某小区',
-      fusion_score: 0.52,
-      is_recommended: false,
-      photos: []
-    }
-  ]
-
-  // Default select the recommended candidate
-  const recommended = candidates.value.find(c => c.is_recommended)
-  if (recommended) {
-    selectedId.value = recommended.animal_id
+  const currentPage = pages[pages.length - 1] as any
+  const eventId = currentPage?.options?.event_id
+  if (eventId) {
+    loadAuditDetail(eventId)
   }
 })
+
+async function loadAuditDetail(eventId: string) {
+  loading.value = true
+  try {
+    const res: any = await apiGetAdminAuditDetail(eventId)
+    if (res.code === 0) {
+      event.value = res.data
+      // 默认选中推荐候选
+      const recommended = event.value.candidates?.find((c: any) => c.is_recommended)
+      if (recommended) selectedId.value = recommended.animal_id
+    }
+  } catch (e) {
+    console.error('加载审核详情失败', e)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
 
 function selectCandidate(candidate: any) {
   selectedId.value = candidate.animal_id

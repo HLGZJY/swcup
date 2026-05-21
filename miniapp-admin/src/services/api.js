@@ -101,6 +101,15 @@ export function apiGetAdminEventDetail(eventId) {
 }
 
 /**
+ * 获取审核详情（含候选列表）
+ * GET /admin/events/:event_id
+ * 响应新增: candidates[], vector_similarity, gps_similarity, image_similarity, text_match_rate
+ */
+export function apiGetAdminAuditDetail(eventId) {
+  return request(`/admin/events/${eventId}`)
+}
+
+/**
  * AI 处理事件
  * POST /admin/events/:event_id/process
  */
