@@ -86,7 +86,13 @@ export class AdminService {
   async getUserDetail(user_id: string) {
     const user = await this.userRepo.findOne({ where: { user_id } });
     if (!user) throw new Error('User not found');
-    return user;
+    return {
+      user_id: user.user_id,
+      nickname: user.nickname,
+      phone: user.phone ? user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : null,
+      role: user.role,
+      created_at: user.created_at,
+    };
   }
 
   async getUserEvents(user_id: string, query: { status?: string; page?: number; limit?: number }) {
