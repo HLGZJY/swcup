@@ -37,6 +37,7 @@
         :event="item"
         @confirm="onConfirmEvent(item.event_id)"
         @reject="onRejectEvent(item.event_id)"
+        @click="goToDetail(item.event_id)"
       />
     </view>
 
@@ -154,6 +155,10 @@ function switchTab(tab: string) {
 function formatTime(isoString: string) {
   const d = new Date(isoString)
   return `${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function goToDetail(eventId: string) {
+  uni.navigateTo({ url: `/pages/admin/audit-detail/index?event_id=${eventId}` })
 }
 
 async function onConfirmEvent(eventId: string) {
