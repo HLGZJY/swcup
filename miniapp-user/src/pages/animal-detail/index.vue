@@ -66,8 +66,8 @@
         <text class="map-nav">导航 ›</text>
       </view>
       <text class="address-text">{{ animal.address }}</text>
-      <view class="map-preview" v-if="animal.location_lat">
-        <image class="map-thumb" src="/static/mock/map-placeholder.png" mode="aspectFill" />
+      <view class="map-preview" v-if="animal.location_lat" @click="openMap">
+        <image class="map-thumb" :src="getStaticMapUrl(animal.location_lat, animal.location_lng)" mode="aspectFill" />
         <view class="map-overlay">
           <text>点击查看地图</text>
         </view>
@@ -253,6 +253,13 @@ function openMap() {
       uni.showToast({ title: '地图打开失败', icon: 'none' })
     }
   })
+}
+
+function getStaticMapUrl(lat: number | string, lng: number | string) {
+  const key = 'OB4BZ-D4W3R-BMFVO-3CJEN-3Y6LZ-G7F6Q'
+  const latStr = String(lat)
+  const lngStr = String(lng)
+  return `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
 }
 
 function onShare() {
