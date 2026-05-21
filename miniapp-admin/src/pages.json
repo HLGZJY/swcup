@@ -26,6 +26,14 @@
       }
     },
     {
+      "path": "pages/admin/audit-detail/index",
+      "style": {
+        "navigationBarTitleText": "事件审核详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/animals/index",
       "style": {
         "navigationBarTitleText": "动物档案",
