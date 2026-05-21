@@ -3,7 +3,7 @@
     <!-- 搜索 -->
     <view class="search-bar">
       <view class="search-input-wrap">
-        <text class="search-icon">🔍</text>
+        <image class="search-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
         <input class="search-input" placeholder="搜索事件描述/地址" v-model="keyword" @confirm="onSearch" />
       </view>
     </view>
@@ -23,7 +23,7 @@
     <!-- 事件列表 -->
     <scroll-view class="list-area" scroll-y @scrolltolower="onLoadMore">
       <view class="empty-state" v-if="events.length === 0 && !loading">
-        <text class="empty-icon">📋</text>
+        <image class="empty-icon-img" src="/static/icons/icon-filetext.png" mode="aspectFit" />
         <text class="empty-text">暂无事件</text>
       </view>
 
@@ -40,8 +40,14 @@
         <text class="event-desc">{{ item.description }}</text>
 
         <view class="event-meta">
-          <text class="meta-item">📍 {{ item.address }}</text>
-          <text class="meta-item">🕐 {{ formatTime(item.occurred_at) }}</text>
+          <view class="meta-item">
+            <image class="meta-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+            <text>{{ item.address }}</text>
+          </view>
+          <view class="meta-item">
+            <image class="meta-icon" src="/static/icons/icon-clock.png" mode="aspectFit" />
+            <text>{{ formatTime(item.occurred_at) }}</text>
+          </view>
         </view>
 
         <view class="event-footer">
@@ -104,7 +110,10 @@ const params: any = { page: 1, limit: 20 }
       events.value = res.data?.list || []
       hasMore.value = (res.data?.total || 0) > events.value.length
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载事件列表失败', e)
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+  }
   loading.value = false
 }
 
@@ -156,6 +165,13 @@ function formatTime(isoString: string) {
   margin-right: 12rpx;
 }
 
+.search-icon-img {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
 .search-input {
   flex: 1;
   font-size: 26rpx;
@@ -193,6 +209,7 @@ function formatTime(isoString: string) {
 }
 
 .empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-icon-img { width: 80rpx; height: 80rpx; margin-bottom: 16rpx; }
 .empty-text { font-size: 28rpx; color: #999999; }
 
 .event-card {
@@ -248,6 +265,15 @@ function formatTime(isoString: string) {
 .meta-item {
   font-size: 22rpx;
   color: #999999;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.meta-icon {
+  width: 20rpx;
+  height: 20rpx;
+  flex-shrink: 0;
 }
 
 .event-footer {

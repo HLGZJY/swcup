@@ -87,7 +87,10 @@ if (res.code === 0) {
       allUsers.value = res.data?.list || []
       users.value = allUsers.value
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载用户列表失败', e)
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+  }
 }
 
 function onSearch() {
@@ -125,7 +128,10 @@ const onToggleBlock = async (user: any) => {
   try {
     await apiUpdateUser(user.user_id, { role: newRole })
     loadUsers()
-  } catch (e) {}
+  } catch (e) {
+    console.error('切换用户状态失败', e)
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  }
 }
 
 const goToDetail = (userId: number) => {

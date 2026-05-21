@@ -22,12 +22,12 @@
     <view v-if="currentTab === 'events'" class="tab-content">
       <!-- 加载状态 -->
       <view class="loading-state" v-if="loading">
-        <text class="loading-icon">⏳</text>
+        <image class="loading-icon-img" src="/static/icons/icon-clock-warning.png" mode="aspectFit" />
         <text class="loading-text">加载中...</text>
       </view>
       <!-- 空状态（仅在非加载且无数据时显示） -->
       <view class="empty-state" v-else-if="events.length === 0">
-        <text class="empty-icon">✅</text>
+        <image class="empty-icon-img" src="/static/icons/icon-check-circle-success.png" mode="aspectFit" />
         <text class="empty-text">暂无待审核事件</text>
       </view>
 
@@ -44,12 +44,12 @@
     <view v-if="currentTab === 'claims'" class="tab-content">
       <!-- 加载状态 -->
       <view class="loading-state" v-if="loading">
-        <text class="loading-icon">⏳</text>
+        <image class="loading-icon-img" src="/static/icons/icon-clock-warning.png" mode="aspectFit" />
         <text class="loading-text">加载中...</text>
       </view>
       <!-- 空状态（仅在非加载且无数据时显示） -->
       <view class="empty-state" v-else-if="claims.length === 0">
-        <text class="empty-icon">🏠</text>
+        <image class="empty-icon-img" src="/static/icons/icon-home.png" mode="aspectFit" />
         <text class="empty-text">暂无待审核认领</text>
       </view>
 
@@ -70,7 +70,7 @@
           </view>
 
           <view class="animal-preview">
-            <image class="animal-thumb" :src="item.animal?.photos?.[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+            <image class="animal-thumb" :src="resolveImageUrl(item.animal?.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
             <view class="animal-meta">
               <text class="animal-breed">{{ item.animal?.breed }}</text>
               <text class="animal-color">{{ item.animal?.color }}</text>
@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAdminEvents, apiGetAdminClaims, apiConfirmEvent, apiRejectEvent, apiApproveClaim, apiRejectClaim, apiUpdateAnimal } from '@/services/api'
+import { apiGetAdminEvents, apiGetAdminClaims, apiConfirmEvent, apiRejectEvent, apiApproveClaim, apiRejectClaim, apiUpdateAnimal, resolveImageUrl } from '@/services/api'
 import AuditEventCard from '@/components/audit-event-card/index.vue'
 
 const currentTab = ref('events')
@@ -116,10 +116,9 @@ const eventTypeMap: Record<string, string> = {
 // TabBar 切换时 onMounted 触发
 onMounted(() => {
   console.log('[DEBUG] audit onMounted fired, calling loadAuditData')
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = (currentPage as any).options || {}
-  if (options.type === 'claims') {
+  // 用 getLaunchOptionsSync 替代 getCurrentPages（避免 uni 编译到 vendor.index 后丢方法）
+  const launchOptions = uni.getLaunchOptionsSync()
+  if (launchOptions.query?.type === 'claims') {
     currentTab.value = 'claims'
   }
   console.log('[PAGE>>] loadAuditData called'); loadAuditData()
@@ -141,7 +140,10 @@ const [eRes, cRes] = await Promise.all([
       claims.value = cRes.data?.list || []
       pendingClaims.value = cRes.data?.total || 0
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载审核数据失败', e)
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+  }
   loading.value = false
 }
 
@@ -165,7 +167,10 @@ async function onConfirmEvent(eventId: string) {
           uni.showToast({ title: '已确认', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value--
-        } catch (e) {}
+        } catch (e) {
+          console.error('确认事件失败', e)
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
@@ -182,7 +187,10 @@ async function onRejectEvent(eventId: string) {
           uni.showToast({ title: '已驳回', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value--
-        } catch (e) {}
+        } catch (e) {
+          console.error('驳回事件失败', e)
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
@@ -206,7 +214,10 @@ async function onApproveClaim(claimId: string) {
           uni.showToast({ title: '已批准', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value--
-        } catch (e) {}
+        } catch (e) {
+          console.error('批准认领失败', e)
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
@@ -223,7 +234,10 @@ async function onRejectClaim(claimId: string) {
           uni.showToast({ title: '已驳回', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value--
-        } catch (e) {}
+        } catch (e) {
+          console.error('驳回认领失败', e)
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
       }
     }
   })
@@ -307,6 +321,12 @@ async function onRejectClaim(claimId: string) {
   margin-bottom: 16rpx;
 }
 
+.loading-icon-img {
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 16rpx;
+}
+
 .loading-text {
   font-size: 28rpx;
   color: #999999;
@@ -314,6 +334,12 @@ async function onRejectClaim(claimId: string) {
 
 .empty-icon {
   font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.empty-icon-img {
+  width: 80rpx;
+  height: 80rpx;
   margin-bottom: 16rpx;
 }
 

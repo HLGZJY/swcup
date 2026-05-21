@@ -218,7 +218,9 @@ onMounted(async () => {
   if (stored) {
     try {
       currentUserId.value = JSON.parse(stored).user_id
-    } catch (e) {}
+    } catch (e) {
+      console.error('解析用户信息失败', e)
+    }
   }
 
   const pages = getCurrentPages()
@@ -240,7 +242,10 @@ async function loadUserDetail() {
     if (res.code === 0) {
       userInfo.value = res.data
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载用户详情失败', e)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  }
 }
 
 async function loadEvents() {
@@ -251,7 +256,9 @@ async function loadEvents() {
       hasMore.value = events.value.length >= limit.value
       page.value = 1
     }
-  } catch (e) {}
+  } catch (e) {
+      console.error('加载用户事件列表失败', e)
+    }
 }
 
 async function loadClaims() {
@@ -262,7 +269,9 @@ async function loadClaims() {
       hasMore.value = claims.value.length >= limit.value
       page.value = 1
     }
-  } catch (e) {}
+  } catch (e) {
+      console.error('加载用户认领列表失败', e)
+    }
 }
 
 async function loadAnimals() {
@@ -273,7 +282,9 @@ async function loadAnimals() {
       hasMore.value = animals.value.length >= limit.value
       page.value = 1
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载用户动物列表失败', e)
+  }
 }
 
 function switchTab(key: string) {
@@ -310,7 +321,9 @@ async function loadMore() {
     if (res.code === 0) {
       hasMore.value = (res.data?.list || []).length >= limit.value
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载更多失败', e)
+  }
   loadingMore.value = false
 }
 
@@ -351,7 +364,10 @@ async function submitEdit() {
       showEditModal.value = false
       loadUserDetail()
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('保存用户信息失败', e)
+    uni.showToast({ title: '保存失败', icon: 'none' })
+  }
 }
 
 const toggleBlock = async () => {

@@ -3,7 +3,7 @@
     <!-- 搜索筛选 -->
     <view class="search-bar">
       <view class="search-input-wrap">
-        <text class="search-icon">🔍</text>
+        <image class="search-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
         <input class="search-input" placeholder="搜索动物档案" v-model="keyword" @confirm="onSearch" />
       </view>
     </view>
@@ -23,7 +23,7 @@
     <!-- 动物列表 -->
     <scroll-view class="list-area" scroll-y @scrolltolower="onLoadMore">
       <view class="empty-state" v-if="animals.length === 0 && !loading">
-        <text class="empty-icon">🐾</text>
+        <image class="empty-icon-img" src="/static/icons/icon-image.png" mode="aspectFit" />
         <text class="empty-text">暂无动物档案</text>
       </view>
 
@@ -33,14 +33,17 @@
         class="animal-row"
         @click="showAnimalDetail(animal)"
       >
-        <image class="animal-photo" :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+        <image class="animal-photo" :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
         <view class="animal-info">
           <view class="info-header">
             <text class="breed">{{ animal.breed }}</text>
             <view :class="['status-tag', 'status-' + animal.status]">{{ statusMap[animal.status] }}</view>
           </view>
           <text class="color">{{ animal.color }} · {{ animal.gender === 'male' ? '♂️' : '♀️' }}</text>
-          <text class="address">📍 {{ animal.address }}</text>
+          <view class="address-wrap">
+            <image class="address-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+            <text class="address">{{ animal.address }}</text>
+          </view>
         </view>
         <text class="arrow">›</text>
       </view>
@@ -54,7 +57,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAdminAnimals } from '@/services/api'
+import { apiGetAdminAnimals, resolveImageUrl } from '@/services/api'
 
 const keyword = ref('')
 const currentStatus = ref('all')
@@ -105,7 +108,10 @@ async function loadAnimals(append = false) {
       hasMore.value = (res.data?.total || 0) > animals.value.length
       if (hasMore.value) page.value++
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载动物列表失败', e)
+    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+  }
   loading.value = false
 }
 
@@ -149,6 +155,13 @@ function showAnimalDetail(animal: any) {
   background: #F5F5F5;
   border-radius: 40rpx;
   padding: 16rpx 24rpx;
+}
+
+.search-icon-img {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
 }
 
 .search-icon {
@@ -195,6 +208,12 @@ function showAnimalDetail(animal: any) {
 
 .empty-icon {
   font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.empty-icon-img {
+  width: 80rpx;
+  height: 80rpx;
   margin-bottom: 16rpx;
 }
 
@@ -261,6 +280,19 @@ function showAnimalDetail(animal: any) {
   color: #999999;
   display: block;
   margin-top: 4rpx;
+}
+
+.address-wrap {
+  display: flex;
+  align-items: center;
+  margin-top: 4rpx;
+}
+
+.address-icon {
+  width: 18rpx;
+  height: 18rpx;
+  margin-right: 4rpx;
+  flex-shrink: 0;
 }
 
 .arrow {
