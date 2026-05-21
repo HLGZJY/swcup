@@ -154,7 +154,7 @@ const goToDetail = (userId: number) => {
   padding: 16rpx 24rpx;
 }
 
-.search-icon { font-size: 28rpx; margin-right: 12rpx; }
+.search-icon { width: 32rpx; height: 32rpx; margin-right: 12rpx; }
 .search-input { flex: 1; font-size: 26rpx; }
 
 .filter-tabs {

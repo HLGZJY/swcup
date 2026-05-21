@@ -50,6 +50,14 @@
       }
     },
     {
+      "path": "pages/users/detail/index",
+      "style": {
+        "navigationBarTitleText": "用户详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/animals/detail/index",
       "style": {
         "navigationBarTitleText": "动物档案详情",
