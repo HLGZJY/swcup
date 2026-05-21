@@ -126,7 +126,6 @@ function openMap() {
       uni.showToast({ title: '地图打开失败', icon: 'none' })
     }
   })
-  })
 }
 
 function goToAnimal(animalId: string) {
