@@ -43,7 +43,7 @@
           <view class="score-weight">权重 40%</view>
         </view>
         <view class="score-item">
-          <view class="score-label">GPS 匹配</view>
+          <view class="score-label">位置接近度</view>
           <view class="score-bar-wrap">
             <view class="score-bar-bg">
               <view class="score-bar-fill" :style="{ width: (gps_similarity * 100) + '%' }"></view>
@@ -53,7 +53,7 @@
           <view class="score-weight">权重 20%</view>
         </view>
         <view class="score-item">
-          <view class="score-label">图像匹配</view>
+          <view class="score-label">图像相似度</view>
           <view class="score-bar-wrap">
             <view class="score-bar-bg">
               <view class="score-bar-fill" :style="{ width: (image_similarity * 100) + '%' }"></view>
@@ -63,7 +63,7 @@
           <view class="score-weight">权重 20%</view>
         </view>
         <view class="score-item">
-          <view class="score-label">文本匹配</view>
+          <view class="score-label">文本匹配度</view>
           <view class="score-bar-wrap">
             <view class="score-bar-bg">
               <view class="score-bar-fill" :style="{ width: (text_match_rate * 100) + '%' }"></view>
@@ -109,8 +109,8 @@
 
     <!-- No candidates hint -->
     <view class="empty-hint" v-else>
-      <text class="hint-text">未找到匹配候选</text>
-      <view class="hint-btn">
+      <text class="hint-text">AI识别后即可查看比对候选</text>
+      <view class="hint-btn" @click="onProcess">
         <text>AI 识别</text>
       </view>
     </view>
@@ -214,6 +214,15 @@ onMounted(() => {
 
 function selectCandidate(candidate: any) {
   selectedId.value = candidate.animal_id
+}
+
+function onProcess() {
+  uni.showLoading({ title: 'AI 识别中...' })
+  // Mock: simulate AI process completion
+  setTimeout(() => {
+    uni.hideLoading()
+    uni.showToast({ title: '识别完成', icon: 'success' })
+  }, 1500)
 }
 
 function formatTime(isoString: string) {
