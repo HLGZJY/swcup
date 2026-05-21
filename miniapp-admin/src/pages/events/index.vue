@@ -221,7 +221,7 @@ function goToDetail(eventId: string) {
   background: #FFFFFF;
   border-radius: 16rpx;
   padding: 28rpx;
-  margin-bottom: 20rpx;
+  margin: 0 0 20rpx 0;
   cursor: pointer;
 }
 

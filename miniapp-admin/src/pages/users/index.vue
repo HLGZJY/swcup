@@ -225,7 +225,7 @@ const goToDetail = (userId: number) => {
   background: #FFFFFF;
   border-radius: 12rpx;
   padding: 20rpx;
-  margin-bottom: 16rpx;
+  margin: 0 0 16rpx 0;
 }
 
 .user-row-blocked {
