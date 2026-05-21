@@ -113,10 +113,12 @@ export function apiProcessEvent(eventId) {
 /**
  * 确认重复事件
  * PUT /admin/events/:event_id/confirm
+ * 请求（等后端就绪）: { animal_id: string }  // 合并目标动物ID
  */
-export function apiConfirmEvent(eventId) {
+export function apiConfirmEvent(eventId, params = {}) {
   return request(`/admin/events/${eventId}/confirm`, {
-    method: 'PUT'
+    method: 'PUT',
+    body: params
   })
 }
 
