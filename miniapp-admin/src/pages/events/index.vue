@@ -31,6 +31,7 @@
         v-for="item in events"
         :key="item.event_id"
         class="event-card"
+        @click="goToDetail(item.event_id)"
       >
         <view class="event-header">
           <text :class="['event-type', 'type-' + item.event_type]">{{ eventTypeMap[item.event_type] }}</text>
@@ -137,6 +138,10 @@ function formatTime(isoString: string) {
   const d = new Date(isoString)
   return `${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+
+function goToDetail(eventId: string) {
+  uni.navigateTo({ url: `/pages/events/detail/index?event_id=${eventId}` })
+}
 </script>
 
 <style scoped lang="scss">
@@ -217,6 +222,7 @@ function formatTime(isoString: string) {
   border-radius: 16rpx;
   padding: 28rpx;
   margin-bottom: 20rpx;
+  cursor: pointer;
 }
 
 .event-header {
