@@ -6,6 +6,19 @@
 
 const BASE_URL = 'http://192.168.32.1:3000'
 
+/**
+ * 解析图片完整 URL
+ * - http:// 开头 → 直接返回
+ * - /static/mock/ 开头 → 本地静态资源，返回原路径
+ * - 其他以 / 开头 → 拼上 BASE_URL
+ */
+export function resolveImageUrl(path) {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  if (path.startsWith('/static/mock/')) return path
+  return BASE_URL + path
+}
+
 // ============ 管理端接口（需认证+admin）============
 
 /**
@@ -160,6 +173,50 @@ export function apiRejectClaim(claimId) {
  */
 export function apiGetAdminUsers() {
   return request('/admin/users')
+}
+
+/**
+ * 获取用户详情
+ * GET /admin/users/:user_id
+ */
+export function apiGetUserDetail(userId) {
+  return request(`/admin/users/${userId}`)
+}
+
+/**
+ * 获取用户上报事件
+ * GET /admin/users/:user_id/events?page=1&limit=20
+ */
+export function apiGetUserEvents(userId, params = {}) {
+  return request(`/admin/users/${userId}/events`, { params })
+}
+
+/**
+ * 获取用户认领记录
+ * GET /admin/users/:user_id/claims?page=1&limit=20
+ */
+export function apiGetUserClaims(userId, params = {}) {
+  return request(`/admin/users/${userId}/claims`, { params })
+}
+
+/**
+ * 获取用户关联动物
+ * GET /admin/users/:user_id/animals?page=1&limit=20
+ */
+export function apiGetUserAnimals(userId, params = {}) {
+  return request(`/admin/users/${userId}/animals`, { params })
+}
+
+/**
+ * 更新用户信息
+ * PUT /admin/users/:user_id
+ * 请求: { nickname, phone, email, avatar } —— 可只传需要更新的字段
+ */
+export function apiUpdateUser(userId, data) {
+  return request(`/admin/users/${userId}`, {
+    method: 'PUT',
+    body: data
+  })
 }
 
 /**
