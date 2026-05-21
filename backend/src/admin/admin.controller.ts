@@ -39,8 +39,8 @@ export class AdminController {
 
   @Put('events/:event_id/confirm')
   @ApiOperation({ summary: '确认重复事件' })
-  confirmEvent(@Param('event_id') id: string) {
-    return this.adminService.confirmEvent(id);
+  confirmEvent(@Param('event_id') id: string, @Body() body: { animal_id?: string }) {
+    return this.adminService.confirmEvent(id, body.animal_id);
   }
 
   @Put('events/:event_id/reject')

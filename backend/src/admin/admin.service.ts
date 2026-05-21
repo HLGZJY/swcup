@@ -95,8 +95,29 @@ export class AdminService {
     return { ...base, candidates: [] };
   }
 
-  async confirmEvent(event_id: string) {
-    await this.eventRepo.update({ event_id }, { status: 'duplicated' as any, is_duplicate: true });
+  async confirmEvent(event_id: string, animal_id?: string) {
+    const event = await this.eventRepo.findOne({ where: { event_id } });
+    if (!event) throw new Error('Event not found');
+
+    if (animal_id) {
+      // 校验动物存在
+      const animal = await this.animalRepo.findOne({ where: { animal_id } });
+      if (!animal) throw new Error('Animal not found');
+
+      await this.eventRepo.update({ event_id }, {
+        animal_id,
+        status: 'duplicated' as any,
+        is_duplicate: true,
+      } as any);
+    } else {
+      // 纯标签更新（向后兼容）
+      await this.eventRepo.update({ event_id }, {
+        status: 'duplicated' as any,
+        is_duplicate: true,
+      } as any);
+    }
+
+    return this.getEventDetail(event_id);
   }
 
   async rejectEvent(event_id: string) {
