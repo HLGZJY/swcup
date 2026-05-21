@@ -18,7 +18,7 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        _model = load_model(weights_path=None, embedding_dim=128)
+        _model = load_model(weights_path="weights/stage1_oxford.pth", embedding_dim=512)
     return _model
 
 
@@ -27,23 +27,23 @@ class ExtractRequest(BaseModel):
 
 
 class ExtractResponse(BaseModel):
-    vector: list[float]  # 128-dim
+    vector: list[float]  # 512-dim
     embedding_dim: int
 
 
 @router.post("/feature", response_model=ExtractResponse)
 async def extract_feature_endpoint(body: ExtractRequest):
     """
-    Extract 128-dim feature vector from a base64 image.
+    Extract 512-dim feature vector from a base64 image.
     Uses MobileNetV2 pretrained on ImageNet (no fine-tuning yet).
     """
     img = base64_to_image(body.image)
     tensor = image_to_tensor(img).unsqueeze(0)  # (1, 3, 224, 224)
 
     model = get_model()
-    vector = extract_feature(model, tensor)  # (128,)
+    vector = extract_feature(model, tensor)  # (512,)
 
     return ExtractResponse(
         vector=vector.tolist(),
-        embedding_dim=128,
+        embedding_dim=512,
     )

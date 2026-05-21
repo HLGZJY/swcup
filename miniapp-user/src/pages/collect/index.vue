@@ -76,7 +76,10 @@
 
       <!-- 拍摄提示 -->
       <view class="tips-box">
-        <text class="tips-title">📷 拍摄技巧</text>
+        <view class="tips-title">
+          <image class="tips-title-icon" src="/static/icons/icon-camera.png" mode="aspectFit" />
+          <text>拍摄技巧</text>
+        </view>
         <view class="tip-item" v-for="tip in tips" :key="tip">
           <text class="tip-bullet">•</text>
           <text class="tip-text">{{ tip }}</text>
@@ -106,7 +109,7 @@
 
       <!-- 质量评估 -->
       <view class="quality-card" v-if="collectResult">
-        <text class="quality-title">📊 采集质量评估</text>
+        <text class="quality-title">采集质量评估</text>
         <view class="quality-row">
           <text>置信度</text>
           <view class="quality-bar-bg">
@@ -571,8 +574,16 @@ async function onNext() {
   font-size: 26rpx;
   font-weight: 600;
   color: #FF9F00;
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 12rpx;
+}
+
+.tips-title-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .tip-item {

@@ -3,7 +3,7 @@
     <!-- 品牌区 -->
     <view class="brand-section">
       <view class="brand-logo">
-        <text class="logo-icon">🐾</text>
+        <image class="logo-icon" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
       </view>
       <text class="brand-name">鼻纹智救</text>
       <text class="brand-slogan">AI 流浪动物 · 防重复救助</text>
@@ -139,7 +139,8 @@ function onRegister() {
 }
 
 .logo-icon {
-  font-size: 60rpx;
+  width: 80rpx;
+  height: 80rpx;
 }
 
 .brand-name {

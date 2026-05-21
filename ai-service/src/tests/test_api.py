@@ -44,8 +44,8 @@ def test_extract(image_path: str = "tests/test_dog.jpg"):
 
 
 def test_compare():
-    vec_a = [0.1] * 128
-    vec_b = [0.1] * 128
+    vec_a = [0.1] * 512
+    vec_b = [0.1] * 512
     r = requests.post(
         f"{BASE_URL}/compare",
         json={"vector_a": vec_a, "vector_b": vec_b}

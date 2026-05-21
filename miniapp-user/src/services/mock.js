@@ -24,7 +24,7 @@ export const mockAnimals = [
     tags: ['亲人', '走失', '已挂牌'],
     primary_nose_id: 'v001',
     created_at: '2026-05-01T10:00:00Z',
-    photos: ['/static/mock/dog1.jpg']
+    photos: ['/static/mock/dog-placeholder.png']
   },
   {
     animal_id: 'a002',
@@ -45,7 +45,7 @@ export const mockAnimals = [
     tags: ['家养', '走失'],
     primary_nose_id: 'v002',
     created_at: '2026-05-03T08:00:00Z',
-    photos: ['/static/mock/dog2.jpg']
+    photos: ['/static/mock/dog-placeholder.png']
   },
   {
     animal_id: 'a003',
@@ -66,7 +66,7 @@ export const mockAnimals = [
     tags: ['走失', '黑色'],
     primary_nose_id: 'v003',
     created_at: '2026-05-05T14:00:00Z',
-    photos: ['/static/mock/dog3.jpg']
+    photos: ['/static/mock/dog-placeholder.png']
   },
   {
     animal_id: 'a004',
@@ -87,7 +87,7 @@ export const mockAnimals = [
     tags: ['亲人', '绝育'],
     primary_nose_id: 'v004',
     created_at: '2026-05-06T20:00:00Z',
-    photos: ['/static/mock/cat1.jpg']
+    photos: ['/static/mock/cat-placeholder.png']
   },
   {
     animal_id: 'a005',
@@ -108,7 +108,7 @@ export const mockAnimals = [
     tags: ['家养', '已认领'],
     primary_nose_id: 'v005',
     created_at: '2026-04-28T09:00:00Z',
-    photos: ['/static/mock/dog4.jpg']
+    photos: ['/static/mock/dog-placeholder.png']
   }
 ]
 
@@ -125,7 +125,7 @@ export const mockEvents = [
     location_lng: 116.4074,
     address: '北京市朝阳区建外SOHO',
     photos: [],
-    nose_photo_url: '/static/mock/nose1.jpg',
+    nose_photo_url: '/static/mock/nose-guide.png',
     description: '发现时正在觅食，比较亲人，左耳有缺口',
     action_taken: null,
     is_duplicate: false,
@@ -145,7 +145,7 @@ export const mockEvents = [
     location_lng: 116.3974,
     address: '北京市朝阳区三里屯',
     photos: [],
-    nose_photo_url: '/static/mock/nose2.jpg',
+    nose_photo_url: '/static/mock/nose-guide.png',
     description: '黑色拉布拉多犬，疑似走失，很乖',
     action_taken: null,
     is_duplicate: false,
@@ -203,7 +203,7 @@ export const mockUser = {
   user_id: 'u001',
   nickname: '爱心市民',
   phone: '138****8000',
-  avatar_url: '/static/mock/avatar.jpg',
+  avatar_url: '/static/mock/avatar-default.png',
   role: 'user',
   created_at: '2026-04-01T00:00:00Z'
 }

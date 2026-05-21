@@ -29,7 +29,7 @@ ai-service/
 │   │   ├── extract.py       # POST /extract/feature
 │   │   └── compare.py       # POST /compare
 │   ├── models/
-│   │   └── mobilenet.py     # MobileNetV2_128d 模型
+│   │   └── mobilenet.py     # MobileNetV2_512d 模型
 │   ├── utils/
 │   │   ├── image.py         # 图片预处理 + 质量检测
 │   │   └── vector.py        # 余弦相似度
@@ -49,8 +49,8 @@ ai-service/
 |------|------|------|------|------|
 | `/health` | GET | - | `{status: "ok"}` | ✅ |
 | `/detect/liveness` | POST | `{image: base64}` | `{quality, score}` | ✅ |
-| `/extract/feature` | POST | `{image: base64}` | `{vector: [128], shape: [128]}` | ✅ |
-| `/compare` | POST | `{vector_a: [128], vector_b: [128]}` | `{similarity, distance}` | ✅ |
+| `/extract/feature` | POST | `{image: base64}` | `{vector: [512], shape: [512]}` | ✅ |
+| `/compare` | POST | `{vector_a: [512], vector_b: [512]}` | `{similarity, distance}` | ✅ |
 
 ### 3. 架构设计文档更新
 
@@ -91,9 +91,9 @@ curl -X POST http://localhost:8000/detect/liveness \
 ## 技术决策记录
 
 1. **模型结构**：直接用 MobileNetV2 预训练权重（ImageNet），不自己训练检测网络，简化 W2 工作量
-2. **向量维度**：128 维（ArcFace 输出层），L2 归一化
+2. **向量维度**：512 维（ArcFace 输出层），L2 归一化
 3. **活体检测**：简化为图片质量检测（模糊度 + 亮度），不引入复杂活体检测模型
-4. **向量存储**：MySQL BLOB(512) = 128×4 字节，由后端负责存储，AI 服务只管提取
+4. **向量存储**：MySQL LONGBLOB = 512×4 字节，由后端负责存储，AI 服务只管提取
 
 ---
 
@@ -103,7 +103,7 @@ curl -X POST http://localhost:8000/detect/liveness \
   - Oxford Pets 公开数据集
   - images.cv Dog Nose 数据集
   - 自采集图片
-- [ ] `scripts/train_stage1.py` — 阶段一训练（冻结 backbone，只训练 128 维 fc 层）
+- [ ] `scripts/train_stage1.py` — 阶段一训练（冻结 backbone，只训练 512 维 fc 层）
 - [ ] `scripts/train_stage2.py` — 阶段二训练（解冻最后 2 个卷积块 + ArcFace Loss）
 - [ ] `scripts/evaluate.py` — Top-1 Accuracy / ROC AUC 评测
-- [ ] 训练输出权重到 `weights/stage1.pth` 和 `weights/mobilenet_v2_128d.pth`
+- [ ] 训练输出权重到 `weights/stage1.pth` 和 `weights/mobilenet_v2_512d.pth`

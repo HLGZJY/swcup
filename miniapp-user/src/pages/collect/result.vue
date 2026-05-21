@@ -65,7 +65,7 @@
             </text>
           </view>
         </view>
-        <text class="arrow">›</text>
+        <image class="arrow-img" src="/static/icons/icon-chevron-right.png" mode="aspectFit" />
       </view>
     </view>
 
@@ -438,10 +438,10 @@ function onBackHome() {
 .status-found { background: #0FBF9F !important; }
 .status-claimed { background: #FF9F00 !important; }
 
-.arrow {
-  font-size: 40rpx;
-  color: #CCCCCC;
-  margin-left: 16rpx;
+.arrow-img {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
 }
 
 .bottom-actions {

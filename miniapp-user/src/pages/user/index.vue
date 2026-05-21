@@ -44,14 +44,14 @@
     <view class="menu-section">
       <!-- 我的上报 -->
       <view class="menu-item" @click="goToMyReports">
-        <text class="menu-icon">📋</text>
+        <image class="menu-icon-img" src="/static/icons/icon-filetext.png" mode="aspectFit" />
         <text class="menu-text">我的上报</text>
         <text class="menu-arrow">›</text>
       </view>
 
       <!-- 认领记录 -->
       <view class="menu-item" @click="goToMyClaims">
-        <text class="menu-icon">🏠</text>
+        <image class="menu-icon-img" src="/static/icons/icon-heart.png" mode="aspectFit" />
         <text class="menu-text">认领记录</text>
         <text class="menu-arrow">›</text>
       </view>
@@ -67,7 +67,7 @@
 
       <!-- 关于我们 -->
       <view class="menu-item" @click="goToAbout">
-        <text class="menu-icon">ℹ️</text>
+        <image class="menu-icon-img" src="/static/icons/icon-info-gray.png" mode="aspectFit" />
         <text class="menu-text">关于我们</text>
         <text class="menu-version">v1.0.0</text>
         <text class="menu-arrow">›</text>
@@ -290,9 +290,11 @@ function onLogout() {
   border-bottom: none;
 }
 
-.menu-icon {
-  font-size: 32rpx;
+.menu-icon-img {
+  width: 32rpx;
+  height: 32rpx;
   margin-right: 16rpx;
+  flex-shrink: 0;
 }
 
 .menu-text {

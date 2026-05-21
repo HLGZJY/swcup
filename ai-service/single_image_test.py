@@ -1,5 +1,5 @@
 """
-单图测试脚本：输入一张图片，输出128维向量。
+单图测试脚本：输入一张图片，输出512维向量。
 用于验证整个推理pipeline是否通顺。
 """
 
@@ -29,8 +29,8 @@ def main():
         print(f"错误: 文件不存在: {img_path}")
         sys.exit(1)
 
-    print(f"正在加载模型 (MobileNetV2 + 128d 输出层)...")
-    model = load_model(weights_path=None, embedding_dim=128)
+    print(f"正在加载模型 (MobileNetV2 + 512d 输出层)...")
+    model = load_model(weights_path=None, embedding_dim=512)
     print("模型加载成功")
 
     print(f"\n正在处理图片: {img_path}")

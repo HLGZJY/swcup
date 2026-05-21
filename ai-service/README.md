@@ -8,10 +8,10 @@ ai-service/
 │   ├── main.py              # FastAPI 入口
 │   ├── api/
 │   │   ├── detect.py        # POST /detect/liveness — 活体检测
-│   │   ├── extract.py       # POST /extract/feature — 128维向量提取
+│   │   ├── extract.py       # POST /extract/feature — 512维向量提取
 │   │   └── compare.py       # POST /compare/vector — 向量比对
 │   ├── models/
-│   │   └── mobilenet.py     # MobileNetV2 + 128d 输出层
+│   │   └── mobilenet.py     # MobileNetV2 + 512d 输出层
 │   ├── utils/
 │   │   ├── image.py         # 图片预处理/质量评估
 │   │   └── vector.py        # 余弦相似度/L2距离
@@ -50,7 +50,7 @@ python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 |------|------|------|
 | `/health` | GET | 健康检查 |
 | `/detect/liveness` | POST | 活体检测（图片质量评估） |
-| `/extract/feature` | POST | 提取 128 维向量 |
+| `/extract/feature` | POST | 提取 512 维向量 |
 | `/compare/vector` | POST | 两向量相似度计算 |
 
 ### 请求示例
@@ -78,7 +78,7 @@ curl -X POST http://localhost:8000/compare/vector \
 ## 训练
 
 ```bash
-# 阶段一：冻结 backbone，训练 128d 输出层（快速 baseline）
+# 阶段一：冻结 backbone，训练 512d 输出层（快速 baseline）
 python -m src.scripts.train_stage1 \
   --data /path/to/dataset \
   --epochs 10 \
@@ -92,5 +92,5 @@ python -m src.scripts.train_stage1 \
 
 - **推理框架**: PyTorch 2.2 + TorchVision 0.17
 - **Web 框架**: FastAPI 0.109 + Uvicorn
-- **模型**: MobileNetV2（ImageNet 预训练权重）+ 128 维输出层
+- **模型**: MobileNetV2（ImageNet 预训练权重）+ 512 维输出层
 - **图片处理**: Pillow + OpenCV

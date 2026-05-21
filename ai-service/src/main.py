@@ -7,7 +7,7 @@ from .api import detect, extract, compare
 
 app = FastAPI(
     title="鼻纹智救 - AI 推理服务",
-    description="MobileNetV2 128维向量特征提取 + 活体检测",
+    description="MobileNetV2 512维向量特征提取 + 活体检测",
     version="0.1.0",
 )
 

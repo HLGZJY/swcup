@@ -99,7 +99,7 @@ tags: [overview, 比赛项目]
 
 ### 技术角度：怎么做
 
-1. **采集阶段**：用户拍摄狗鼻纹照片 → AI 活体检测（判断是真实狗鼻而非照片）→ 提取鼻纹特征向量（128维）
+1. **采集阶段**：用户拍摄狗鼻纹照片 → AI 活体检测（判断是真实狗鼻而非照片）→ 提取鼻纹特征向量（512维）
 2. **比对阶段**：新向量与数据库中的历史档案做四维度融合比对（鼻纹特征 40% + GPS 位置 20% + 整图相似度 20% + 文本描述 20%）→ 加权得分返回 Top-N 结果
 3. **认领阶段**：用户确认是否认领 → 状态流转（走丢 → 已找到 → 已认领 → 已归档）
 
@@ -116,7 +116,7 @@ tags: [overview, 比赛项目]
 
 1. **轻量化自训练模型**：不依赖商业 API，0 成本实现个体识别（MobileNetV2 + ArcFace 度量学习）
 2. **多维度融合查重**：单一鼻纹比对 → 四维度综合判断（特征+鼻纹+定位+图片），降低误报率
-3. **面向移动端优化**：128 维向量，CPU 可推理，无需 GPU 服务器
+3. **面向移动端优化**：512 维向量，CPU 可推理，无需 GPU 服务器
 
 ### 核心创新亮点
 
@@ -140,16 +140,16 @@ tags: [overview, 比赛项目]
 
 ### 技术选型
 
-|| 层级    | 技术选型                       | 说明                    |
-|| ----- | -------------------------- | --------------------- |
-|| 用户端   | 微信小程序 + UniApp + Vue3      | 普通救助者使用，即用即走，学姐项目参考        |
-|| 管理端   | 微信小程序 + UniApp + Vue3      | 管理员使用，独立入口，学姐项目参考        |
-|| 后端    | Node.js (Express) + MySQL  | RESTful API，JSON 处理便捷，与前端同构    |
-|| AI 推理 | FastAPI + PyTorch          | Python 直调模型，接口开发快     |
-|| AI 模型 | MobileNetV2 迁移学习           | 128维向量，CPU 可推理        |
-|| 向量存储 | MySQL BLOB（初期）/ pgvector（后期） | 鼻纹向量直接存 MySQL，降低复杂度   |
+||| 层级    | 技术选型                       | 说明                    |
+||| ----- | -------------------------- | --------------------- |
+||| 用户端   | 微信小程序 + UniApp + Vue3      | 普通救助者使用，即用即走        |
+||| 管理端   | 微信小程序 + UniApp + Vue3      | 管理员使用，独立入口          |
+||| 后端    | Node.js (NestJS) + MySQL  | RESTful API，TypeScript，TypeORM |
+||| AI 推理 | FastAPI + PyTorch          | Python 直调模型，接口开发快     |
+||| AI 模型 | MobileNetV2 迁移学习           | 512维向量，CPU 可推理        |
+||| 向量存储 | MySQL BLOB（初期）/ pgvector（后期） | 鼻纹向量直接存 MySQL，降低复杂度   |
 
-> **技术栈切换记录**：原计划用 Spring Boot + MySQL（W1 原定），因开发效率及团队技术匹配考量，切换为 Node.js (Express) + MySQL。
+> **技术栈切换记录**：原计划用 Spring Boot + MySQL（W1 原定），因开发效率及团队技术匹配考量，切换为 Node.js (NestJS) + MySQL。
 
 ### 系统调用链路
 
@@ -218,26 +218,19 @@ tags: [overview, 比赛项目]
 
 路径：`/mnt/f/课设与软件杯/基于定位的流浪动物救助系统管理端微信小程序开发`
 
-技术栈：UniApp + Vue3 + pages.json（TabBar 3页：首页/动物管理/用户管理）
+> ⚠️ **已停止参考**：前端已完整自研开发，学姐项目的接口和页面结构与本项目差异较大，不再参考。
 
-**可直接借鉴的模块**：
+技术栈参考：UniApp + Vue3 + pages.json（TabBar 3页：首页/动物管理/用户管理）
 
-| 借鉴点 | 位置 | 说明 |
-|--------|------|------|
-| 登录页微信头像选择 | `pages/login/login.vue` | `open-type="chooseAvatar"` + `type="nickname"` |
-| 地图定位展示 | `pages/animals/detail.vue` | `uni.openLocation()` 调起地图导航 |
-| 多选合并删除 | `pages/animals/animals.vue` | 勾选 + `handleMerge`/`handleDelete`，含重复预检 |
-| 评论组件 | `components/comment-item` `comment-publish` | 独立组件，支持发布和展示 |
-| 搜索框组件 | `components/search-box` | 通用搜索封装 |
-| 动物卡片组件 | `components/animal-card` | 列表展示，含图片/标题/状态 |
-| 地图视图 | `animal-map`（列表里引用） | 地图模式切换 |
-| 分页逻辑 | `pages/animals/animals.vue` | 前端分页 `pageSize=10` |
-| 下拉刷新 | scroll-view `refresher-enabled` | UniApp 原生下拉刷新 |
-| 底部悬浮按钮 | FAB 按钮 | `手动刷新重复检测` |
-| 禁言用户 | `pages/animals/detail.vue` | `showActionSheet` 选择禁言时长 |
-| 编辑页面 | `pages/edit/edit.vue` | 通过 `localStorage` 传递编辑数据 |
+**部分可借鉴的实现方式（已自行实现）**：
 
-**不可照搬的部分**：API 接口地址（`8.162.7.241`）、整体业务逻辑（无鼻纹/AI 比对）、用户端定位逻辑。
+|| 借鉴点 | 自研状态 |
+|--------|----------|
+| 登录页微信头像选择 | ✅ 已自行实现 |
+| 地图定位展示 | ✅ 已自行实现 |
+| 搜索框组件 | ✅ 已自行实现 |
+| 动物卡片组件 | ✅ 已自行实现 |
+| 下拉刷新 | ✅ 已自行实现 |
 
 ---
 

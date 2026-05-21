@@ -12,7 +12,10 @@
 
     <!-- 认领说明 -->
     <view class="notice-box">
-      <text class="notice-title">📋 认领须知</text>
+      <view class="notice-title">
+        <image class="notice-title-icon" src="/static/icons/icon-filetext.png" mode="aspectFit" />
+        <text>认领须知</text>
+      </view>
       <view class="notice-item" v-for="item in notices" :key="item">
         <text class="bullet">•</text>
         <text class="notice-text">{{ item }}</text>
@@ -54,7 +57,9 @@
           class="upload-item"
         >
           <image class="upload-img" :src="img" mode="aspectFill" />
-          <view class="upload-remove" @click="removePhoto(idx)">✕</view>
+          <view class="upload-remove" @click="removePhoto(idx)">
+            <image class="remove-icon" src="/static/icons/icon-x.png" mode="aspectFit" />
+          </view>
         </view>
         <view class="upload-add" @click="chooseImage" v-if="form.proof_photos.length < 9">
           <text class="add-icon">+</text>
@@ -66,7 +71,7 @@
     <!-- 协议确认 -->
     <view class="agreement-row" @click="form.agreed = !form.agreed">
       <view :class="['checkbox', { checked: form.agreed }]">
-        <text v-if="form.agreed">✓</text>
+        <image v-if="form.agreed" class="check-icon" src="/static/icons/icon-check-circle.png" mode="aspectFit" />
       </view>
       <text class="agreement-text">
         我已阅读并同意<text class="link" @click.stop="showProtocol">《认领协议》</text>，承诺所填信息真实有效
@@ -234,8 +239,16 @@ async function onSubmit() {
   font-size: 26rpx;
   font-weight: 600;
   color: #FF9F00;
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 12rpx;
+}
+
+.notice-title-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .notice-item {
@@ -362,12 +375,15 @@ async function onSubmit() {
   width: 40rpx;
   height: 40rpx;
   background: rgba(0,0,0,0.6);
-  color: #FFFFFF;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24rpx;
+}
+
+.remove-icon {
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .upload-add {
@@ -416,8 +432,11 @@ async function onSubmit() {
 .checkbox.checked {
   background: #0FBF9F;
   border-color: #0FBF9F;
-  color: #FFFFFF;
-  font-size: 24rpx;
+}
+
+.check-icon {
+  width: 24rpx;
+  height: 24rpx;
 }
 
 .agreement-text {

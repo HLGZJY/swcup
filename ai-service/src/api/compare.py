@@ -22,7 +22,7 @@ class CompareResponse(BaseModel):
 @router.post("/vector", response_model=CompareResponse)
 async def compare_vectors(body: CompareRequest):
     """
-    Compute similarity between two 128-dim vectors.
+    Compute similarity between two 512-dim vectors.
     """
     a = np.array(body.vector_a, dtype=np.float32)
     b = np.array(body.vector_b, dtype=np.float32)

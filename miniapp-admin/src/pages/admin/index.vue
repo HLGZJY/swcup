@@ -8,7 +8,7 @@
         <text class="admin-sub">鼻纹智救 · 管理员</text>
       </view>
       <view class="logout-btn" @click="handleLogout">
-        <text class="logout-icon">🚪</text>
+        <image class="header-icon" src="/static/icons/icon-logout.png" mode="aspectFit" />
         <text class="logout-text">退出</text>
       </view>
     </view>
@@ -29,7 +29,10 @@
 
     <!-- 今日概况 -->
     <view class="today-card">
-      <text class="card-title">📊 今日概况</text>
+      <view class="card-title-wrap">
+        <image class="title-icon" src="/static/icons/icon-info.png" mode="aspectFit" />
+        <text class="card-title">今日概况</text>
+      </view>
       <view class="today-stats">
         <view class="today-item">
           <text class="today-num">{{ stats.todayReports }}</text>
@@ -50,11 +53,14 @@
 
     <!-- 待办事项 -->
     <view class="todo-section">
-      <text class="section-title">⚡ 待办事项</text>
+      <view class="section-title-wrap">
+        <image class="section-icon" src="/static/icons/icon-sparkles.png" mode="aspectFit" />
+        <text class="section-title">待办事项</text>
+      </view>
 
       <view class="todo-item" @click="goToAudit('events')">
         <view class="todo-left">
-          <text class="todo-icon">📋</text>
+          <image class="todo-icon-img" src="/static/icons/icon-filetext.png" mode="aspectFit" />
           <view class="todo-info">
             <text class="todo-name">待审核事件</text>
             <text class="todo-desc">疑似重复/待确认的事件</text>
@@ -68,7 +74,7 @@
 
       <view class="todo-item" @click="goToAudit('claims')">
         <view class="todo-left">
-          <text class="todo-icon">🏠</text>
+          <image class="todo-icon-img" src="/static/icons/icon-home.png" mode="aspectFit" />
           <view class="todo-info">
             <text class="todo-name">待审核认领</text>
             <text class="todo-desc">用户提交的认领申请</text>
@@ -83,22 +89,25 @@
 
     <!-- 快捷入口 -->
     <view class="quick-section">
-      <text class="section-title">🔧 快捷入口</text>
+      <view class="section-title-wrap">
+        <image class="section-icon" src="/static/icons/icon-settings.png" mode="aspectFit" />
+        <text class="section-title">快捷入口</text>
+      </view>
       <view class="quick-grid">
         <view class="quick-item" @click="goToPage('/pages/animals/index')">
-          <text class="quick-icon">🐕</text>
+          <image class="quick-icon-img" src="/static/icons/icon-image.png" mode="aspectFit" />
           <text class="quick-name">动物档案</text>
         </view>
         <view class="quick-item" @click="goToPage('/pages/events/index')">
-          <text class="quick-icon">📑</text>
+          <image class="quick-icon-img" src="/static/icons/icon-filetext.png" mode="aspectFit" />
           <text class="quick-name">事件管理</text>
         </view>
         <view class="quick-item" @click="goToPage('/pages/users/index')">
-          <text class="quick-icon">👥</text>
+          <image class="quick-icon-img" src="/static/icons/icon-users.png" mode="aspectFit" />
           <text class="quick-name">用户管理</text>
         </view>
         <view class="quick-item" @click="goToAudit('events')">
-          <text class="quick-icon">✅</text>
+          <image class="quick-icon-img" src="/static/icons/icon-check-circle-success.png" mode="aspectFit" />
           <text class="quick-name">审核中心</text>
         </view>
       </view>
@@ -118,10 +127,14 @@ const stats = ref({
 onMounted(async () => {
   try {
     const res: any = await apiGetStats()
+    console.log('[ADMIN-INDEX] stats res=', JSON.stringify(res))
     if (res.code === 0) {
-      stats.value = res.data
+      Object.assign(stats.value, res.data)
+      console.log('[ADMIN-INDEX] stats after assign=', JSON.stringify(stats.value))
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[ADMIN-INDEX] stats error=', e)
+  }
 })
 
 function goToAudit(type: string) {
@@ -181,6 +194,12 @@ function handleLogout() {
   margin-right: 6rpx;
 }
 
+.header-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 6rpx;
+}
+
 .logout-text {
   font-size: 22rpx;
   color: #FFFFFF;
@@ -215,7 +234,19 @@ function handleLogout() {
   font-weight: 600;
   color: #1A1A1A;
   display: block;
+}
+
+.card-title-wrap, .section-title-wrap {
+  display: flex;
+  align-items: center;
   margin-bottom: 16rpx;
+}
+
+.title-icon, .section-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .today-stats {
@@ -260,7 +291,11 @@ function handleLogout() {
   font-weight: 600;
   color: #1A1A1A;
   display: block;
-  margin-bottom: 16rpx;
+}
+
+.card-title-wrap .card-title, .section-title-wrap .section-title {
+  display: inline;
+  margin-bottom: 0;
 }
 
 .todo-item {
@@ -283,6 +318,13 @@ function handleLogout() {
 .todo-icon {
   font-size: 40rpx;
   margin-right: 16rpx;
+}
+
+.todo-icon-img {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
 }
 
 .todo-info {
@@ -342,6 +384,12 @@ function handleLogout() {
 
 .quick-icon {
   font-size: 36rpx;
+  margin-bottom: 8rpx;
+}
+
+.quick-icon-img {
+  width: 48rpx;
+  height: 48rpx;
   margin-bottom: 8rpx;
 }
 
