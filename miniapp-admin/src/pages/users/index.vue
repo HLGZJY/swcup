@@ -2,8 +2,8 @@
   <view class="page">
     <!-- 搜索 -->
     <view class="search-bar">
-      <view class="search-input-wrap">
-        <text class="search-icon">🔍</text>
+    <view class="search-input-wrap">
+        <image class="search-icon" src="/static/icons/icon-search.png" mode="aspectFit" />
         <input class="search-input" placeholder="搜索用户昵称/手机号" v-model="keyword" @confirm="onSearch" />
       </view>
     </view>
@@ -29,7 +29,7 @@
       <view
         v-for="u in users"
         :key="u.user_id"
-        class="user-row"
+        :class="['user-row', { 'user-row-blocked': u.role === 'blocked' }]"
       >
         <image class="user-avatar" src="/static/mock/avatar-default.png" mode="aspectFill" />
         <view class="user-info">
@@ -39,6 +39,10 @@
           </view>
           <text class="phone">{{ u.phone }}</text>
           <text class="join-date">注册于 {{ formatDate(u.created_at) }}</text>
+        </view>
+        <view class="user-actions">
+          <uni-switch :checked="u.role === 'blocked'" @change="() => onToggleBlock(u)" />
+          <text class="detail-link" @tap="goToDetail(u.user_id)">查看详情 →</text>
         </view>
       </view>
 
@@ -51,7 +55,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAdminUsers } from '@/services/api'
+import { apiGetAdminUsers, apiUpdateUser } from '@/services/api'
 
 const keyword = ref('')
 const users = ref<any[]>([])
@@ -61,12 +65,13 @@ const roleTabs = [
   { label: '全部', value: 'all' },
   { label: '普通用户', value: 'user' },
   { label: '管理员', value: 'admin' },
-  { label: '机构', value: 'org' }
+  { label: '机构', value: 'org' },
+  { label: '已禁用', value: 'blocked' }
 ]
 const currentRole = ref('all')
 
 const roleMap: Record<string, string> = {
-  user: '普通用户', admin: '管理员', org: '机构'
+  user: '普通用户', admin: '管理员', org: '机构', blocked: '已禁用'
 }
 
 // TabBar 页面切换时 onMounted 触发
@@ -113,6 +118,18 @@ function onFilterRole(role: string) {
 function formatDate(isoString: string) {
   const d = new Date(isoString)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const onToggleBlock = async (user: any) => {
+  const newRole = user.role === 'blocked' ? 'user' : 'blocked'
+  try {
+    await apiUpdateUser(user.user_id, { role: newRole })
+    loadUsers()
+  } catch (e) {}
+}
+
+const goToDetail = (userId: number) => {
+  uni.navigateTo({ url: `/pages/users/detail/index?user_id=${userId}` })
 }
 </script>
 
@@ -180,6 +197,10 @@ function formatDate(isoString: string) {
   margin-bottom: 16rpx;
 }
 
+.user-row-blocked {
+  opacity: 0.5;
+}
+
 .user-avatar {
   width: 100rpx;
   height: 100rpx;
@@ -216,6 +237,20 @@ function formatDate(isoString: string) {
 .role-user { background: #0FBF9F; }
 .role-admin { background: #FF6B6B; }
 .role-org { background: #FF9F00; }
+.role-blocked { background: #999999; }
+
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+  margin-left: 16rpx;
+}
+
+.detail-link {
+  font-size: 22rpx;
+  color: #FF6B6B;
+}
 
 .phone {
   font-size: 24rpx;
