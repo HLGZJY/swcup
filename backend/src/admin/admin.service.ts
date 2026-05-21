@@ -78,9 +78,24 @@ export class AdminService {
     await this.claimRepo.update({ claim_id }, { status: 'rejected' as any });
   }
 
-  async getUsers() {
-    const list = await this.userRepo.find();
-    return { total: list.length, list };
+  async getUsers(query: { page?: number; limit?: number; role?: string; keyword?: string } = {}) {
+    const { page = 1, limit = 20, role, keyword } = query;
+    const qb = this.userRepo.createQueryBuilder('u');
+
+    if (role) {
+      qb.andWhere('u.role = :role', { role });
+    }
+    if (keyword) {
+      qb.andWhere('(u.nickname LIKE :kw OR u.phone LIKE :kw)', { kw: `%${keyword}%` });
+    }
+
+    const [list, total] = await qb
+      .orderBy('u.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { total, list };
   }
 
   async getUserDetail(user_id: string) {

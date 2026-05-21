@@ -111,8 +111,8 @@ export class AdminController {
 
   @Get('users')
   @ApiOperation({ summary: '用户列表' })
-  users() {
-    return this.adminService.getUsers();
+  async users(@Query() query: { page?: number; limit?: number; role?: string; keyword?: string }) {
+    return this.adminService.getUsers(query);
   }
 
   @Get('users/:user_id')
