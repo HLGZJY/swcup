@@ -114,4 +114,34 @@ export class AdminController {
   users() {
     return this.adminService.getUsers();
   }
+
+  @Get('users/:user_id')
+  @ApiOperation({ summary: '用户详情' })
+  async getUserDetail(@Param('user_id') userId: string) {
+    return this.adminService.getUserDetail(userId);
+  }
+
+  @Get('users/:user_id/events')
+  @ApiOperation({ summary: '用户上报事件列表' })
+  async getUserEvents(@Param('user_id') userId: string, @Query() query: any) {
+    return this.adminService.getUserEvents(userId, query);
+  }
+
+  @Get('users/:user_id/claims')
+  @ApiOperation({ summary: '用户认领记录' })
+  async getUserClaims(@Param('user_id') userId: string, @Query() query: any) {
+    return this.adminService.getUserClaims(userId, query);
+  }
+
+  @Get('users/:user_id/animals')
+  @ApiOperation({ summary: '用户关联动物' })
+  async getUserAnimals(@Param('user_id') userId: string, @Query() query: any) {
+    return this.adminService.getUserAnimals(userId, query);
+  }
+
+  @Put('users/:user_id')
+  @ApiOperation({ summary: '更新用户信息' })
+  async updateUser(@Param('user_id') userId: string, @Body() body: any) {
+    return this.adminService.updateUser(userId, body);
+  }
 }
