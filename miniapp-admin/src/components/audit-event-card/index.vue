@@ -15,11 +15,11 @@
         <text class="info-text">{{ event.description }}</text>
       </view>
       <view class="info-row">
-        <text class="info-icon">📍</text>
+        <image class="info-icon-img" src="/static/icons/icon-mappin.png" mode="aspectFit" />
         <text class="info-text">{{ event.address || '未知地址' }}</text>
       </view>
       <view class="info-row">
-        <text class="info-icon">🕐</text>
+        <image class="info-icon-img" src="/static/icons/icon-clock.png" mode="aspectFit" />
         <text class="info-text">{{ formatTime(event.occurred_at) }}</text>
       </view>
     </view>
@@ -87,11 +87,11 @@ function formatTime(isoString: string) {
 
 <style scoped lang="scss">
 .audit-card {
-  background: #2A2A2A;
+  background: #FFFFFF;
   border-radius: 16rpx;
   padding: 28rpx;
   margin-bottom: 20rpx;
-  border: 1rpx solid #3A3A3A;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
 }
 
 .card-header {
@@ -105,13 +105,13 @@ function formatTime(isoString: string) {
   font-size: 20rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
-  background: #3A3A3A;
-  color: #FFFFFF;
+  background: #F0F0F0;
+  color: #666666;
 }
 
-.event-type-tag.type-report { background: #FF6B6B33; color: #FF6B6B; }
-.event-type-tag.type-rescue { background: #0FBF9F33; color: #0FBF9F; }
-.event-type-tag.type-medical { background: #FF9F0033; color: #FF9F00; }
+.event-type-tag.type-report { background: #FF6B6B22; color: #FF6B6B; }
+.event-type-tag.type-rescue { background: #0FBF9F22; color: #0FBF9F; }
+.event-type-tag.type-medical { background: #FF9F0022; color: #FF9F00; }
 
 .fusion-score {
   display: flex;
@@ -146,9 +146,16 @@ function formatTime(isoString: string) {
   flex-shrink: 0;
 }
 
+.info-icon-img {
+  width: 22rpx;
+  height: 22rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
+}
+
 .info-text {
   font-size: 24rpx;
-  color: #CCCCCC;
+  color: #1A1A1A;
   line-height: 1.4;
 }
 
@@ -162,11 +169,13 @@ function formatTime(isoString: string) {
   font-size: 20rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
+  background: #F5F5F5;
+  color: #666666;
 }
 
-.status-badge.status-pending { background: #FF9F0033; color: #FF9F00; }
-.status-badge.status-confirmed { background: #07C16033; color: #07C160; }
-.status-badge.status-rejected { background: #99999933; color: #999999; }
+.status-badge.status-pending { background: #FF9F0022; color: #FF9F00; }
+.status-badge.status-confirmed { background: #07C16022; color: #07C160; }
+.status-badge.status-rejected { background: #99999922; color: #999999; }
 
 .action-group {
   display: flex;
@@ -186,7 +195,7 @@ function formatTime(isoString: string) {
 }
 
 .action-btn.reject {
-  background: #3A3A3A;
+  background: #F5F5F5;
   color: #999999;
 }
 </style>
