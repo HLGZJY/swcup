@@ -242,9 +242,11 @@ function openMap() {
     uni.showToast({ title: '暂无位置坐标', icon: 'none' })
     return
   }
+  const name = animal.value.address || `${animal.value.location_lat},${animal.value.location_lng}`
   uni.openLocation({
     latitude: Number(animal.value.location_lat),
     longitude: Number(animal.value.location_lng),
+    name,
     address: animal.value.address,
     fail: (err) => {
       console.error('openLocation fail', err)

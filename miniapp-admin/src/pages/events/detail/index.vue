@@ -117,9 +117,11 @@ function openMap() {
     uni.showToast({ title: '暂无位置坐标', icon: 'none' })
     return
   }
+  const name = event.value.address || `${event.value.location_lat},${event.value.location_lng}`
   uni.openLocation({
     latitude: Number(event.value.location_lat),
     longitude: Number(event.value.location_lng),
+    name,
     address: event.value.address,
     fail: (err) => {
       console.error('openLocation fail', err)
