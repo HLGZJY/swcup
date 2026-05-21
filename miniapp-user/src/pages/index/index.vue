@@ -3,13 +3,13 @@
     <!-- 顶部搜索 & 定位 -->
     <view class="home-header">
       <view class="location-bar" @click="onRefreshLocation">
-        <text class="location-icon">📍</text>
+        <image class="location-icon-img" src="/static/icons/icon-mappin.png" mode="aspectFit" />
         <text class="location-text">{{ locationText }}</text>
         <text class="refresh-icon" v-if="refreshing">⟳</text>
       </view>
       <view class="search-row">
         <view class="search-bar">
-          <text class="search-icon">🔍</text>
+          <image class="search-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
           <input
             class="search-input"
             placeholder="搜索走失/发现的动物"
@@ -46,7 +46,7 @@
       @refresherrefresh="onRefresh"
     >
       <view class="list-empty" v-if="animalList.length === 0 && !loading">
-        <text class="empty-icon">🐾</text>
+        <image class="empty-icon" src="/static/icons/icon-image.png" mode="aspectFit" />
         <text class="empty-text">暂无相关动物信息</text>
         <text class="empty-hint">成为第一个上报的人</text>
       </view>
@@ -67,6 +67,11 @@
           <view :class="['status-tag', 'status-' + animal.status]">
             {{ statusMap[animal.status] }}
           </view>
+          <view class="card-actions">
+            <view class="share-btn" @click.stop="onShareCard(animal)">
+              <image src="/static/icons/icon-share.png" mode="aspectFit" />
+            </view>
+          </view>
         </view>
 
         <!-- 信息区 -->
@@ -77,12 +82,9 @@
           </view>
 
           <view class="info-detail">
+            <text class="detail-item">颜色: {{ animal.color }}</text>
             <text class="detail-item">
-              <text class="detail-icon">🎨</text>
-              {{ animal.color }}
-            </text>
-            <text class="detail-item">
-              <text class="detail-icon">📍</text>
+              <image class="detail-icon-img" src="/static/icons/icon-mappin.png" mode="aspectFit" />
               {{ animal.address }}
             </text>
           </view>
@@ -237,6 +239,12 @@ function formatTime(isoString: string) {
 function goToDetail(animalId: string) {
   uni.navigateTo({
     url: `/pages/animal-detail/index?animal_id=${animalId}`
+  })
+}
+
+function onShareCard(animal: any) {
+  uni.navigateTo({
+    url: `/pages/animal-detail/index?animal_id=${animal.animal_id}&share=1`
   })
 }
 
@@ -438,6 +446,28 @@ function onCollect() {
   border-radius: 0 12rpx 12rpx 0;
 }
 
+.card-actions {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  z-index: 10;
+}
+
+.share-btn {
+  width: 48rpx;
+  height: 48rpx;
+  background: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn image {
+  width: 28rpx;
+  height: 28rpx;
+}
+
 .status-found { background: #0FBF9F !important; }
 .status-claimed { background: #FF9F00 !important; }
 .status-archived { background: #999999 !important; }
@@ -491,6 +521,28 @@ function onCollect() {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.location-icon-img {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
+}
+
+.search-icon-img {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.detail-icon-img {
+  width: 22rpx;
+  height: 22rpx;
+  margin-right: 4rpx;
+  flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .detail-icon {
