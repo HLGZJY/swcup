@@ -210,7 +210,7 @@ const goToDetail = (userId: number) => {
 
 .list-area {
   flex: 1;
-  padding: 24rpx;
+  padding: 28rpx;
 }
 
 .total-bar {

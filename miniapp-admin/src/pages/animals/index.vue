@@ -196,7 +196,7 @@ function showAnimalDetail(animal: any) {
 
 .list-area {
   flex: 1;
-  padding: 32rpx 36rpx;
+  padding: 28rpx;
 }
 
 .empty-state {
