@@ -248,7 +248,24 @@ function openMap() {
 }
 
 function onShare() {
-  uni.showToast({ title: '分享功能', icon: 'none' })
+  if (!animal.value) {
+    uni.showToast({ title: '加载中，请稍候', icon: 'none' })
+    return
+  }
+  uni.share({
+    provider: 'weixin',
+    type: 'url',
+    title: `${animal.value.breed} ${statusMap[animal.value.status]} | ${animal.value.address}`,
+    imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
+    scene: 'session', // 分享到聊天
+    success: () => {
+      uni.showToast({ title: '分享成功', icon: 'success' })
+    },
+    fail: (err) => {
+      console.error('分享失败', err)
+      uni.showToast({ title: '分享失败', icon: 'none' })
+    }
+  })
 }
 
 function onCollect() {
