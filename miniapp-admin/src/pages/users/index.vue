@@ -21,9 +21,13 @@
     </view>
 
     <!-- 用户列表 -->
-    <scroll-view class="list-area" scroll-y>
+    <scroll-view
+      class="list-area"
+      scroll-y
+      @scrolltolower="onLoadMore"
+    >
       <view class="total-bar">
-        <text>共 {{ users.length }} 位用户</text>
+        <text>共 {{ total }} 位用户</text>
       </view>
 
       <view
@@ -46,7 +50,10 @@
         </view>
       </view>
 
-      <view class="no-more" v-if="users.length > 0">
+      <view class="loading-more" v-if="loadingMore">
+        <text>加载中...</text>
+      </view>
+      <view class="no-more" v-else-if="!hasMore && users.length > 0">
         <text>— 没有更多了 —</text>
       </view>
     </scroll-view>
@@ -59,7 +66,11 @@ import { apiGetAdminUsers, apiUpdateUser } from '@/services/api'
 
 const keyword = ref('')
 const users = ref<any[]>([])
-const allUsers = ref<any[]>([])
+const total = ref(0)
+const page = ref(1)
+const limit = ref(20)
+const hasMore = ref(true)
+const loadingMore = ref(false)
 
 const roleTabs = [
   { label: '全部', value: 'all' },
@@ -82,10 +93,17 @@ onMounted(() => {
 
 async function loadUsers() {
   try {
-    const res: any = await apiGetAdminUsers()
-if (res.code === 0) {
-      allUsers.value = res.data?.list || []
-      users.value = allUsers.value
+    const res: any = await apiGetAdminUsers({
+      page: 1,
+      limit: limit.value,
+      role: currentRole.value === 'all' ? undefined : currentRole.value,
+      keyword: keyword.value.trim() || undefined
+    })
+    if (res.code === 0) {
+      users.value = res.data?.list || []
+      total.value = res.data?.total || 0
+      hasMore.value = users.value.length < total.value
+      page.value = 1
     }
   } catch (e) {
     console.error('加载用户列表失败', e)
@@ -93,29 +111,36 @@ if (res.code === 0) {
   }
 }
 
-function onSearch() {
-  const kw = keyword.value.trim().toLowerCase()
-  if (!kw) {
-    users.value = allUsers.value
-    return
+async function onLoadMore() {
+  if (loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  try {
+    const res: any = await apiGetAdminUsers({
+      page: page.value + 1,
+      limit: limit.value,
+      role: currentRole.value === 'all' ? undefined : currentRole.value,
+      keyword: keyword.value.trim() || undefined
+    })
+    if (res.code === 0) {
+      const newUsers = res.data?.list || []
+      users.value = [...users.value, ...newUsers]
+      total.value = res.data?.total || 0
+      hasMore.value = users.value.length < total.value
+      page.value++
+    }
+  } catch (e) {
+    console.error('加载更多用户失败', e)
   }
-  users.value = allUsers.value.filter((u: any) => {
-    return u.nickname.toLowerCase().includes(kw) || u.phone.includes(kw)
-  })
+  loadingMore.value = false
+}
+
+function onSearch() {
+  loadUsers()
 }
 
 function onFilterRole(role: string) {
   currentRole.value = role
-  const kw = keyword.value.trim().toLowerCase()
-  if (role === 'all' && !kw) {
-    users.value = allUsers.value
-    return
-  }
-  users.value = allUsers.value.filter((u: any) => {
-    const matchRole = role === 'all' || u.role === role
-    const matchKw = !kw || u.nickname.toLowerCase().includes(kw) || u.phone.includes(kw)
-    return matchRole && matchKw
-  })
+  loadUsers()
 }
 
 function formatDate(isoString: string) {
@@ -276,5 +301,12 @@ const goToDetail = (userId: number) => {
   padding: 24rpx;
   font-size: 24rpx;
   color: #999999;
+}
+
+.loading-more {
+  text-align: center;
+  padding: 24rpx;
+  font-size: 24rpx;
+  color: #0FBF9F;
 }
 </style>

@@ -171,8 +171,8 @@ export function apiRejectClaim(claimId) {
  * 获取用户列表
  * GET /admin/users
  */
-export function apiGetAdminUsers() {
-  return request('/admin/users')
+export function apiGetAdminUsers(params = {}) {
+  return request('/admin/users', { params })
 }
 
 /**
