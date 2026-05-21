@@ -55,7 +55,7 @@
             "urlCheck" : false
         },
         "usingComponents" : true,
-        "requiredPrivateInfos" : [ "chooseLocation", "getLocation", "openLocation" ],
+        "requiredPrivateInfos" : [ "chooseLocation", "getLocation" ],
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "用于查看附近流浪动物位置"
