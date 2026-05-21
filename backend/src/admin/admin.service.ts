@@ -40,7 +40,59 @@ export class AdminService {
   async getEventDetail(event_id: string) {
     const event = await this.eventRepo.findOne({ where: { event_id } });
     if (!event) throw new Error('Event not found');
-    return event;
+
+    // 基础字段映射
+    const base = {
+      event_id: event.event_id,
+      event_type: event.event_type,
+      status: event.status,
+      description: event.description,
+      address: event.address,
+      location_lat: event.location_lat,
+      location_lng: event.location_lng,
+      occurred_at: event.occurred_at,
+      photos: event.photos || [],
+      fusion_score: event.fusion_score ?? null,
+      vector_similarity: event.vector_similarity ?? null,
+      gps_similarity: event.gps_similarity ?? null,
+      image_similarity: event.image_similarity ?? null,
+      text_match_rate: event.text_match_rate ?? null,
+      reporter_id: event.reporter_id,
+      created_at: event.created_at,
+      animal_id: event.animal_id || null,
+    };
+
+    // 如果有 candidates 候选列表，进行精细化拼装
+    if (event.candidates && event.candidates.length > 0) {
+      const animalIds = event.candidates.map((c: any) => c.animal_id).filter(Boolean);
+      const animals = animalIds.length > 0
+        ? await this.animalRepo.createQueryBuilder('a').where('a.animal_id IN (:...ids)', { ids: animalIds }).getMany()
+        : [];
+      const animalMap = new Map(animals.map((a: any) => [a.animal_id, a]));
+
+      const candidates = event.candidates.map((c: any) => {
+        const animal = animalMap.get(c.animal_id);
+        return {
+          animal_id: c.animal_id,
+          breed: animal?.breed || c.breed || '',
+          color: animal?.color || c.color || '',
+          gender: animal?.gender || c.gender || '',
+          status: animal?.status || c.status || '',
+          photos: animal?.photos || c.photos || [],
+          address: animal?.address || c.address || '',
+          fusion_score: c.fusion_score,
+          vector_similarity: c.vector_similarity,
+          gps_similarity: c.gps_similarity,
+          image_similarity: c.image_similarity,
+          text_match_rate: c.text_match_rate,
+          is_recommended: c.is_recommended || false,
+        };
+      });
+
+      return { ...base, candidates };
+    }
+
+    return { ...base, candidates: [] };
   }
 
   async confirmEvent(event_id: string) {
