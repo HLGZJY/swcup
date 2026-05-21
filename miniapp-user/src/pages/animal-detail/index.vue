@@ -423,9 +423,9 @@ function onClaim() {
 }
 
 .map-preview {
-  height: 200rpx;
-  background: #F0F0F0;
-  border-radius: 12rpx;
+  height: 320rpx;
+  background: linear-gradient(135deg, #E8FDF8 0%, #D0F0E8 100%);
+  border-radius: 24rpx;
   margin-top: 16rpx;
   overflow: hidden;
   position: relative;
@@ -439,16 +439,28 @@ function onClaim() {
 .map-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.3);
+  background: rgba(255, 255, 255, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.map-overlay::before {
+  content: '';
+  display: block;
+  width: 64rpx;
+  height: 64rpx;
+  background: url('/static/icons/icon-mappin.png') center/contain no-repeat;
+  opacity: 0.6;
+  margin-bottom: 8rpx;
 }
 
 .map-overlay text {
   font-size: 24rpx;
-  color: #FFFFFF;
-  background: rgba(0,0,0,0.5);
+  color: #1A1A1A;
+  background: rgba(255, 255, 255, 0.8);
   padding: 8rpx 24rpx;
   border-radius: 20rpx;
 }
