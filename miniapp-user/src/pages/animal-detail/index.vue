@@ -447,16 +447,6 @@ function onClaim() {
   gap: 8rpx;
 }
 
-.map-overlay::before {
-  content: '';
-  display: block;
-  width: 64rpx;
-  height: 64rpx;
-  background: url('../../../static/icons/icon-mappin.png') center/contain no-repeat;
-  opacity: 0.6;
-  margin-bottom: 8rpx;
-}
-
 .map-overlay text {
   font-size: 24rpx;
   color: #1A1A1A;

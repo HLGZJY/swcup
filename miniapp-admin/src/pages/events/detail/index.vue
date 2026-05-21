@@ -172,17 +172,6 @@ function goToAnimal(animalId: string) {
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  position: relative;
-  overflow: hidden;
-}
-
-.map-placeholder::before {
-  content: '';
-  display: block;
-  width: 80rpx;
-  height: 80rpx;
-  background: url('../../static/icons/icon-mappin.png') center/contain no-repeat;
-  opacity: 0.5;
 }
 
 .map-placeholder text {
