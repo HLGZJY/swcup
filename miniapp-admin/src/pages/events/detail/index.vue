@@ -118,13 +118,14 @@ function openMap() {
     return
   }
   uni.openLocation({
-    latitude: event.value.location_lat,
-    longitude: event.value.location_lng,
+    latitude: Number(event.value.location_lat),
+    longitude: Number(event.value.location_lng),
     name: event.value.address,
     fail: (err) => {
       console.error('openLocation fail', err)
       uni.showToast({ title: '地图打开失败', icon: 'none' })
     }
+  })
   })
 }
 

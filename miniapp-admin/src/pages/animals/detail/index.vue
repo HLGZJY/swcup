@@ -119,13 +119,14 @@ function openMap() {
     return
   }
   uni.openLocation({
-    latitude: animal.value.location_lat,
-    longitude: animal.value.location_lng,
+    latitude: Number(animal.value.location_lat),
+    longitude: Number(animal.value.location_lng),
     name: animal.value.address,
     fail: (err) => {
       console.error('openLocation fail', err)
       uni.showToast({ title: '地图打开失败', icon: 'none' })
     }
+  })
   })
 }
 </script>
