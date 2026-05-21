@@ -113,7 +113,21 @@ function formatTime(isoString?: string) {
 }
 
 function openMap() {
-  uni.showToast({ title: '该功能已下线', icon: 'none' })
+  if (!event.value?.location_lat || !event.value?.location_lng) {
+    uni.showToast({ title: '暂无位置坐标', icon: 'none' })
+    return
+  }
+  const name = event.value.address || `${event.value.location_lat},${event.value.location_lng}`
+  uni.openLocation({
+    latitude: Number(event.value.location_lat),
+    longitude: Number(event.value.location_lng),
+    name,
+    address: event.value.address,
+    fail: (err) => {
+      console.error('openLocation fail', err)
+      uni.showToast({ title: '地图打开失败', icon: 'none' })
+    }
+  })
 }
 
 function goToAnimal(animalId: string) {
