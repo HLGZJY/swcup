@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="list-empty" v-if="claims.length === 0 && !loading">
-      <text class="empty-icon">🏠</text>
+      <image class="empty-icon" src="/static/icons/icon-heart.png" mode="aspectFit" />
       <text class="empty-text">暂无认领记录</text>
       <text class="empty-hint">快去认领你心仪的动物吧</text>
     </view>
@@ -21,7 +21,7 @@
       <text class="claim-notes">{{ item.notes || '无备注' }}</text>
       <view class="claim-footer">
         <text class="claim-time">{{ formatTime(item.created_at) }}</text>
-        <text class="claim-arrow">›</text>
+        <image class="claim-arrow" src="/static/icons/icon-chevron-right.png" mode="aspectFit" />
       </view>
     </view>
 
@@ -50,7 +50,10 @@ onMounted(async () => {
   try {
     const res: any = await apiGetMyClaims()
     claims.value = res.data
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载我的认领失败', e)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  }
   loading.value = false
 })
 
@@ -87,7 +90,8 @@ function goToAnimal(animalId: string) {
 }
 
 .empty-icon {
-  font-size: 96rpx;
+  width: 96rpx;
+  height: 96rpx;
   margin-bottom: 24rpx;
 }
 
@@ -154,8 +158,9 @@ function goToAnimal(animalId: string) {
 }
 
 .claim-arrow {
-  font-size: 32rpx;
-  color: #CCCCCC;
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
 }
 
 .loading {

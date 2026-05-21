@@ -178,9 +178,13 @@ async function loadAnimals() {
         filterTabs.value[1].count = allRes.data.list.filter((a: any) => a.status === 'lost').length
         filterTabs.value[2].count = allRes.data.list.filter((a: any) => a.status === 'found').length
         filterTabs.value[3].count = allRes.data.list.filter((a: any) => a.status === 'claimed').length
-      } catch (e) {}
+      } catch (e) {
+        console.error('加载动物列表失败', e)
+      }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('刷新数据失败', err)
+  }
   loading.value = false
 }
 

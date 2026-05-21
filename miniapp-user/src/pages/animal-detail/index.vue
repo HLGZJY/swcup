@@ -220,7 +220,9 @@ onMounted(async () => {
       showFuseScore.value = true
       fuseScore.value = score
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('获取融合得分失败', e)
+  }
   uni.hideLoading()
 
   // 启用分享菜单

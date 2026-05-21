@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="list-empty" v-if="reports.length === 0 && !loading">
-      <text class="empty-icon">📋</text>
+      <image class="empty-icon" src="/static/icons/icon-filetext.png" mode="aspectFit" />
       <text class="empty-text">暂无上报记录</text>
       <text class="empty-hint">快去发现身边的流浪动物吧</text>
     </view>
@@ -20,7 +20,8 @@
       </view>
       <text class="report-desc">{{ item.description || '无描述' }}</text>
       <view class="report-footer">
-        <text class="report-location">📍 {{ item.address || '未知地点' }}</text>
+        <image class="report-location-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+        <text class="report-location">{{ item.address || '未知地点' }}</text>
         <text class="report-time">{{ formatTime(item.occurred_at) }}</text>
       </view>
     </view>
@@ -61,7 +62,10 @@ onMounted(async () => {
   try {
     const res: any = await apiGetMyEvents()
     reports.value = res.data || []
-  } catch (e) {}
+  } catch (e) {
+    console.error('加载我的上报失败', e)
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  }
   loading.value = false
 })
 
@@ -98,7 +102,8 @@ function goToAnimal(animalId: string) {
 }
 
 .empty-icon {
-  font-size: 96rpx;
+  width: 96rpx;
+  height: 96rpx;
   margin-bottom: 24rpx;
 }
 
@@ -157,7 +162,15 @@ function goToAnimal(animalId: string) {
 
 .report-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+}
+
+.report-location-icon {
+  width: 22rpx;
+  height: 22rpx;
+  margin-right: 4rpx;
+  flex-shrink: 0;
 }
 
 .report-location, .report-time {
