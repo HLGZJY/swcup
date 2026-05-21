@@ -248,24 +248,10 @@ function openMap() {
 }
 
 function onShare() {
-  if (!animal.value) {
-    uni.showToast({ title: '加载中，请稍候', icon: 'none' })
-    return
-  }
-  uni.share({
-    provider: 'weixin',
-    type: 'url',
-    title: `${animal.value.breed} ${statusMap[animal.value.status]} | ${animal.value.address}`,
-    imageUrl: animal.value.photos?.[0] || '/static/mock/dog-placeholder.png',
-    scene: 'session', // 分享到聊天
-    success: () => {
-      uni.showToast({ title: '分享成功', icon: 'success' })
-    },
-    fail: (err) => {
-      console.error('分享失败', err)
-      uni.showToast({ title: '分享失败', icon: 'none' })
-    }
-  })
+  // 微信小程序不支持直接调起分享对话框，需要通过原生分享菜单
+  // 用户点击右上角···菜单才能分享
+  // showShareMenu 已在 onMounted 中启用
+  uni.showToast({ title: '请点击右上角···分享', icon: 'none', duration: 2000 })
 }
 
 function onCollect() {
