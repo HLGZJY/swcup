@@ -164,7 +164,8 @@
 | 3.3 微信登录 | 🟡 待开始 | 老师 | 文档已产出，代码未实现 |
 | 3.4 前端Bug收尾 | 🟢 完成 | 队员 | admin-users增强+用户端分享功能 |
 | 3.5 AI权重加载 | 🟡 进行中 | 队长 | 加载stage1_oxford.pth替代ImageNet |
-| 3.6 管理端错误处理优化 | 🟡 待开始 | 队员 | 空catch统一toast提示 |
+| 3.6 管理端错误处理优化 | 🟢 完成 | 队员 | 空catch统一toast提示+console.error |
+| 3.7 用户端错误处理优化 | 🟢 完成 | 队员 | 空catch统一toast提示+console.error |
 
 ---
 
