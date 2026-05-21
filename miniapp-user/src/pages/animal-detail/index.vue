@@ -149,7 +149,7 @@
   </view>
 </template>
 
-<script>
+<script lang="ts">
 export default {
   data() {
     return {
@@ -260,6 +260,7 @@ function onClaim() {
   uni.navigateTo({
     url: `/pages/claim/index?animal_id=${animal.value.animal_id}`
   })
+}
 </script>
 
 <style scoped lang="scss">
