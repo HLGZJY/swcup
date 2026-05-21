@@ -39,8 +39,11 @@
           <image class="address-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
           <text class="address">{{ event.address }}</text>
         </view>
-        <view class="map-placeholder" @click="openMap" v-if="event.location_lat">
-          <text>点击查看地图</text>
+        <view class="map-preview" @click="openMap" v-if="event.location_lat">
+          <image class="map-thumb" :src="getStaticMapUrl(event.location_lat, event.location_lng)" mode="aspectFill" />
+          <view class="map-overlay">
+            <text>点击查看地图</text>
+          </view>
         </view>
       </view>
 
@@ -130,6 +133,13 @@ function openMap() {
   })
 }
 
+function getStaticMapUrl(lat: number | string, lng: number | string) {
+  const key = 'OB4BZ-D4W3R-BMFVO-3CJEN-3Y6LZ-G7F6Q'
+  const latStr = String(lat)
+  const lngStr = String(lng)
+  return `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
+}
+
 function goToAnimal(animalId: string) {
   uni.navigateTo({ url: `/pages/animals/detail/index?animal_id=${animalId}` })
 }
@@ -162,22 +172,35 @@ function goToAnimal(animalId: string) {
 .address-wrap { display: flex; align-items: center; margin-bottom: 16rpx; }
 .address-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; }
 .address { font-size: 26rpx; color: #666; flex: 1; }
-.map-placeholder {
+.map-preview {
   height: 320rpx;
   background: linear-gradient(135deg, #E8FDF8 0%, #D0F0E8 100%);
   border-radius: 24rpx;
   margin-top: 16rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
+  overflow: hidden;
+  position: relative;
 }
 
-.map-placeholder text {
+.map-thumb {
+  width: 100%;
+  height: 100%;
+}
+
+.map-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.map-overlay text {
   font-size: 24rpx;
-  color: #666;
-  background: rgba(255,255,255,0.7);
+  color: #1A1A1A;
+  background: rgba(255, 255, 255, 0.8);
   padding: 8rpx 24rpx;
   border-radius: 20rpx;
 }
