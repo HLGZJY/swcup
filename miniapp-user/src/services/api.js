@@ -193,11 +193,11 @@ export function apiResetPassword(phone, code, password) {
 
 /**
  * 创建动物档案（Plan B）
- * POST /animals
+ * POST /v2/animals
  * 请求: { species, breed, color, gender, age_estimate, health_status, location_lat, location_lng, address, notes }
  */
 export function apiCreateAnimal(params) {
-  return request('/v1/animals', {
+  return request('/v2/animals', {
     method: 'POST',
     body: params
   })
