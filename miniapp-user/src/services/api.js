@@ -15,7 +15,7 @@ const BASE_URL = 'http://192.168.32.1:3000'
  * 响应: { token, user: { user_id, nickname, phone, role, ... } }
  */
 export function apiLogin(phone, password) {
-  return request('/auth/login', {
+  return request('/v1/auth/login', {
     method: 'POST',
     body: { phone, password }
   }, { needAuth: false })
@@ -27,7 +27,7 @@ export function apiLogin(phone, password) {
  * 请求: { phone, password, nickname }
  */
 export function apiRegister(phone, password) {
-  return request('/auth/register', {
+  return request('/v1/auth/register', {
     method: 'POST',
     body: { phone, password }
   }, { needAuth: false })
@@ -39,7 +39,7 @@ export function apiRegister(phone, password) {
  * 请求: { code: wx.login() 返回的登录凭证 }
  */
 export function apiWeixinLogin(code) {
-  return request('/auth/weixin', {
+  return request('/v1/auth/weixin', {
     method: 'POST',
     body: { code }
   }, { needAuth: false })
@@ -49,18 +49,18 @@ export function apiWeixinLogin(code) {
 
 /**
  * 获取动物列表
- * GET /animals?page=1&limit=10&status=lost
+ * GET /v1/animals?page=1&limit=10&status=lost
  */
 export function apiGetAnimals(params = {}) {
-  return request('/animals', { params }, { needAuth: false })
+  return request('/v1/animals', { params }, { needAuth: false })
 }
 
 /**
  * 获取动物详情
- * GET /animals/:animal_id
+ * GET /v1/animals/:animal_id
  */
 export function apiGetAnimalDetail(animalId) {
-  return request(`/animals/${animalId}`, {}, { needAuth: false })
+  return request(`/v1/animals/${animalId}`, {}, { needAuth: false })
 }
 
 // ============ 鼻纹模块（公开）============
@@ -74,7 +74,7 @@ export function apiGetAnimalDetail(animalId) {
  * 请求: { nose_photo: "data:image/jpeg;base64,...", species, animal_id: null, location_lat, location_lng, device_id, timestamp }
  */
 export function apiNoseCollect(params) {
-  return request('/nose/collect', {
+  return request('/v1/nose/collect', {
     method: 'POST',
     body: params
   }, { needAuth: false })
@@ -87,7 +87,7 @@ export function apiNoseCollect(params) {
  * 注意：animal_id 必填，不能为 null
  */
 export function apiNoseCompare(params) {
-  return request('/nose/compare', {
+  return request('/v1/nose/compare', {
     method: 'POST',
     body: params
   }, { needAuth: false })
@@ -100,7 +100,7 @@ export function apiNoseCompare(params) {
  * GET /users/me
  */
 export function apiGetCurrentUser() {
-  return request('/users/me')
+  return request('/v1/users/me')
 }
 
 /**
@@ -109,7 +109,7 @@ export function apiGetCurrentUser() {
  * 请求: { nickname, role }
  */
 export function apiUpdateCurrentUser(params) {
-  return request('/users/me', {
+  return request('/v1/users/me', {
     method: 'PATCH',
     body: params
   })
@@ -121,7 +121,7 @@ export function apiUpdateCurrentUser(params) {
  * 请求: { event_type, species, gender, age_estimate, health_status, sterilized, color, breed, notes, first_seen_at, last_seen_at, location_lat, location_lng, address, tags, photos }
  */
 export function apiReportEvent(params) {
-  return request('/events', {
+  return request('/v1/events', {
     method: 'POST',
     body: params
   })
@@ -132,7 +132,7 @@ export function apiReportEvent(params) {
  * GET /events/my
  */
 export function apiGetMyEvents() {
-  return request('/events/my')
+  return request('/v1/events/my')
 }
 
 /**
@@ -140,7 +140,7 @@ export function apiGetMyEvents() {
  * GET /claims/my
  */
 export function apiGetMyClaims() {
-  return request('/claims/my')
+  return request('/v1/claims/my')
 }
 
 /**
@@ -149,7 +149,7 @@ export function apiGetMyClaims() {
  * 请求: { animal_id, event_id, notes, contact_method, contact_value }
  */
 export function apiSubmitClaim(params) {
-  return request('/claims', {
+  return request('/v1/claims', {
     method: 'POST',
     body: params
   })
@@ -161,7 +161,7 @@ export function apiSubmitClaim(params) {
  * 请求: { phone }
  */
 export function apiSendCode(phone) {
-  return request('/auth/send-code', {
+  return request('/v1/auth/send-code', {
     method: 'POST',
     body: { phone }
   }, { needAuth: false })
@@ -173,7 +173,7 @@ export function apiSendCode(phone) {
  * 请求: { phone, code, password }
  */
 export function apiBindPhone(phone, code, password) {
-  return request('/auth/bind-phone', {
+  return request('/v1/auth/bind-phone', {
     method: 'POST',
     body: { phone, code, password }
   })
@@ -185,7 +185,7 @@ export function apiBindPhone(phone, code, password) {
  * 请求: { phone, code, password }
  */
 export function apiResetPassword(phone, code, password) {
-  return request('/auth/reset-password', {
+  return request('/v1/auth/reset-password', {
     method: 'POST',
     body: { phone, code, password }
   }, { needAuth: false })
@@ -197,7 +197,7 @@ export function apiResetPassword(phone, code, password) {
  * 请求: { species, breed, color, gender, age_estimate, health_status, location_lat, location_lng, address, notes }
  */
 export function apiCreateAnimal(params) {
-  return request('/animals', {
+  return request('/v1/animals', {
     method: 'POST',
     body: params
   })
