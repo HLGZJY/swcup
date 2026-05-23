@@ -37,10 +37,16 @@ export class CollectNoseDto {
 }
 
 export class CompareNoseDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: '鼻纹记录ID' })
   @IsString()
-  @IsNotEmpty()
-  vector_id: string;
+  @IsOptional()
+  vector_id?: string;
+
+  // 兼容前端传入的 nose_id 别名
+  @ApiPropertyOptional({ description: '鼻纹记录ID（兼容）' })
+  @IsString()
+  @IsOptional()
+  nose_id?: string;
 
   @ApiPropertyOptional({ enum: ['cat', 'dog', 'other'] })
   @IsString()
@@ -73,4 +79,19 @@ export class CompareNoseDto {
   @IsString()
   @IsOptional()
   nose_photo_url?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  breed?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  color?: string;
+
+  @ApiPropertyOptional({ enum: ['male', 'female', 'unknown'] })
+  @IsString()
+  @IsOptional()
+  gender?: string;
 }
