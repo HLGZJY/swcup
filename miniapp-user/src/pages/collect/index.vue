@@ -87,8 +87,47 @@
       </view>
     </view>
 
-    <!-- 确认提交 -->
+    <!-- 填写信息 -->
     <view class="section" v-show="currentStep === 2">
+      <text class="section-title">填写宠物信息</text>
+
+      <view class="form-item">
+        <text class="form-label">品种</text>
+        <input
+          class="form-input"
+          v-model="breed"
+          placeholder="输入品种名称（如：柴犬）"
+          placeholder-class="input-placeholder"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">颜色</text>
+        <input
+          class="form-input"
+          v-model="color"
+          placeholder="输入颜色（如：黄白）"
+          placeholder-class="input-placeholder"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">性别</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in genderOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: gender === opt.value }]"
+            @click="gender = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 确认提交 -->
+    <view class="section" v-show="currentStep === 3">
       <text class="section-title">确认信息</text>
 
       <view class="confirm-card">
@@ -100,6 +139,18 @@
           <text class="confirm-label">鼻纹照片</text>
           <image v-if="nosePhoto" class="confirm-nose-thumb" :src="nosePhoto" mode="aspectFill" />
           <text v-else class="confirm-value danger">未上传</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">品种</text>
+          <text class="confirm-value">{{ breed || '未填写' }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">颜色</text>
+          <text class="confirm-value">{{ color || '未填写' }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">性别</text>
+          <text class="confirm-value">{{ genderLabel }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">位置</text>
@@ -135,7 +186,7 @@
         :class="['btn-next', { disabled: !canNext }]"
         @click="onNext"
       >
-        <text v-if="currentStep < 2">{{ currentStep === 1 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
+        <text v-if="currentStep < 3">{{ currentStep === 1 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
         <text v-else>开始比对</text>
       </view>
     </view>
@@ -155,7 +206,19 @@ const collectResult = ref<any>(null)
 const locationLat = ref<number | null>(null)
 const locationLng = ref<number | null>(null)
 
-const steps = ['选择物种', '拍摄鼻纹', '确认提交']
+const breed = ref('')
+const color = ref('')
+const gender = ref('unknown')
+const genderOptions = [
+  { value: 'unknown', label: '未知' },
+  { value: 'male', label: '公' },
+  { value: 'female', label: '母' },
+]
+const genderLabel = computed(() => {
+  return genderOptions.find(g => g.value === gender.value)?.label || '未知'
+})
+
+const steps = ['选择物种', '拍摄鼻纹', '填写信息', '确认提交']
 const tips = [
   '保持光线充足，避免强烈反光',
   '鼻头正对镜头，距离10-20cm',
@@ -176,6 +239,7 @@ const speciesLabel = computed(() => {
 const canNext = computed(() => {
   if (currentStep.value === 0) return true
   if (currentStep.value === 1) return !!nosePhoto.value
+  if (currentStep.value === 2) return true  // 新步骤，允许空
   return true
 })
 
@@ -316,15 +380,17 @@ async function onNext() {
     })
 
     collectResult.value = collectRes.data
-    uni.setStorageSync('vector_id', collectRes.data.nose_id)
+    // 后端返回 vector_id，前端用 nose_id 作参数名（后端已兼容）
+    const noseId = collectRes.data.vector_id || collectRes.data.nose_id
+    uni.setStorageSync('vector_id', noseId)
 
     uni.hideLoading()
     uni.showToast({ title: '采集成功', icon: 'success' })
 
-    // 跳转到结果页（URL 参数传递 nose_id 和 species）
+    // 跳转到结果页
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${collectRes.data.nose_id}&species=${selectedSpecies.value}`
+        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}`
       })
     }, 1000)
   } catch (e: any) {
@@ -744,5 +810,52 @@ async function onNext() {
 .btn-next.disabled {
   background: #CCCCCC;
   box-shadow: none;
+}
+
+.form-item {
+  margin-bottom: 32rpx;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.form-input {
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+}
+
+.input-placeholder {
+  color: #AAAAAA;
+}
+
+.gender-options {
+  display: flex;
+  gap: 16rpx;
+}
+
+.gender-btn {
+  flex: 1;
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #666666;
+  border: 4rpx solid transparent;
+}
+
+.gender-btn.selected {
+  border-color: #0FBF9F;
+  background: #E8FDF8;
+  color: #0FBF9F;
+  font-weight: 600;
 }
 </style>
