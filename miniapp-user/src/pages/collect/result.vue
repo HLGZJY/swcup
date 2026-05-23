@@ -261,9 +261,9 @@ async function onCreateAnimal() {
     // Step 1: 创建动物档案
     const animalRes: any = await apiCreateAnimal({
       species: selectedSpecies.value,
-      breed: '',
-      color: '',
-      gender: 'unknown',
+      breed: formBreed.value,
+      color: formColor.value,
+      gender: formGender.value,
       age_estimate: 'unknown',
       health_status: 'unknown',
       location_lat: 0,
