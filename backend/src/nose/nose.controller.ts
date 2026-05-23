@@ -25,4 +25,11 @@ export class NoseController {
   compare(@Body() dto: CompareNoseDto, @Request() req: any) {
     return this.noseService.compare(dto, req?.user?.user_id);
   }
+
+  @Public()
+  @Post('classify')
+  @ApiOperation({ summary: 'AI 品种分类（全身照）' })
+  classify(@Body() dto: { image: string }) {
+    return this.noseService.classify(dto)
+  }
 }

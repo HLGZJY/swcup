@@ -217,4 +217,60 @@ export class NoseService {
     const count = await this.noseRepo.count();
     return { recalculated: count, message: `已重新计算 ${count} 条鼻纹特征` };
   }
+
+  async classify(dto: { image: string }) {
+    const imageData = dto.image.replace(/^data:image\/\w+;base64,/, '')
+    const res = await axios.post(`${AI_SERVICE_URL}/classify/breed`, { image: imageData })
+
+    const breedMap: Record<string, string> = {
+      shiba_inu: '柴犬',
+      akita: '秋田犬',
+      american_bulldog: '美国 Bulldog',
+      beagle: '比格犬',
+      bengal: '孟加拉猫',
+      birman: '伯曼猫',
+      bombay: '孟买猫',
+      boxer: '拳师犬',
+      british_shorthair: '英国短毛猫',
+      chihuahua: '吉娃娃',
+      egyptian_mau: '埃及猫',
+      english_cocker_spaniel: '英国可卡犬',
+      english_setter: '英国塞特犬',
+      german_shorthaired: '德国短毛指示犬',
+      great_pyrenees: '大白熊犬',
+      havanese: '哈瓦那犬',
+      japanese_chin: '日本 chin 犬',
+      keeshond: '荷兰毛狮犬',
+      leonberger: '莱昂贝格犬',
+      maine_coon: '缅因猫',
+      miniature_pinscher: '迷你杜宾犬',
+      newfoundland: '纽芬兰犬',
+      persian: '波斯猫',
+      pomeranian: '博美犬',
+      pug: '巴哥犬',
+      ragdoll: '布偶猫',
+      russian_blue: '俄罗斯蓝猫',
+      saint_bernard: '圣伯纳犬',
+      samoyed: '萨摩耶',
+      scottish_terrier: '苏格兰梗',
+      siamese: '暹罗猫',
+      sphynx: '斯芬克斯猫',
+      staffordshire_bull_terrier: '斯塔福郡斗牛梗',
+      wheaten_terrier: '软毛麦色梗',
+      yorkshire_terrier: '约克夏梗',
+      abyssinian: '阿比西尼亚猫',
+      american_pit_bull_terrier: '美国比特斗牛犬',
+    }
+
+    return {
+      breed: res.data.breed,
+      breed_cn: breedMap[res.data.breed] || res.data.breed,
+      confidence: res.data.confidence,
+      top3: res.data.top3?.map((t: any) => ({
+        breed: t.breed,
+        breed_cn: breedMap[t.breed] || t.breed,
+        confidence: t.confidence
+      }))
+    }
+  }
 }
