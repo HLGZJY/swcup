@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
@@ -20,11 +20,17 @@ async function bootstrap() {
 
   app.enableCors();
 
+  app.enableVersioning({
+    defaultVersion: '1',
+    type: VersioningType.URI,
+  });
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('鼻纹智救 API')
     .setDescription('第十五届软件杯参赛项目 API 文档')
     .setVersion('1.0')
     .addBearerAuth()
+    .addApiVersionedMechanisms()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api-docs', app, document);
