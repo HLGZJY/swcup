@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, Version } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -15,6 +15,7 @@ import { QueryAnimalDto } from './dto/query-animal.dto';
 export class AnimalsController {
   constructor(private readonly animalsService: AnimalsService) {}
 
+  @Version('1')
   @Public()
   @Get()
   @ApiOperation({ summary: '获取动物列表' })
@@ -22,6 +23,7 @@ export class AnimalsController {
     return this.animalsService.findAll(query);
   }
 
+  @Version('1')
   @Public()
   @Get(':animal_id')
   @ApiOperation({ summary: '获取动物详情' })
@@ -30,6 +32,7 @@ export class AnimalsController {
   }
 
   // === Plan B: 管理端创建动物档案（admin 角色）===
+  @Version('1')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @Post()
@@ -39,6 +42,7 @@ export class AnimalsController {
   }
 
   // === Plan B: 用户端创建动物档案（无需 admin 角色）===
+  @Version('2')
   @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: '创建动物档案（用户端，Plan B）' })
@@ -46,6 +50,7 @@ export class AnimalsController {
     return this.animalsService.create(dto);
   }
 
+  @Version('1')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @Put(':animal_id')
@@ -54,6 +59,7 @@ export class AnimalsController {
     return this.animalsService.update(id, dto);
   }
 
+  @Version('1')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @Delete(':animal_id')
