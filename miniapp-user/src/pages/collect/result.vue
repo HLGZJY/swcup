@@ -105,14 +105,15 @@ import { apiNoseCompare, apiCreateAnimal, apiReportEvent } from '@/services/api'
 const compareResult = ref<any>(null)
 const selectedSpecies = ref('dog')
 const noseId = ref('')
+const formBreed = ref('')
+const formColor = ref('')
+const formGender = ref('')
 
 onMounted(async () => {
-  // 从 URL 参数读取采集时传递的数据
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender } = currentPage.options || {}
 
-  // 防御：避免 undefined 字符串流入后端
   if (!nose_id || nose_id === 'undefined') {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
     uni.navigateBack()
@@ -122,11 +123,18 @@ onMounted(async () => {
   noseId.value = nose_id
   selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
 
+  formBreed.value = decodeURIComponent(breed || '')
+  formColor.value = decodeURIComponent(color || '')
+  formGender.value = decodeURIComponent(gender || 'unknown')
+
   uni.showLoading({ title: '比对中...' })
   try {
     const result: any = await apiNoseCompare({
       nose_id: noseId.value,
-      species: selectedSpecies.value
+      species: selectedSpecies.value,
+      breed: formBreed.value,
+      color: formColor.value,
+      gender: formGender.value,
     })
     compareResult.value = result.data
   } catch (e) {
