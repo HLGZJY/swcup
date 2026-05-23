@@ -81,10 +81,11 @@ export class AdminService {
           photos: animal?.photos || c.photos || [],
           address: animal?.address || c.address || '',
           fusion_score: c.fusion_score,
-          vector_similarity: c.vector_similarity,
-          gps_similarity: c.gps_similarity,
-          image_similarity: c.image_similarity,
-          text_match_rate: c.text_match_rate,
+          scores: {
+            cosine_similarity: c.vector_similarity ?? null,
+            gps_score: c.gps_similarity ?? null,
+            text_match_rate: c.text_match_rate ?? null,
+          },
           is_recommended: c.is_recommended || false,
         };
       });
