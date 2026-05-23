@@ -27,6 +27,8 @@ export class EventsService {
       occurred_at: new Date(),
       status: EventStatus.PENDING,
       animal_id: dto.animal_id || undefined,  // Plan B: 关联已有动物
+      nose_vector_id: dto.nose_vector_id || undefined,
+      nose_photo_url: dto.nose_photo_url || undefined,
     } as Partial<RescueEvent>);
     await this.eventRepo.save(event);
     return { event_id, is_duplicate: false, fusion_score: null, status: 'pending' };
