@@ -13,6 +13,11 @@ export class CreateEventDto {
   @IsOptional()
   nose_vector_id?: string;
 
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  animal_id?: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
