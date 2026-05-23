@@ -8,7 +8,33 @@ import { Animal } from '../animals/entities/animal.entity';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
 
 const AI_SERVICE_URL = 'http://localhost:8000';
-const FUSION_WEIGHTS = { vector: 0.5, gps: 0.2, image: 0.15, text: 0.15 };
+const FUSION_WEIGHTS = { vector: 0.5, gps: 0.3, text: 0.2 };
+
+// Haversine 计算两点间地球表面距离（米）
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => d * Math.PI / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function gpsScore(distanceM: number): number {
+  return Math.max(0, Math.min(1, 1 - (distanceM - 500) / 1000))
+}
+
+function textMatch(dto: CompareNoseDto, animal: Animal): number {
+  const kw1 = [dto.breed, dto.color, dto.gender].filter(Boolean)
+  const kw2 = [animal.breed, animal.color, animal.gender].filter(Boolean)
+  if (!kw1.length && !kw2.length) return 1
+  if (!kw1.length || !kw2.length) return 0
+  const intersection = kw1.filter(k =>
+    kw2.some(v => v && k && (k.includes(v) || v.includes(k)))
+  )
+  return parseFloat((intersection.length / Math.max(kw1.length, kw2.length)).toFixed(4))
+}
 
 @Injectable()
 export class NoseService {
@@ -127,28 +153,31 @@ export class NoseService {
         const { cosine_similarity } = await this.compareVectors(sourceVec, targetVec);
         const vector_similarity = parseFloat(cosine_similarity.toFixed(4));
 
-        // GPS 距离（模拟，真实从 animal.location_* 算）
-        const gps_distance_m = 320 + Math.random() * 800;
-        const gpsScore = gps_distance_m <= 500 ? 1.0 : gps_distance_m >= 1500 ? 0 : Math.max(0, 1 - (gps_distance_m - 500) / 1000);
+        // GPS 距离真实计算（用 animal 表的 location_* 字段）
+        const animalLat = animal.location_lat || 0
+        const animalLng = animal.location_lng || 0
+        const gps_distance_m = Math.round(haversineDistance(
+          dto.location_lat || 0, dto.location_lng || 0,
+          animalLat, animalLng
+        ))
+        const gpsScoreVal = gpsScore(gps_distance_m)
 
-        // 图像/文本相似度（mock，真实需要另外的 AI 服务）
-        const image_similarity = parseFloat((0.80 + Math.random() * 0.15).toFixed(4));
-        const text_match_rate = parseFloat((0.70 + Math.random() * 0.20).toFixed(4));
+        // text_match_rate 真实计算（用 dto.breed/color/gender）
+        const textMatchVal = textMatch(dto, animal)
 
+        // fusion_score 三维度（去掉 image）
         const fusion_score = parseFloat((
           FUSION_WEIGHTS.vector * vector_similarity +
-          FUSION_WEIGHTS.gps * gpsScore +
-          FUSION_WEIGHTS.image * image_similarity +
-          FUSION_WEIGHTS.text * text_match_rate
-        ).toFixed(4));
+          FUSION_WEIGHTS.gps * gpsScoreVal +
+          FUSION_WEIGHTS.text * textMatchVal
+        ).toFixed(4))
 
         return {
           animal_id: animal.animal_id,
           fusion_score,
           vector_similarity,
-          gps_distance_m: Math.round(gps_distance_m),
-          image_similarity,
-          text_match_rate,
+          gps_distance_m,
+          text_match_rate: textMatchVal,
           animal: {
             animal_id: animal.animal_id,
             species: animal.species,
