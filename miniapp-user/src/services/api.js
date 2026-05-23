@@ -26,10 +26,22 @@ export function apiLogin(phone, password) {
  * POST /auth/register
  * 请求: { phone, password, nickname }
  */
-export function apiRegister(phone, password, nickname) {
+export function apiRegister(phone, password) {
   return request('/auth/register', {
     method: 'POST',
-    body: { phone, password, nickname }
+    body: { phone, password }
+  }, { needAuth: false })
+}
+
+/**
+ * 微信授权登录
+ * POST /auth/weixin
+ * 请求: { code: wx.login() 返回的登录凭证 }
+ */
+export function apiWeixinLogin(code) {
+  return request('/auth/weixin', {
+    method: 'POST',
+    body: { code }
   }, { needAuth: false })
 }
 
@@ -92,6 +104,18 @@ export function apiGetCurrentUser() {
 }
 
 /**
+ * 更新当前用户信息
+ * PATCH /users/me
+ * 请求: { nickname, role }
+ */
+export function apiUpdateCurrentUser(params) {
+  return request('/users/me', {
+    method: 'PATCH',
+    body: params
+  })
+}
+
+/**
  * 上报救助事件
  * POST /events
  * 请求: { event_type, species, gender, age_estimate, health_status, sterilized, color, breed, notes, first_seen_at, last_seen_at, location_lat, location_lng, address, tags, photos }
@@ -126,6 +150,54 @@ export function apiGetMyClaims() {
  */
 export function apiSubmitClaim(params) {
   return request('/claims', {
+    method: 'POST',
+    body: params
+  })
+}
+
+/**
+ * 发送验证码
+ * POST /auth/send-code
+ * 请求: { phone }
+ */
+export function apiSendCode(phone) {
+  return request('/auth/send-code', {
+    method: 'POST',
+    body: { phone }
+  }, { needAuth: false })
+}
+
+/**
+ * 绑定手机号
+ * POST /auth/bind-phone
+ * 请求: { phone, code, password }
+ */
+export function apiBindPhone(phone, code, password) {
+  return request('/auth/bind-phone', {
+    method: 'POST',
+    body: { phone, code, password }
+  })
+}
+
+/**
+ * 忘记密码重置
+ * POST /auth/reset-password
+ * 请求: { phone, code, password }
+ */
+export function apiResetPassword(phone, code, password) {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: { phone, code, password }
+  }, { needAuth: false })
+}
+
+/**
+ * 创建动物档案（Plan B）
+ * POST /animals
+ * 请求: { species, breed, color, gender, age_estimate, health_status, location_lat, location_lng, address, notes }
+ */
+export function apiCreateAnimal(params) {
+  return request('/animals', {
     method: 'POST',
     body: params
   })
