@@ -16,6 +16,11 @@ export class CreateEventDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  nose_photo_url?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   animal_id?: string;
 
   @ApiProperty()
