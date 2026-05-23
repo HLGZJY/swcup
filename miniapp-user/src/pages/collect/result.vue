@@ -71,15 +71,28 @@
 
     <!-- 底部操作 -->
     <view class="bottom-actions">
+      <!-- 确认重复提示 -->
       <view class="action-hint" v-if="topScore >= 0.88">
         <text class="hint-icon">⚠️</text>
         <text>已确认重复，管理员将审核合并</text>
       </view>
-      <view class="btn-primary" @click="onReport">
+      <!-- 有匹配：上报此动物 -->
+      <view class="btn-primary" v-if="showMatchList" @click="onReport">
         <text>上报此动物</text>
       </view>
-      <view class="btn-secondary" @click="onBackHome">
+      <view class="btn-secondary" v-if="showMatchList" @click="onBackHome">
         <text>返回首页</text>
+      </view>
+      <!-- Plan B 无匹配：双按钮 -->
+      <view class="action-hint info-hint" v-if="needsConfirmation">
+        <text class="hint-icon">ℹ️</text>
+        <text>未在数据库中找到匹配动物</text>
+      </view>
+      <view class="btn-primary" v-if="needsConfirmation" @click="onCreateAnimal">
+        <text>创建档案</text>
+      </view>
+      <view class="btn-secondary" v-if="needsConfirmation" @click="onCancel">
+        <text>取消</text>
       </view>
     </view>
   </view>
@@ -87,7 +100,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiNoseCompare } from '@/services/api'
+import { apiNoseCompare, apiCreateAnimal, apiReportEvent } from '@/services/api'
 
 const compareResult = ref<any>(null)
 const selectedSpecies = ref('dog')
@@ -99,13 +112,15 @@ onMounted(async () => {
   const currentPage = pages[pages.length - 1] as any
   const { nose_id, species } = currentPage.options || {}
 
-  noseId.value = nose_id || ''
-  selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
-
-  if (!noseId.value) {
-    uni.showToast({ title: '缺少鼻纹ID', icon: 'none' })
+  // 防御：避免 undefined 字符串流入后端
+  if (!nose_id || nose_id === 'undefined') {
+    uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
+    uni.navigateBack()
     return
   }
+
+  noseId.value = nose_id
+  selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
 
   uni.showLoading({ title: '比对中...' })
   try {
@@ -161,6 +176,20 @@ const matchList = computed(() => {
   return compareResult.value.results
 })
 
+// ============ Plan B 三分支状态 ============
+const hasMatch = computed(() => {
+  if (!compareResult.value) return false
+  const results = compareResult.value.results
+  return results && results.length > 0 && results[0].fusion_score >= 0.75
+})
+
+const needsConfirmation = computed(() => {
+  if (!compareResult.value) return false
+  return compareResult.value.next_action === 'ask_user_create'
+})
+
+const showMatchList = computed(() => hasMatch.value)
+
 // GPS 维度得分：≤500m=1.0, ≥1500m=0, 中间线性衰减
 function calcLocationScore(distanceM) {
   if (distanceM <= 500) return 1.0
@@ -193,8 +222,17 @@ function goToDetail(animalId: string) {
 }
 
 function onReport() {
+  if (!matchList.value || matchList.value.length === 0) {
+    uni.showToast({ title: '无匹配结果，无法上报', icon: 'none' })
+    return
+  }
+  const first = matchList.value[0]
+  if (!first?.animal_id || first.animal_id === 'undefined') {
+    uni.showToast({ title: '数据异常，请重新比对', icon: 'none' })
+    return
+  }
   uni.navigateTo({
-    url: '/pages/animal-detail/index?animal_id=' + matchList.value[0]?.animal_id
+    url: '/pages/animal-detail/index?animal_id=' + first.animal_id
   })
 }
 
@@ -202,6 +240,58 @@ function onBackHome() {
   uni.switchTab({
     url: '/pages/index/index'
   })
+}
+
+// ============ Plan B 无匹配流程 ============
+async function onCreateAnimal() {
+  if (!noseId.value) {
+    uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
+    return
+  }
+  uni.showLoading({ title: '创建中...' })
+  try {
+    // Step 1: 创建动物档案
+    const animalRes: any = await apiCreateAnimal({
+      species: selectedSpecies.value,
+      breed: '',
+      color: '',
+      gender: 'unknown',
+      age_estimate: 'unknown',
+      health_status: 'unknown',
+      location_lat: 0,
+      location_lng: 0,
+      address: '',
+      notes: '通过鼻纹采集新建',
+      primary_nose_id: noseId.value,
+      photos: [],
+    })
+    const animalId = animalRes.data?.animal_id || animalRes.animal_id
+    if (!animalId) throw new Error('创建动物档案失败')
+
+    // Step 2: 上报事件（关联到新建的动物）
+    await apiReportEvent({
+      event_type: 'report',
+      animal_id: animalId,
+      nose_vector_id: noseId.value,
+      species: selectedSpecies.value,
+      location_lat: 0,
+      location_lng: 0,
+    })
+
+    uni.hideLoading()
+    uni.showToast({ title: '创建成功', icon: 'success' })
+    setTimeout(() => {
+      uni.redirectTo({ url: `/pages/animal-detail/index?animal_id=${animalId}` })
+    }, 1000)
+  } catch (e) {
+    uni.hideLoading()
+    console.error('[onCreateAnimal]', e)
+    uni.showToast({ title: '创建失败，请重试', icon: 'none' })
+  }
+}
+
+function onCancel() {
+  uni.switchTab({ url: '/pages/index/index' })
 }
 </script>
 
@@ -495,5 +585,12 @@ function onBackHome() {
   font-size: 30rpx;
   font-weight: 600;
   border: 2rpx solid #EEEEEE;
+}
+
+.info-hint {
+  background: #E8F4FF;
+}
+.info-hint text:last-child {
+  color: #007AFF;
 }
 </style>
