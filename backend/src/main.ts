@@ -30,7 +30,6 @@ async function bootstrap() {
     .setDescription('第十五届软件杯参赛项目 API 文档')
     .setVersion('1.0')
     .addBearerAuth()
-    .addApiVersionedMechanisms()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api-docs', app, document);
