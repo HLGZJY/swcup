@@ -13,17 +13,17 @@ export class NoseFeature {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'vector_id' })
   vector_id: string;
 
-  @Column({ type: 'varchar', length: 36, name: 'animal_id' })
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'animal_id' })
   animal_id: string;
 
   @ManyToOne(() => Animal)
   @JoinColumn({ name: 'animal_id' })
   animal: Animal;
 
-  @Column({ type: 'blob', name: 'feature_vector' })
+  @Column({ type: 'text', name: 'feature_vector' })
   feature_vector: Buffer;
 
-  @Column({ type: 'int', default: 128, name: 'vector_dimension' })
+  @Column({ type: 'int', default: 512, name: 'vector_dimension' })
   vector_dimension: number;
 
   @Column({ type: 'varchar', length: 255, name: 'nose_photo_url' })

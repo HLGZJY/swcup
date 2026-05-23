@@ -1,6 +1,6 @@
 """Vector comparison endpoint."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import numpy as np
 
@@ -24,6 +24,9 @@ async def compare_vectors(body: CompareRequest):
     """
     Compute similarity between two 512-dim vectors.
     """
+    if len(body.vector_a) == 0 or len(body.vector_b) == 0:
+        raise HTTPException(status_code=400, detail="vector_a and vector_b cannot be empty")
+    
     a = np.array(body.vector_a, dtype=np.float32)
     b = np.array(body.vector_b, dtype=np.float32)
 

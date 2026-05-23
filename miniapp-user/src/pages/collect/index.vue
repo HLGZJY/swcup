@@ -44,8 +44,35 @@
       </view>
     </view>
 
-    <!-- 拍摄引导 -->
+    <!-- 拍摄全身照 -->
     <view class="section" v-show="currentStep === 1">
+      <text class="section-title">拍摄全身照</text>
+
+      <view class="camera-area" @click="onOpenBodyCamera">
+        <image
+          v-if="!bodyPhoto"
+          class="camera-placeholder"
+          src="/static/mock/body-guide.png"
+          mode="aspectFit"
+        />
+        <image v-else class="captured-photo" :src="bodyPhoto" mode="aspectFill" />
+        <view class="camera-overlay" v-if="!bodyPhoto">
+          <text class="camera-text">点击拍摄全身照</text>
+          <text class="camera-hint">请拍摄能看清品种特征的完整照片</text>
+        </view>
+        <view class="retake-btn" v-if="bodyPhoto" @click.stop="onRetakeBody">
+          <text>重新拍摄</text>
+        </view>
+      </view>
+
+      <view class="ai-hint" v-if="aiBreedSuggestion">
+        <text class="ai-icon">🤖</text>
+        <text>AI 识别为：{{ aiBreedSuggestion }}</text>
+      </view>
+    </view>
+
+    <!-- 拍摄引导 -->
+    <view class="section" v-show="currentStep === 2">
       <text class="section-title">拍摄鼻纹</text>
 
       <!-- 相机区域 -->
@@ -88,7 +115,7 @@
     </view>
 
     <!-- 填写信息 -->
-    <view class="section" v-show="currentStep === 2">
+    <view class="section" v-show="currentStep === 3">
       <text class="section-title">填写宠物信息</text>
 
       <view class="form-item">
@@ -127,13 +154,18 @@
     </view>
 
     <!-- 确认提交 -->
-    <view class="section" v-show="currentStep === 3">
+    <view class="section" v-show="currentStep === 4">
       <text class="section-title">确认信息</text>
 
       <view class="confirm-card">
         <view class="confirm-item">
           <text class="confirm-label">物种</text>
           <text class="confirm-value">{{ speciesLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">全身照</text>
+          <image v-if="bodyPhoto" class="confirm-nose-thumb" :src="bodyPhoto" mode="aspectFill" />
+          <text v-else class="confirm-value danger">未上传</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">鼻纹照片</text>
@@ -186,7 +218,7 @@
         :class="['btn-next', { disabled: !canNext }]"
         @click="onNext"
       >
-        <text v-if="currentStep < 3">{{ currentStep === 1 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
+        <text v-if="currentStep < 3">{{ currentStep === 2 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
         <text v-else>开始比对</text>
       </view>
     </view>
@@ -195,10 +227,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { apiNoseCollect } from '@/services/api'
+import { apiNoseCollect, apiClassifyBreed } from '@/services/api'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
+const bodyPhoto = ref('')
+const bodyPhotoBase64 = ref('')
+const aiBreedSuggestion = ref('')
 const nosePhoto = ref('')
 const nosePhotoBase64 = ref('') // Base64 格式用于上传
 const locationText = ref('定位中...')
@@ -218,7 +253,7 @@ const genderLabel = computed(() => {
   return genderOptions.find(g => g.value === gender.value)?.label || '未知'
 })
 
-const steps = ['选择物种', '拍摄鼻纹', '填写信息', '确认提交']
+const steps = ['选择物种', '拍摄全身照', '拍摄鼻纹', '填写信息', '确认提交']
 const tips = [
   '保持光线充足，避免强烈反光',
   '鼻头正对镜头，距离10-20cm',
@@ -238,8 +273,9 @@ const speciesLabel = computed(() => {
 
 const canNext = computed(() => {
   if (currentStep.value === 0) return true
-  if (currentStep.value === 1) return !!nosePhoto.value
-  if (currentStep.value === 2) return true  // 新步骤，允许空
+  if (currentStep.value === 1) return !!bodyPhoto.value
+  if (currentStep.value === 2) return !!nosePhoto.value
+  if (currentStep.value === 3) return true
   return true
 })
 
@@ -273,6 +309,38 @@ function onSelectSpecies(value: string) {
 
 function onImageError(e: any) {
   // 占位图加载失败时隐藏
+}
+
+function onOpenBodyCamera() {
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['camera'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths[0]
+      bodyPhoto.value = filePath
+      uni.showLoading({ title: 'AI 识别品种...' })
+      try {
+        bodyPhotoBase64.value = await fileToBase64(filePath)
+        const aiRes: any = await apiClassifyBreed({
+          image: bodyPhotoBase64.value
+        })
+        if (aiRes.data?.breed_cn) {
+          aiBreedSuggestion.value = aiRes.data.breed_cn
+          breed.value = aiRes.data.breed_cn
+        }
+      } catch (e) {
+        // AI 失败不阻止流程
+      } finally {
+        uni.hideLoading()
+      }
+    }
+  })
+}
+
+function onRetakeBody() {
+  bodyPhoto.value = ''
+  bodyPhotoBase64.value = ''
+  aiBreedSuggestion.value = ''
 }
 
 /**
@@ -355,7 +423,7 @@ function onBack() {
 }
 
 async function onNext() {
-  if (currentStep.value < 2) {
+  if (currentStep.value < 3) {
     currentStep.value++
     return
   }
@@ -857,5 +925,23 @@ async function onNext() {
   background: #E8FDF8;
   color: #0FBF9F;
   font-weight: 600;
+}
+
+.ai-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx;
+  background: #E8F4FF;
+  border-radius: 12rpx;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: #007AFF;
+}
+
+.camera-hint {
+  font-size: 22rpx;
+  color: rgba(255,255,255,0.7);
+  margin-top: 8rpx;
 }
 </style>

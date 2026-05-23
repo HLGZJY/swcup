@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
-import { UserRole } from '../users/entities/user.entity';
+import * as bcrypt from 'bcryptjs';
+import { User, UserRole } from '../users/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
+
+const BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class AuthService {
@@ -14,22 +16,17 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(code: string, nickname: string, avatar_url?: string) {
-    // 优先用 phone 精确匹配（已注册用户），其次用 wx_openid 字段
-    let user = await this.userRepo.findOne({ where: { phone: code } });
+  async login(phone: string, password: string) {
+    const user = await this.userRepo.findOne({ where: { phone } });
     if (!user) {
-      user = await this.userRepo.findOne({ where: { phone: `mock_${code}` } as any });
+      throw new Error('用户不存在');
     }
-    if (!user) {
-      // 新用户：phone 存原始 code，wx_openid 存 mock_ 前缀
-      user = this.userRepo.create({
-        user_id: uuidv4(),
-        nickname,
-        phone: code,
-        avatar_url: avatar_url || undefined,
-        role: UserRole.USER,
-      });
-      await this.userRepo.save(user);
+    if (!user.password_hash) {
+      throw new Error('密码未设置，请使用微信登录');
+    }
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      throw new Error('手机号或密码错误');
     }
     const token = this.jwtService.sign({ user_id: user.user_id, role: user.role });
     return {
@@ -38,8 +35,154 @@ export class AuthService {
     };
   }
 
-  async register(code: string, nickname: string, avatar_url?: string) {
-    return this.login(code, nickname, avatar_url);
+  async weixinLogin(code: string) {
+    const wxAppId = process.env.WX_APPID;
+    const wxSecret = process.env.WX_SECRET;
+
+    let openid: string;
+    try {
+      const wxRes = await fetch(
+        `https://api.weixin.qq.com/sns/jscode2session?appid=${wxAppId}&secret=${wxSecret}&js_code=${code}&grant_type=authorization_code`,
+        { method: 'GET' }
+      );
+      const wxData = await wxRes.json() as { openid?: string; session_key?: string; errcode?: number; errmsg?: string };
+      if (!wxData.openid) {
+        throw new Error(wxData.errmsg || '微信授权失败');
+      }
+      openid = wxData.openid;
+    } catch (err) {
+      throw new Error('微信授权失败，请稍后重试');
+    }
+
+    // 先查是否存在，不存在才新建（避免每次 upsert 生成新 UUID）
+    let user = await this.userRepo.findOne({ where: { openid } });
+    if (!user) {
+      user = this.userRepo.create({
+        user_id: uuidv4(),
+        openid,
+        nickname: '',
+        phone: null,
+        password_hash: null,
+        avatar_url: null,
+        role: UserRole.USER,
+        agreed_privacy_at: new Date(),
+      });
+      await this.userRepo.save(user);
+    } else if (!user.agreed_privacy_at) {
+      // 补充隐私协议记录
+      user.agreed_privacy_at = new Date();
+      await this.userRepo.save(user);
+    }
+
+    const token = this.jwtService.sign({ user_id: user.user_id, role: user.role });
+    return {
+      token,
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  async register(phone: string, password: string) {
+    // 密码强度校验
+    if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
+      throw new Error('密码最短8位，需包含字母和数字');
+    }
+
+    // 检查手机号是否已注册
+    const existing = await this.userRepo.findOne({ where: { phone } });
+    if (existing) {
+      throw new Error('该手机号已注册，请直接登录');
+    }
+
+    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const user = this.userRepo.create({
+      user_id: uuidv4(),
+      nickname: '',
+      phone,
+      password_hash,
+      openid: null,
+      avatar_url: null,
+      role: UserRole.USER,
+      agreed_privacy_at: new Date(),
+    });
+    await this.userRepo.save(user);
+
+    const token = this.jwtService.sign({ user_id: user.user_id, role: user.role });
+    return {
+      token,
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  // Mock 验证码存储（比赛用：固定 888888）
+  private mockCodes: Map<string, { code: string; expiresAt: number }> = new Map();
+
+  async sendCode(phone: string) {
+    // 比赛模式：固定验证码 888888
+    const code = '888888';
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5分钟过期
+    this.mockCodes.set(phone, { code, expiresAt });
+    console.log(`[Mock SMS] 手机号 ${phone} 的验证码是：${code}`);
+    return { message: '验证码已发送' };
+  }
+
+  async bindPhone(phone: string, code: string, user_id: string, password: string) {
+    // 验证码校验
+    const stored = this.mockCodes.get(phone);
+    if (!stored || stored.code !== code) {
+      throw new Error('验证码错误');
+    }
+    if (Date.now() > stored.expiresAt) {
+      throw new Error('验证码已过期');
+    }
+    this.mockCodes.delete(phone);
+
+    // 更新字段
+    if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
+      throw new Error('密码最短8位，需包含字母和数字');
+    }
+    await this.userRepo.update({ user_id }, {
+      phone,
+      password_hash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+    });
+    const user = await this.userRepo.findOne({ where: { user_id } });
+    return {
+      message: '绑定成功',
+      user: this.sanitizeUser(user!),
+    };
+  }
+
+  async resetPassword(phone: string, code: string, password: string) {
+    // 验证码校验
+    const stored = this.mockCodes.get(phone);
+    if (!stored || stored.code !== code) {
+      throw new Error('验证码错误');
+    }
+    if (Date.now() > stored.expiresAt) {
+      throw new Error('验证码已过期');
+    }
+    this.mockCodes.delete(phone);
+
+    // 检查用户是否存在
+    const user = await this.userRepo.findOne({ where: { phone } });
+    if (!user) {
+      throw new Error('该手机号未注册，请先注册');
+    }
+
+    // 密码强度校验
+    if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
+      throw new Error('密码最短8位，需包含字母和数字');
+    }
+
+    // 更新密码
+    await this.userRepo.update({ user_id: user.user_id }, {
+      password_hash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+    });
+
+    const token = this.jwtService.sign({ user_id: user.user_id, role: user.role });
+    return {
+      token,
+      user: this.sanitizeUser(user),
+    };
   }
 
   private sanitizeUser(user: User) {

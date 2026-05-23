@@ -10,9 +10,49 @@
       }
     },
     {
+      "path": "pages/login/reset-password/index",
+      "style": {
+        "navigationBarTitleText": "重置密码",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/register/index",
+      "style": {
+        "navigationBarTitleText": "注册",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/privacy/index",
+      "style": {
+        "navigationBarTitleText": "隐私政策",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/complete/index",
+      "style": {
+        "navigationBarTitleText": "完善资料",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/bind/index",
+      "style": {
+        "navigationBarTitleText": "绑定手机",
         "navigationBarBackgroundColor": "#E8FDF8",
         "navigationBarTextStyle": "black"
       }

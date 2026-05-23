@@ -93,6 +93,15 @@ export function apiNoseCompare(params) {
   }, { needAuth: false })
 }
 
+/**
+ * AI 品种分类（全身照）
+ * POST /v1/nose/classify
+ * 请求: { image: "data:image/jpeg;base64,..." }
+ */
+export function apiClassifyBreed(params) {
+  return request('/v1/nose/classify', { method: 'POST', body: params }, { needAuth: false })
+}
+
 // ============ 用户私有接口（需认证）============
 
 /**

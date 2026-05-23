@@ -22,6 +22,15 @@
       </view>
     </view>
 
+    <!-- 完善信息引导 Banner -->
+    <view v-if="needsProfileComplete" class="profile-banner" @click="goToCompleteProfile">
+      <view class="banner-left">
+        <text class="banner-icon">⚠️</text>
+        <text class="banner-text">完善您的昵称和角色信息</text>
+      </view>
+      <text class="banner-arrow">›</text>
+    </view>
+
     <!-- 统计卡片 -->
     <view class="stats-grid">
       <view class="stat-item" @click="goToMyReports">
@@ -55,6 +64,13 @@
         <text class="menu-text">认领记录</text>
         <text class="menu-arrow">›</text>
       </view>
+
+      <!-- 绑定手机 -->
+      <view class="menu-item" @click="goToBindPhone">
+        <text class="menu-icon">📱</text>
+        <text class="menu-text">绑定手机</text>
+        <text class="menu-arrow">›</text>
+      </view>
     </view>
 
     <view class="menu-section">
@@ -82,8 +98,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiGetCurrentUser, apiGetMyClaims } from '@/services/api'
+
+async function refreshUserData() {
+  const [userRes, claimRes] = await Promise.all([
+    apiGetCurrentUser(),
+    apiGetMyClaims()
+  ])
+
+  if (userRes.code === 0) {
+    user.value = userRes.data
+  }
+
+  if (claimRes.code === 0) {
+    stats.value.claimCount = claimRes.data.length
+    stats.value.approvedCount = claimRes.data.filter((c: any) => c.status === 'approved').length
+  }
+}
 
 const user = ref<any>({
   nickname: '加载中...',
@@ -107,20 +139,18 @@ const roleLabel = computed(() => {
   return map[user.value.role] || '普通用户'
 })
 
+const needsProfileComplete = computed(() => {
+  return !user.value.nickname || user.value.nickname === '加载中...'
+})
+
 onMounted(async () => {
-  const [userRes, claimRes] = await Promise.all([
-    apiGetCurrentUser(),
-    apiGetMyClaims()
-  ])
+  await refreshUserData()
+  // 监听每次显示此页面（从其他页面返回）
+  uni.$on('page:refresh-user', refreshUserData)
+})
 
-  if (userRes.code === 0) {
-    user.value = userRes.data
-  }
-
-  if (claimRes.code === 0) {
-    stats.value.claimCount = claimRes.data.length
-    stats.value.approvedCount = claimRes.data.filter((c: any) => c.status === 'approved').length
-  }
+onUnmounted(() => {
+  uni.$off('page:refresh-user', refreshUserData)
 })
 
 function onAvatarError() {
@@ -149,6 +179,14 @@ function goToHelp() {
 
 function goToAbout() {
   uni.showToast({ title: '鼻纹智救 v1.0.0', icon: 'none' })
+}
+
+function goToCompleteProfile() {
+  uni.navigateTo({ url: '/pages/profile/complete/index' })
+}
+
+function goToBindPhone() {
+  uni.navigateTo({ url: '/pages/profile/bind/index' })
 }
 
 function onLogout() {
@@ -271,9 +309,40 @@ function onLogout() {
   background: #EEEEEE;
 }
 
+.profile-banner {
+  margin: 24rpx 24rpx 0;
+  background: #FFF3E0;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1rpx solid #FFE0B2;
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.banner-text {
+  font-size: 26rpx;
+  color: #E65100;
+}
+
+.banner-arrow {
+  font-size: 32rpx;
+  color: #FFB74D;
+}
+
 .menu-section {
   background: #FFFFFF;
-  margin: 0 24rpx 24rpx;
+  margin: 24rpx 24rpx 24rpx;
   border-radius: 16rpx;
   overflow: hidden;
 }

@@ -6,11 +6,11 @@
         <image class="logo-icon" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
       </view>
       <text class="brand-name">鼻纹智救</text>
-      <text class="brand-slogan">AI 流浪动物 · 防重复救助</text>
+      <text class="brand-slogan">注册您的账号</text>
     </view>
 
-    <!-- 登录表单 -->
-    <view class="login-form">
+    <!-- 注册表单 -->
+    <view class="register-form">
       <!-- 手机号 -->
       <view class="form-item">
         <text class="form-label">手机号</text>
@@ -30,14 +30,20 @@
         <input
           type="password"
           class="form-input"
-          placeholder="请输入密码"
+          placeholder="请输入密码（至少8位，包含字母和数字）"
           v-model="password"
         />
       </view>
 
-      <!-- 忘记密码 -->
-      <view class="forgot-row">
-        <text class="forgot-link" @click="onForgot">忘记密码？</text>
+      <!-- 确认密码 -->
+      <view class="form-item">
+        <text class="form-label">确认密码</text>
+        <input
+          type="password"
+          class="form-input"
+          placeholder="请再次输入密码"
+          v-model="confirmPassword"
+        />
       </view>
 
       <!-- 隐私协议勾选 -->
@@ -50,27 +56,19 @@
         </checkbox-group>
       </view>
 
-      <!-- 登录按钮 -->
+      <!-- 注册按钮 -->
       <button
-        class="login-btn"
-        :class="{ disabled: !canLogin }"
-        @click="onLogin"
+        class="register-btn"
+        :class="{ disabled: !canRegister }"
+        @click="onRegister"
       >
-        登录
+        注册
       </button>
 
-      <!-- 微信登录按钮 -->
-      <button
-        class="weixin-login-btn"
-        @click="onWxLogin"
-      >
-        微信一键登录
-      </button>
-
-      <!-- 注册入口 -->
-      <view class="register-row">
-        <text class="register-text">还没有账号？</text>
-        <text class="register-link" @click="onRegister">立即注册</text>
+      <!-- 登录入口 -->
+      <view class="login-row">
+        <text class="login-text">已有账号？</text>
+        <text class="login-link" @click="onLogin">立即登录</text>
       </view>
     </view>
   </view>
@@ -78,14 +76,18 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { apiLogin, apiRegister, apiWeixinLogin } from '@/services/api'
+import { apiRegister } from '@/services/api'
 
 const phone = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const privacyAgreed = ref(false)
 
-const canLogin = computed(() => {
-  return phone.value.length === 11 && password.value.length >= 6 && privacyAgreed.value
+const canRegister = computed(() => {
+  return phone.value.length === 11 &&
+    password.value.length >= 8 &&
+    confirmPassword.value.length >= 8 &&
+    privacyAgreed.value
 })
 
 function onPrivacyChange(e: any) {
@@ -96,8 +98,8 @@ function showPrivacy() {
   uni.navigateTo({ url: '/pages/privacy/index' })
 }
 
-async function onLogin() {
-  if (!canLogin.value) {
+async function onRegister() {
+  if (!canRegister.value) {
     if (!privacyAgreed.value) {
       uni.showToast({ title: '请先同意隐私政策', icon: 'none' })
       return
@@ -106,76 +108,43 @@ async function onLogin() {
       uni.showToast({ title: '请输入11位手机号', icon: 'none' })
       return
     }
-    if (password.value.length < 6) {
-      uni.showToast({ title: '密码至少6位', icon: 'none' })
+    if (password.value.length < 8) {
+      uni.showToast({ title: '密码至少8位，包含字母和数字', icon: 'none' })
+      return
+    }
+    if (password.value !== confirmPassword.value) {
+      uni.showToast({ title: '两次密码输入不一致', icon: 'none' })
       return
     }
     return
   }
 
-  uni.showLoading({ title: '登录中...' })
+  uni.showLoading({ title: '注册中...' })
 
   try {
-    const res: any = await apiLogin(phone.value, password.value)
+    const res: any = await apiRegister(phone.value, password.value)
 
     // 保存登录态
     uni.setStorageSync('token', res.data.token)
     uni.setStorageSync('user_info', res.data.user)
 
     uni.hideLoading()
-    uni.showToast({ title: '登录成功', icon: 'success' })
+    uni.showToast({ title: '注册成功', icon: 'success' })
     setTimeout(() => {
       uni.switchTab({ url: '/pages/index/index' })
     }, 800)
   } catch (err: any) {
     uni.hideLoading()
-    // 错误已由拦截器统一处理，这里只做兜底
-    if (err.code === 40301) {
-      uni.showToast({ title: '手机号或密码错误', icon: 'none' })
+    if (err.code === 409) {
+      uni.showToast({ title: '该手机号已注册', icon: 'none' })
+    } else {
+      uni.showToast({ title: err.message || '注册失败', icon: 'none' })
     }
   }
 }
 
-function onRegister() {
-  if (!privacyAgreed.value) {
-    uni.showToast({ title: '请先阅读并同意隐私政策', icon: 'none' })
-    return
-  }
-  uni.navigateTo({ url: '/pages/register/index' })
-}
-
-function onForgot() {
-  uni.navigateTo({ url: '/pages/login/reset-password/index' })
-}
-
-async function onWxLogin() {
-  uni.showLoading({ title: '登录中...' })
-
-  try {
-    // 1. 获取微信登录凭证
-    const loginRes = await uni.login({ provider: 'weixin' })
-    if (!loginRes.code) {
-      uni.hideLoading()
-      uni.showToast({ title: '微信登录失败', icon: 'none' })
-      return
-    }
-
-    // 2. 发送到后端换 token
-    const result = await apiWeixinLogin(loginRes.code)
-
-    // 保存登录态
-    uni.setStorageSync('token', result.data.token)
-    uni.setStorageSync('user_info', result.data.user)
-
-    uni.hideLoading()
-    uni.showToast({ title: '登录成功', icon: 'success' })
-    setTimeout(() => {
-      uni.switchTab({ url: '/pages/index/index' })
-    }, 800)
-  } catch (err: any) {
-    uni.hideLoading()
-    uni.showToast({ title: err.message || '登录失败', icon: 'none' })
-  }
+function onLogin() {
+  uni.navigateBack()
 }
 </script>
 
@@ -225,7 +194,7 @@ async function onWxLogin() {
   margin-top: 8rpx;
 }
 
-.login-form {
+.register-form {
   width: 100%;
   background: #FFFFFF;
   border-radius: 24rpx;
@@ -260,18 +229,6 @@ async function onWxLogin() {
   color: #CCCCCC;
 }
 
-.forgot-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8rpx;
-  margin-bottom: 24rpx;
-}
-
-.forgot-link {
-  font-size: 24rpx;
-  color: #0FBF9F;
-}
-
 .privacy-row {
   margin: 24rpx 0;
 }
@@ -287,7 +244,7 @@ async function onWxLogin() {
   margin-left: 8rpx;
 }
 
-.login-btn {
+.register-btn {
   width: 100%;
   height: 96rpx;
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
@@ -303,48 +260,28 @@ async function onWxLogin() {
   margin-top: 16rpx;
 }
 
-.login-btn.disabled {
+.register-btn.disabled {
   background: #CCCCCC;
   box-shadow: none;
 }
 
-.login-btn::after {
+.register-btn::after {
   border: none;
 }
 
-.weixin-login-btn {
-  width: 100%;
-  height: 96rpx;
-  background: #07C160;
-  border-radius: 48rpx;
-  color: #FFFFFF;
-  font-size: 30rpx;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  box-shadow: 0 4rpx 20rpx rgba(7, 193, 96, 0.3);
-  margin-top: 24rpx;
-}
-
-.weixin-login-btn::after {
-  border: none;
-}
-
-.register-row {
+.login-row {
   display: flex;
   justify-content: center;
   align-items: center;
   margin-top: 32rpx;
 }
 
-.register-text {
+.login-text {
   font-size: 24rpx;
   color: #999999;
 }
 
-.register-link {
+.login-link {
   font-size: 24rpx;
   color: #0FBF9F;
   margin-left: 8rpx;

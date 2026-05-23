@@ -23,8 +23,17 @@ export class User {
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phone: string;
 
+  @Column({ type: 'varchar', length: 64, unique: true, nullable: true, name: 'openid' })
+  openid: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'password_hash' })
+  password_hash: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar_url' })
   avatar_url: string;
+
+  @Column({ type: 'datetime', nullable: true, name: 'agreed_privacy_at' })
+  agreed_privacy_at: Date;
 
   @Column({
     type: 'enum',
