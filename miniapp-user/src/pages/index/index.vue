@@ -90,7 +90,7 @@
           </view>
 
           <view class="info-tags">
-            <text class="tag" v-for="tag in animal.tags.slice(0, 3)" :key="tag">{{ tag }}</text>
+            <text class="tag" v-for="tag in (animal.tags || []).slice(0, 3)" :key="tag">{{ tag }}</text>
           </view>
 
           <view class="info-footer">
