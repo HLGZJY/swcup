@@ -29,6 +29,14 @@ export class AnimalsController {
     return this.animalsService.findOne(id);
   }
 
+  // === Plan B: 用户端创建动物档案（无需 admin 角色）===
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  @ApiOperation({ summary: '创建动物档案（用户端，Plan B）' })
+  createForUser(@Body() dto: CreateAnimalDto) {
+    return this.animalsService.create(dto);
+  }
+
   @UseGuards(RolesGuard)
   @Roles('admin')
   @Post()
