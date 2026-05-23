@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
 import { Animal } from '../animals/entities/animal.entity';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
+
+const AI_SERVICE_URL = 'http://localhost:8000';
+const FUSION_WEIGHTS = { vector: 0.5, gps: 0.2, image: 0.15, text: 0.15 };
 
 @Injectable()
 export class NoseService {
@@ -13,18 +17,58 @@ export class NoseService {
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
   ) {}
 
+  // 调 AI-service 提取特征向量
+  private async extractVectorFromImage(base64Image: string): Promise<number[]> {
+    const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '');
+    const res = await axios.post(`${AI_SERVICE_URL}/extract/feature`, { image: imageData });
+    return res.data.vector as number[];
+  }
+
+  // 调 AI-service 比对两个向量
+  private async compareVectors(vecA: number[], vecB: number[]): Promise<{ cosine_similarity: number; l2_distance: number }> {
+    const res = await axios.post(`${AI_SERVICE_URL}/compare/vector`, {
+      vector_a: vecA,
+      vector_b: vecB,
+    });
+    return res.data;
+  }
+
+  // 将512维向量编码为hex字符串存储
+  private encodeVector(vec: number[]): string {
+    return vec.map(v => {
+      const normalized = Math.max(0, Math.min(1, (v + 1) / 2));
+      const byte = Math.round(normalized * 255);
+      return byte.toString(16).padStart(2, '0');
+    }).join('');
+  }
+
+  // 从hex字符串解码为512维向量
+  private decodeVector(encoded: string): number[] {
+    const arr: number[] = [];
+    for (let i = 0; i < encoded.length; i += 2) {
+      const byte = parseInt(encoded.substr(i, 2), 16);
+      arr.push(byte / 255.0 * 2 - 1);
+    }
+    return arr;
+  }
+
   async collect(dto: CollectNoseDto, user_id: string) {
-    // Mock AI response - 真实环境调用 FastAPI
+    if (!dto.nose_photo) {
+      throw new Error('缺少鼻纹照片');
+    }
+
+    // 调用 AI 服务提取 512 维向量
+    const vector = await this.extractVectorFromImage(dto.nose_photo);
     const vector_id = uuidv4();
     const confidence_score = 0.85 + Math.random() * 0.1;
     const liveness_passed = true;
 
-    // 存储鼻纹特征记录
+    // 存储鼻纹特征记录（vector 存为 hex 编码的字符串）
     const feature = this.noseRepo.create({
       vector_id,
-      animal_id: null, // 先采集鼻纹，待关联动物
-      feature_vector: Buffer.alloc(512),
-      nose_photo_url: '/static/uploads/nose_' + vector_id + '.jpg',
+      animal_id: null,
+      feature_vector: this.encodeVector(vector) as any,  // hex string stored as text
+      nose_photo_url: dto.nose_photo_url || '/static/uploads/nose_' + vector_id + '.jpg',
       confidence_score,
       is_primary: true,
       collection_angle: 'front',
@@ -37,45 +81,107 @@ export class NoseService {
   }
 
   async compare(dto: CompareNoseDto, user_id: string) {
-    // Mock AI 比对结果 - 真实环境调用 FastAPI + 数据库向量
-    const animals = await this.animalRepo.find();
+    // 兼容 nose_id 别名
+    const vectorId = dto.vector_id || dto.nose_id;
+    console.log('[NoseService.compare] vectorId:', vectorId, 'dto:', JSON.stringify(dto));
+    if (!vectorId) {
+      throw new Error('缺少鼻纹记录ID');
+    }
+
+    // 1. 拿到待比对的向量
+    const source = await this.noseRepo.findOne({ where: { vector_id: vectorId } });
+    console.log('[NoseService.compare] source record:', source ? `vector_id=${source.vector_id}` : 'NOT FOUND');
+    if (!source) {
+      throw new Error('鼻纹记录不存在');
+    }
+    const sourceVec = this.decodeVector((source.feature_vector as unknown) as string);
+
+    // 2. 查同类动物的全部主鼻纹（取前50条做比对）
+    const animals = dto.species
+      ? await this.animalRepo.find({
+          where: { species: dto.species as any, status: 'lost' as any },
+          take: 50,
+        })
+      : await this.animalRepo.find({
+          where: { status: 'lost' as any },
+          take: 50,
+        });
+
     const threshold_confirmed = 0.88;
     const threshold_suspected = 0.75;
 
-    const results = animals.slice(0, 5).map((animal, i) => {
-      const fusion_score = parseFloat((0.90 - i * 0.08).toFixed(4));
-      const vector_similarity = parseFloat((0.95 - i * 0.03).toFixed(4));
-      const gps_distance_m = [320, 850, 1250, 1600, 2100][i] || 2000;
-      const image_similarity = parseFloat((0.88 - i * 0.05).toFixed(4));
-      const text_match_rate = parseFloat((0.80 - i * 0.04).toFixed(4));
-      return {
-        animal_id: animal.animal_id,
-        fusion_score,
-        vector_similarity,
-        gps_distance_m,
-        image_similarity,
-        text_match_rate,
-        animal: {
+    const results = await Promise.all(
+      animals.map(async (animal) => {
+        // 找该动物的[主鼻纹向量]（通过 animal.primary_nose_id 关联）
+        const noseFeature = await this.noseRepo.findOne({
+          where: { vector_id: animal.primary_nose_id },
+        });
+        if (!noseFeature) return null;
+
+        const encoded = (noseFeature.feature_vector as unknown) as string;
+        if (!encoded || encoded.length === 0) return null;
+
+        const targetVec = this.decodeVector(encoded);
+
+        // 调 AI-service 比对
+        const { cosine_similarity } = await this.compareVectors(sourceVec, targetVec);
+        const vector_similarity = parseFloat(cosine_similarity.toFixed(4));
+
+        // GPS 距离（模拟，真实从 animal.location_* 算）
+        const gps_distance_m = 320 + Math.random() * 800;
+        const gpsScore = gps_distance_m <= 500 ? 1.0 : gps_distance_m >= 1500 ? 0 : Math.max(0, 1 - (gps_distance_m - 500) / 1000);
+
+        // 图像/文本相似度（mock，真实需要另外的 AI 服务）
+        const image_similarity = parseFloat((0.80 + Math.random() * 0.15).toFixed(4));
+        const text_match_rate = parseFloat((0.70 + Math.random() * 0.20).toFixed(4));
+
+        const fusion_score = parseFloat((
+          FUSION_WEIGHTS.vector * vector_similarity +
+          FUSION_WEIGHTS.gps * gpsScore +
+          FUSION_WEIGHTS.image * image_similarity +
+          FUSION_WEIGHTS.text * text_match_rate
+        ).toFixed(4));
+
+        return {
           animal_id: animal.animal_id,
-          species: animal.species,
-          breed: animal.breed,
-          color: animal.color,
-          gender: animal.gender,
-          status: animal.status,
-          first_seen_at: animal.first_seen_at,
-          address: animal.address,
-          photos: animal.photos || [],
-        },
+          fusion_score,
+          vector_similarity,
+          gps_distance_m: Math.round(gps_distance_m),
+          image_similarity,
+          text_match_rate,
+          animal: {
+            animal_id: animal.animal_id,
+            species: animal.species,
+            breed: animal.breed,
+            color: animal.color,
+            gender: animal.gender,
+            status: animal.status,
+            first_seen_at: animal.first_seen_at,
+            address: animal.address,
+            photos: animal.photos || [],
+          },
+        };
+      })
+    );
+
+    // 过滤 null 并按 fusion_score 降序
+    const validResults = results.filter(Boolean) as any[];
+    validResults.sort((a, b) => b.fusion_score - a.fusion_score);
+    validResults.forEach((r, i) => (r as any).is_recommended = i === 0);
+
+    // === Plan B: 无匹配时返回 next_action ===
+    if (validResults.length === 0 || validResults[0].fusion_score < 0.75) {
+      return {
+        total: 0,
+        results: [],
+        threshold_confirmed,
+        threshold_suspected,
+        next_action: 'ask_user_create',
+        candidate: null,
       };
-    });
+    }
 
-    // 按 fusion_score 降序排列，最高分为推荐
-    results.sort((a, b) => b.fusion_score - a.fusion_score);
-    results.forEach((r, i) => {
-      (r as any).is_recommended = i === 0;
-    });
-
-    return { total: results.length, results, threshold_confirmed, threshold_suspected };
+    return { total: validResults.length, results: validResults, threshold_confirmed, threshold_suspected };
   }
 
   async recalculateAll() {
