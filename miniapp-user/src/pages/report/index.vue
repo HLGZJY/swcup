@@ -193,7 +193,10 @@ const speciesLabel = computed(() => {
 const canNext = computed(() => {
   if (currentStep.value === 0) return true
   if (currentStep.value === 1) return photos.value.length > 0
-  if (currentStep.value === 2) return locationLat.value !== null && locationLng.value !== null
+  if (currentStep.value === 2) {
+    return locationLat.value !== null && locationLng.value !== null
+      && locationLat.value !== 0 && locationLng.value !== 0
+  }
   if (currentStep.value === 3) return true
   return true
 })
