@@ -243,12 +243,12 @@ async function onAddPhoto() {
     sourceType: ['camera', 'album'],
     success: async (res) => {
       for (const filePath of res.tempFilePaths) {
-        photos.value.push(filePath)
         try {
           const uploadedUrl = await apiUploadFile(filePath)
-          photoUrls.value.push(uploadedUrl)
+          photos.value = [...photos.value, filePath]
+          photoUrls.value = [...photoUrls.value, uploadedUrl]
         } catch (e) {
-          console.error('[onAddPhoto] upload failed', e)
+          uni.showToast({ title: '图片上传失败', icon: 'none' })
         }
       }
     },
@@ -259,8 +259,8 @@ async function onAddPhoto() {
 }
 
 function onRemovePhoto(index: number) {
-  photos.value.splice(index, 1)
-  photoUrls.value.splice(index, 1)
+  photos.value = photos.value.filter((_, i) => i !== index)
+  photoUrls.value = photoUrls.value.filter((_, i) => i !== index)
 }
 
 function onBack() {
