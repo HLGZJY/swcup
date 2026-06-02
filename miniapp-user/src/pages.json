@@ -74,6 +74,14 @@
       }
     },
     {
+      "path": "pages/report/index",
+      "style": {
+        "navigationBarTitleText": "发现上报",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/animal-detail/index",
       "style": {
         "navigationBarTitleText": "动物详情",
@@ -134,6 +142,12 @@
         "text": "首页",
         "iconPath": "static/tab-home.png",
         "selectedIconPath": "static/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/report/index",
+        "text": "发现",
+        "iconPath": "static/tab-find.png",
+        "selectedIconPath": "static/tab-find-active.png"
       },
       {
         "pagePath": "pages/user/index",
