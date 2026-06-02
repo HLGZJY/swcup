@@ -1,6 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export function IsValidCoordinate(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'IsValidCoordinate',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any): boolean {
+          return value !== 0 && !isNaN(value);
+        },
+        defaultMessage(validationArguments?: ValidationArguments): string {
+          return `${validationArguments.property} 不能为0或无效坐标`;
+        },
+      },
+    });
+  };
+}
 
 export class CreateEventDto {
   @ApiProperty({ enum: ['report', 'rescue', 'medical', 'adopt', 'transfer', 'release'] })
@@ -53,15 +72,17 @@ export class CreateEventDto {
   @IsOptional()
   health_status?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: '纬度，不能为0' })
   @IsNumber()
   @IsNotEmpty()
+  @IsValidCoordinate()
   @Type(() => Number)
   location_lat: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: '经度，不能为0' })
   @IsNumber()
   @IsNotEmpty()
+  @IsValidCoordinate()
   @Type(() => Number)
   location_lng: number;
 
