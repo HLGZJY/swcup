@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { RescueEvent } from '../events/entities/event.entity';
 import { Claim } from '../claims/entities/claim.entity';
 import { Animal } from '../animals/entities/animal.entity';
@@ -13,6 +13,7 @@ export class AdminService {
     @InjectRepository(Claim) private readonly claimRepo: Repository<Claim>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async stats() {
@@ -97,54 +98,53 @@ export class AdminService {
   }
 
   async confirmEvent(event_id: string, animal_id?: string) {
-    const event = await this.eventRepo.findOne({ where: { event_id } });
-    if (!event) throw new Error('Event not found');
+    return this.dataSource.transaction(async (manager) => {
+      const event = await manager.findOne(RescueEvent, { where: { event_id } });
+      if (!event) throw new Error('Event not found');
 
-    if (event.event_type === 'report' && !event.animal_id) {
-      // 自动创建 Animal（status=found），字段从 Event 映射
-      const now = new Date();
-      const animal = this.animalRepo.create({
-        species: (event as any).species || 'other',
-        breed: (event as any).breed || null,
-        color: (event as any).color || null,
-        gender: (event as any).gender || 'unknown',
-        status: 'found' as any,
-        location_lat: event.location_lat,
-        location_lng: event.location_lng,
-        address: event.address || null,
-        photos: event.photos || [],
-        notes: event.description || null,
-        first_seen_at: event.occurred_at || now,
-        last_seen_at: event.occurred_at || now,
-      });
-      const savedAnimal = await this.animalRepo.save(animal);
+      if (event.event_type === 'report' && !event.animal_id) {
+        const now = new Date();
+        const animal = new Animal();
+        animal.species = (event.species as any) || 'other';
+        animal.breed = event.breed || null;
+        animal.color = event.color || null;
+        animal.gender = (event.gender as any) || 'unknown';
+        animal.status = 'found' as any;
+        animal.location_lat = event.location_lat;
+        animal.location_lng = event.location_lng;
+        animal.address = event.address || null;
+        animal.photos = event.photos || [];
+        animal.notes = event.description || null;
+        animal.first_seen_at = event.occurred_at || now;
+        animal.last_seen_at = event.occurred_at || now;
+        const savedAnimal = await manager.save(animal);
 
-      await this.eventRepo.update({ event_id }, {
-        animal_id: savedAnimal.animal_id,
-        status: 'confirmed' as any,
-      });
-      return this.getEventDetail(event_id);
-    }
+        await manager.update(RescueEvent, { event_id }, {
+          animal_id: savedAnimal.animal_id,
+          status: 'confirmed' as any,
+        });
+        return savedAnimal;
+      }
 
-    if (animal_id) {
-      // 校验动物存在
-      const animal = await this.animalRepo.findOne({ where: { animal_id } });
-      if (!animal) throw new Error('Animal not found');
+      if (animal_id) {
+        const animal = await manager.findOne(Animal, { where: { animal_id } });
+        if (!animal) throw new Error('Animal not found');
 
-      await this.eventRepo.update({ event_id }, {
-        animal_id,
-        status: 'duplicated' as any,
-        is_duplicate: true,
-      } as any);
-    } else {
-      // 纯标签更新（向后兼容）
-      await this.eventRepo.update({ event_id }, {
-        status: 'duplicated' as any,
-        is_duplicate: true,
-      } as any);
-    }
+        await manager.update(RescueEvent, { event_id }, {
+          animal_id,
+          status: 'duplicated' as any,
+          is_duplicate: true,
+        } as any);
+      } else {
+        await manager.update(RescueEvent, { event_id }, {
+          status: 'duplicated' as any,
+          is_duplicate: true,
+        } as any);
+      }
 
-    return this.getEventDetail(event_id);
+      const updatedEvent = await manager.findOne(RescueEvent, { where: { event_id } });
+      return updatedEvent;
+    });
   }
 
   async rejectEvent(event_id: string) {

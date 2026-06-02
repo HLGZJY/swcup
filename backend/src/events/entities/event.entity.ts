@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity,
   PrimaryColumn,
   Column,
@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Animal } from '../../animals/entities/animal.entity';
+import { Gender } from '../../animals/entities/animal.entity';
 
 export enum EventType {
   REPORT = 'report',
@@ -71,6 +72,9 @@ export class RescueEvent {
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'nose_photo_url' })
   nose_photo_url: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'nose_vector_id' })
+  nose_vector_id: string;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 
@@ -98,15 +102,23 @@ export class RescueEvent {
   @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true, name: 'text_match_rate' })
   text_match_rate: number;
 
-  @Column({
-    type: 'enum',
-    enum: EventStatus,
-    default: EventStatus.PENDING,
-  })
+  @Column({ type: 'enum', enum: EventStatus, default: EventStatus.PENDING })
   status: EventStatus;
 
   @Column({ type: 'json', nullable: true })
   candidates: any[];
+
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'species' })
+  species: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'breed' })
+  breed: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'color' })
+  color: string;
+
+  @Column({ type: 'enum', enum: Gender, nullable: true, name: 'gender' })
+  gender: Gender;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
