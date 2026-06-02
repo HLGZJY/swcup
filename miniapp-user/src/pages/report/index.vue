@@ -207,7 +207,7 @@ function getLocation() {
       locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
     },
     fail: () => {
-      locationText.value = '定位失败'
+      locationText.value = '定位失败，请手动选择位置'
       uni.showToast({ title: '定位失败，请手动选择位置', icon: 'none' })
     }
   })
@@ -309,10 +309,7 @@ async function onNext() {
 }
 
 function goToMyReports() {
-  uni.switchTab({ url: '/pages/user/index' })
-  setTimeout(() => {
-    uni.navigateTo({ url: '/pages/my-reports/index' })
-  }, 100)
+  uni.reLaunch({ url: '/pages/my-reports/index' })
 }
 
 function goHome() {
