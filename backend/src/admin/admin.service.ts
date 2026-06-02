@@ -100,6 +100,32 @@ export class AdminService {
     const event = await this.eventRepo.findOne({ where: { event_id } });
     if (!event) throw new Error('Event not found');
 
+    if (event.event_type === 'report' && !event.animal_id) {
+      // 自动创建 Animal（status=found），字段从 Event 映射
+      const now = new Date();
+      const animal = this.animalRepo.create({
+        species: (event as any).species || 'other',
+        breed: (event as any).breed || null,
+        color: (event as any).color || null,
+        gender: (event as any).gender || 'unknown',
+        status: 'found' as any,
+        location_lat: event.location_lat,
+        location_lng: event.location_lng,
+        address: event.address || null,
+        photos: event.photos || [],
+        notes: event.description || null,
+        first_seen_at: event.occurred_at || now,
+        last_seen_at: event.occurred_at || now,
+      });
+      const savedAnimal = await this.animalRepo.save(animal);
+
+      await this.eventRepo.update({ event_id }, {
+        animal_id: savedAnimal.animal_id,
+        status: 'confirmed' as any,
+      });
+      return this.getEventDetail(event_id);
+    }
+
     if (animal_id) {
       // 校验动物存在
       const animal = await this.animalRepo.findOne({ where: { animal_id } });
