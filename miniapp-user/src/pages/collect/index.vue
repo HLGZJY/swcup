@@ -227,15 +227,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { apiNoseCollect, apiClassifyBreed } from '@/services/api'
+import { apiNoseCollect, apiClassifyBreed, apiUploadFile } from '@/services/api'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
 const bodyPhoto = ref('')
 const bodyPhotoBase64 = ref('')
+const bodyPhotoUrl = ref('') // 上传后的全身照 URL
 const aiBreedSuggestion = ref('')
 const nosePhoto = ref('')
 const nosePhotoBase64 = ref('') // Base64 格式用于上传
+const nosePhotoUrl = ref('') // 上传后的鼻纹照 URL
 const locationText = ref('定位中...')
 const collectResult = ref<any>(null)
 const locationLat = ref<number | null>(null)
@@ -318,8 +320,11 @@ function onOpenBodyCamera() {
     success: async (res) => {
       const filePath = res.tempFilePaths[0]
       bodyPhoto.value = filePath
-      uni.showLoading({ title: 'AI 识别品种...' })
+      uni.showLoading({ title: '上传中...' })
       try {
+        // 上传获得 URL
+        bodyPhotoUrl.value = await apiUploadFile(filePath)
+        // AI 识别使用 Base64
         bodyPhotoBase64.value = await fileToBase64(filePath)
         const aiRes: any = await apiClassifyBreed({
           image: bodyPhotoBase64.value
@@ -330,6 +335,7 @@ function onOpenBodyCamera() {
         }
       } catch (e) {
         // AI 失败不阻止流程
+        console.error('[onOpenBodyCamera]', e)
       } finally {
         uni.hideLoading()
       }
@@ -340,6 +346,7 @@ function onOpenBodyCamera() {
 function onRetakeBody() {
   bodyPhoto.value = ''
   bodyPhotoBase64.value = ''
+  bodyPhotoUrl.value = ''
   aiBreedSuggestion.value = ''
 }
 
@@ -395,12 +402,15 @@ function onOpenCamera() {
       const filePath = res.tempFilePaths[0]
       nosePhoto.value = filePath // 用于本地预览
 
-      uni.showLoading({ title: '处理图片...' })
+      uni.showLoading({ title: '上传鼻纹照...' })
       try {
+        // 上传鼻纹照获得 URL
+        nosePhotoUrl.value = await apiUploadFile(filePath)
+        // 保留 Base64 供 AI 提取向量
         nosePhotoBase64.value = await fileToBase64(filePath)
       } catch (e) {
         uni.hideLoading()
-        uni.showToast({ title: '图片处理失败', icon: 'none' })
+        uni.showToast({ title: '图片上传失败', icon: 'none' })
         return
       }
       uni.hideLoading()
@@ -414,6 +424,7 @@ function onOpenCamera() {
 function onRetake() {
   nosePhoto.value = ''
   nosePhotoBase64.value = ''
+  nosePhotoUrl.value = ''
 }
 
 function onBack() {
@@ -433,6 +444,12 @@ async function onNext() {
     return
   }
 
+  // GPS 校验：禁止使用 (0,0) 默认值
+  if (!locationLat.value || !locationLng.value || locationLat.value === 0 || locationLng.value === 0) {
+    uni.showToast({ title: '请提供有效的位置信息', icon: 'none' })
+    return
+  }
+
   // 提交采集
   uni.showLoading({ title: '采集中...' })
 
@@ -444,7 +461,12 @@ async function onNext() {
       location_lat: locationLat.value ?? 0,
       location_lng: locationLng.value ?? 0,
       device_id: 'miniapp_user',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      breed: breed.value,
+      color: color.value,
+      gender: gender.value,
+      body_photo_url: bodyPhotoUrl.value,
+      nose_photo_url: nosePhotoUrl.value,
     })
 
     collectResult.value = collectRes.data
@@ -461,7 +483,7 @@ async function onNext() {
     // 跳转到结果页
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}`
+        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}`
       })
     }, 1000)
   } catch (e: any) {
