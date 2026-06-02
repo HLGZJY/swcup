@@ -1,8 +1,8 @@
-# 项目进度日志
+﻿# 项目进度日志
 
-> 最后更新：2026-05-21 16:30（周四）
-> 当前：W3 第三天下午 — 前端主体完工，后端AI接入+审核缺口并进
-> 更新：管理员审核中心业务流程梳理完成，新增缺口记录文档
+> 最后更新：2026-06-02（周一）
+> 当前：W5 第一天 — 全链路基本贯通，P0 缺口全部关闭，进入演示冲刺
+> 更新：补录 W3末~W5 的 git 提交记录（5/21~6/2），共 86 条提交，P0 缺口全部关闭
 
 ---
 
@@ -284,3 +284,290 @@ async confirmEvent(event_id: string) {
 | `docs/后端开发进度.md` | ✅ 完成 | 后端现状记录 |
 | `docs/前端联调任务书.md` | ✅ 完成 | 联调任务分配 |
 | `docs/bug-report-管理端页面无请求.md` | ✅ 完成 | Bug记录 |
+
+---
+## 2026-05-24 ~ 2026-05-31 W4 — 全链路贯通 & P0 缺口关闭
+
+> 以下条目从 git 提交记录整理，5/21 之后共有 86 条提交，按模块聚合。
+
+### 🟢 缺口一关闭：getEventDetail 返回四维得分 + 候选列表
+
+| 文件 | 变更 |
+|------|------|
+| ackend/src/events/entities/event.entity.ts | 新增 usion_score、ector_similarity、gps_similarity、image_similarity、	ext_match_rate（decimal(5,4)）、candidates（JSON）字段 |
+| ackend/src/admin/admin.service.ts | getEventDetail 展开四维得分，candidates[] 含 animal 档案卡片信息 |
+| ackend/src/nose/nose.service.ts | compare 方法返回 	op-5 candidates + is_recommended 标记 |
+
+### 🟢 缺口二关闭：confirmEvent 支持指定 nimal_id
+
+| 文件 | 变更 |
+|------|------|
+| ackend/src/admin/admin.service.ts | confirmEvent(event_id, animal_id?) — 有 nimal_id 时同时写入 event.animal_id 和 event.is_duplicate=true |
+| ackend/src/nose/nose.service.ts | collect 方法同步保存 
+ose_vector_id + 
+ose_photo_url 到事件 |
+| 前端 pi.js | piConfirmEvent(animal_id) 支持传入目标动物 ID |
+
+### 🟢 融合算法真实化（Mock → 真实计算）
+
+| 维度 | 原实现 | 现实现 |
+|------|--------|--------|
+| GPS相似度 | Mock | **Haversine 公式**：haversineDistance + gpsScore(distanceM) |
+| 文本匹配 | Mock | **关键词交集**：	extMatch(dto, animal) — breed/color/gender 交集比 |
+| 向量相似度 | Mock | 调 FastAPI /compare/vector，cosine similarity |
+| 融合权重 | {vector:0.5, gps:0.3, text:0.2} | 同左，**image_similarity 维度暂时移除** |
+| 调用链 | 
+ose.service.collect → indSimilarAnimals → compareVectors → FastAPI | ✅ 全链路真实 |
+
+### 🟢 Plan B 新动物上报流程（前端无匹配时用户自主建档）
+
+**背景**：当 usion_score < 0.75 系统认为无匹配，但用户实际可能是新动物。允许用户主动选择创建档案。
+
+| 组件 | 变更 |
+|------|------|
+| NestJS versioning | 启用 API prefix /v1，修复重复路由遮挡 |
+| POST /v1/animals | 用户端创建档案端点（仅需登录，无需 admin 角色） |
+| POST /v2/animals | 对应用户端 Plan B 端点 |
+| events.create | 支持关联已有 nimal_id（Plan B 合并到已有档案） |
+| 
+ose.service.compare | 无匹配时返回 
+ext_action: ask_user_create |
+| 用户端 result.vue | **Plan B 三分支 UI**（match_found / ask_user_create / ask_claim）+ **双按钮确认** |
+
+### 🟢 体图 AI 品种自动分类（新增 Step 1）
+
+用户采集流程重构为四个步骤：
+
+`
+Step 1: 拍摄全身照 → AI 自动识别品种（POST /v1/nose/classify）
+Step 2: 鼻纹采集
+Step 3: 填写 breed / color / gender（AI 结果预填，用户可改）
+Step 4: 确认提交
+`
+
+| 组件 | 变更 |
+|------|------|
+| AI service /classify/breed | 使用 reed_classifier_v3.pth（98MB），返回 breed + confidence + top3 |
+| 后端 
+ose.service.classify | 调用 FastAPI /classify/breed，品种中英映射 37 类 |
+| 用户端 collect.vue | 新增 Step 1（体图）+ Step 3（填表单），步骤序号重排 |
+| 前端 pi.js | 新增 piClassifyBreed API |
+
+### 🟢 地图能力（腾讯地图静态图 + 导航）
+
+| 组件 | 变更 |
+|------|------|
+| 管理端动物详情 | 显示腾讯地图静态图（WebView 内嵌） |
+| 用户端 | 地图预览图 320rpx，右上角按钮触发 uni.openLocation 导航 |
+| 权限配置 | manifest.json 添加 
+equiredPrivateInfos: ['location'] |
+
+### 🟢 管理端审核详情页（真实 API）
+
+| 页面 | 变更 |
+|------|------|
+| pages/admin/audit/detail.vue | 接入 piGetEventDetail 真实接口，显示四维得分 + 候选动物卡片 |
+| pi.js | piConfirmEvent(event_id, animal_id) 支持传入合并目标 |
+| 操作按钮 | confirm → piConfirmEvent（含 animal_id）；process → piProcessEvent |
+
+### 🟡 管理端用户列表增强
+
+- **分页**：page + limit 参数，支持 onLoadMore 滚动加载
+- **搜索**：keyword 参数传递到 /admin/users
+- **筛选**：
+ole 参数支持角色过滤
+
+### 🟡 管理端样式修复
+
+- 列表页内边距统一（.list-area 统一 padding）
+- scroll-view 添加 ox-sizing: border-box 防止溢出
+- 审核事件卡片样式修复（暗色 → 浅色主题）
+- 用户详情页 JSON.parse 容错（storage 非字符串检查）
+- openLocation 经纬度 Number() 类型转换
+
+### 🟡 登录页重新设计
+
+- 重新设计登录页：柔和光效渐变背景
+- 移除 uni.share（小程序不可用），引导用户使用右上角菜单
+
+### 📄 文档新增
+
+| 文档 | 内容 |
+|------|------|
+| docs/审核中心业务流程与缺口.md | 审核中心三个操作语义 + 缺口分析 |
+| docs/补充管理端事件模块功能边界设计Spec.md | 事件模块功能边界 |
+| docs/管理端事件审核详情页设计Spec.md | candidates 候选列表 + 四维得分规范 |
+| docs/体图AI品种分类规范.md | 体图分类接口规范 |
+| docs/体图AI品种分类实现计划.md | 体图分类实现计划 |
+| docs/地图预览设计规范.md | 地图预览 UI 规范 |
+| docs/地图预览实现计划.md | 地图预览实现计划 |
+| docs/后端管理端审核中心设计Spec.md | 审核中心后端接口规范 |
+| docs/融合得分真实数据流修复规范.md | 融合得分真实化规范 |
+
+---
+
+## 2026-06-01 ~ 2026-06-02 W5 — 全链路联调 & 融合策略定稿
+
+### 🔴 四维融合算法实现完成
+
+- 
+ose.service.ts 已有完整融合计算逻辑：向量 + GPS + 文本（权重 0.5/0.3/0.2）
+- image_similarity 维度已暂时移除（活体检测数据暂时不用）
+- 
+ose_v3_sgd.pth 作为主模型权重（替代 ImageNet 预训练）
+
+### 🟡 当前状态
+
+| 模块 | 状态 | 备注 |
+|------|------|------|
+| AI 服务（FastAPI） | ✅ 就绪 | /extract/feature 加载 
+ose_v3_sgd.pth，/compare/vector、/classify/breed 全部可用 |
+| 后端鼻纹融合 | ✅ 就绪 | Haversine GPS + 文本匹配 + 向量比对，三维融合 |
+| 审核中心后端 | ✅ 就绪 | getEventDetail 返回 candidates[]，confirmEvent 支持 nimal_id |
+| 用户端采集流程 | ✅ 就绪 | Step 1 体图分类 + Step 2 鼻纹 + Step 3 表单 + Step 4 确认 |
+| Plan B 流程 | ✅ 就绪 | 无匹配时用户可自主创建档案 |
+| 管理端审核详情 | ✅ 就绪 | 接入真实 API，显示四维得分 + 候选卡片 |
+| 微信登录 | ⬜ 待开始 | 老师负责 |
+| 四维补全（图片相似度） | ⬜ 可选 | 当前 image_similarity 维度未使用 |
+| 演示视频 + PPT | ⬜ 待开始 | 队员负责 |
+| 技术/需求文档定稿 | ⬜ 待开始 | 全员 |
+
+---
+
+## 当前阶段
+
+| 周次 | 核心目标 | 状态 |
+|------|----------|------|
+| W1 | 需求冻结 & 架构定稿 | 🟢 完成 |
+| W2 | 数据集构建 & 数据库搭建 | 🟢 完成 |
+| W3 | 模型训练 & 核心API联调 | 🟢 完成 |
+| W4 | 模型优化 & 全链路贯通 | 🟢 完成 |
+| W5 | 全链路联调 & 融合策略定稿 | 🟡 进行中 |
+| W6 | 系统完善 & 文档定稿 | ⬜ 待开始 |
+| W7 | 提交材料准备 & 代码冻结 | ⬜ 待开始 |
+| W8 | 正式提交 & 查漏补缺 | ⬜ 待开始 |
+
+---
+
+## 当前最大阻塞（优先级排序）
+
+### 🔴 P0（已全部关闭 ✅）
+
+| 任务 | 状态 | 完成时间 |
+|------|------|----------|
+| getEventDetail 返回 candidates[] | ✅ 完成 | W4（5/31前） |
+| confirmEvent 支持 animal_id | ✅ 完成 | W4（5/31前） |
+| nose.service 调 FastAPI 真实比对 | ✅ 完成 | W4（5/31前） |
+| 四维度融合算法 | ✅ 完成（三维，image维度暂缺） | W4（5/31前） |
+
+### 🟡 P1（功能完整度）
+
+| 任务 | 状态 | 负责人 |
+|------|------|--------|
+| 微信登录 POST /auth/weixin 实现 | ⬜ 待开始 | 老师 |
+| 审核详情页候选卡片 UI（完整渲染） | 🟡 框架就绪，等真实数据验证 | 队员 |
+| AI 权重确认（确认 
+ose_v3_sgd.pth 精度） | 🟡 待验证 | 队长 |
+| image_similarity 维度（图片相似度） | 🟡 暂缺 | 队长（可选） |
+
+### 🟢 P2（演示材料）
+
+| 任务 | 状态 | 负责人 |
+|------|------|--------|
+| 演示视频 | ⬜ 待开始 | 队员 |
+| PPT 制作 | ⬜ 待开始 | 队员 |
+| 架构设计文档同步更新 | ⬜ 待开始 | 队长 |
+| 后端接口文档同步更新 | ⬜ 待开始 | 老师 |
+| README / wiki 同步更新 | ⬜ 待开始 | 全员 |
+| 技术报告（AI模型部分） | ⬜ 待开始 | 队长 |
+
+### 完成以下项后可进入演示
+
+- 鼻纹采集（Step 1-4）→ AI 提向量 → 存 DB
+- 比对结果页（三分支 UI）→ 四维融合 → 排序结果
+- 管理员审核 → 看到候选动物 + 四维得分 → confirm/reject/process 完整闭环
+- 腾讯地图导航验证
+
+---
+
+## W5 质量门控
+
+| 门控项 | 状态 | 负责人 |
+|--------|------|--------|
+| 后端 getEventDetail 含候选列表 | ✅ 完成 | 老师 |
+| 后端 confirmEvent 支持 animal_id | ✅ 完成 | 老师 |
+| 前端审核详情页接真实 API | ✅ 完成 | 队员 |
+| nose.service 调 FastAPI | ✅ 完成 | 队长/老师 |
+| 三维融合算法（向量+GPS+文本） | ✅ 完成 | 队长 |
+| AI /extract/feature 加载 
+ose_v3_sgd.pth | ✅ 完成 | 队长 |
+| AI /classify/breed 品种分类 | ✅ 完成 | 队长 |
+| 前端全页面无阻塞 Bug | ✅ 完成 | 队员 |
+| Plan B 用户自主建档流程 | ✅ 完成 | 队员/老师 |
+| 微信登录 | ⬜ 待开始 | 老师 |
+| 全链路端到端演示（手机真机测试） | ⬜ 待开始 | 全员 |
+
+---
+
+## 各模块现状（更新至 W5）
+
+### AI 服务（FastAPI）— 队长 ✅ 就绪
+
+| 端点 | 状态 | 权重文件 |
+|------|------|----------|
+| POST /extract/feature | ✅ | 
+ose_v3_sgd.pth（98MB，已加载） |
+| POST /compare/vector | ✅ | — |
+| POST /detect/liveness | ✅ | — |
+| POST /classify/breed | ✅ | reed_classifier_v3.pth（98MB） |
+
+### 后端（NestJS）— 老师 ✅ 基本就绪
+
+| 模块 | 现状 |
+|------|------|
+| admin.service.ts（getEventDetail / confirmEvent / rejectEvent / processEvent） | ✅ 含 candidates + 四维得分 |
+| events.service.ts | ✅ 真实 DB |
+| admin.controller.ts | ✅ JWT+Roles 验证 |
+| nose.service.ts | ✅ 调 FastAPI，真实融合（Haversine + 文本） |
+| auth.controller.ts（手机号登录） | ✅ 正常 |
+| auth.controller.ts（微信登录） | ⬜ 未实现 |
+| NestJS API versioning | ✅ /v1 prefix 启用 |
+
+### 前端小程序 — 队员 ✅ 主体完成
+
+| 页面 | 状态 |
+|------|------|
+| 用户端：Step 1 体图分类 → Step 2 鼻纹 → Step 3 表单 → Step 4 确认 | ✅ |
+| 用户端：比对结果页（Plan B 三分支 UI + 双按钮） | ✅ |
+| 用户端：腾讯地图静态图 + openLocation 导航 | ✅ |
+| 用户端：动物详情页微信分享 | ✅ |
+| 管理端：审核中心列表 + 详情页（真实 API + 四维得分） | ✅ |
+| 管理端：用户列表（分页+搜索+筛选） | ✅ |
+| 管理端：事件列表 → 详情页（点击跳转） | ✅ |
+| 两个端：统一错误处理（空 catch toast） | ✅ |
+
+---
+
+## 文档清单（更新至 W5）
+
+| 文档 | 状态 | 用途 |
+|------|------|------|
+| log.md | ✅ 持续更新 | 项目整体进度 |
+| docs/架构设计.md | ⚠️ 需同步更新 | 系统架构（需补充 W4~W5 变更） |
+| docs/后端接口文档-给老师.md | ⚠️ 需同步更新 | 需补充 Plan B 端点 |
+| docs/AI服务接口文档.md | ⚠️ 需同步更新 | 需补充 classify/breed 端点 |
+| docs/审核中心业务流程与缺口.md | ✅ 新增 | 缺口分析 |
+| docs/后端管理端审核中心设计Spec.md | ✅ 新增 | 审核中心后端规范 |
+| docs/管理端事件审核详情页设计Spec.md | ✅ 新增 | 审核详情页规范 |
+| docs/体图AI品种分类规范.md | ✅ 新增 | 体图分类接口规范 |
+| docs/体图AI品种分类实现计划.md | ✅ 新增 | 体图分类实现计划 |
+| docs/地图预览设计规范.md | ✅ 新增 | 地图预览 UI 规范 |
+| docs/地图预览实现计划.md | ✅ 新增 | 地图预览实现计划 |
+| docs/融合得分真实数据流修复规范.md | ✅ 新增 | 融合得分真实化规范 |
+| docs/补充管理端事件模块功能边界设计Spec.md | ✅ 新增 | 事件模块功能边界 |
+
+---
+
+## 截止日期
+
+**2026年6月30日 15:00**（初赛提交）—— 剩余约 **28 天**

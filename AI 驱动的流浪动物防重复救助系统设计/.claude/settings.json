@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv .wiki wiki)",
+      "Bash(mv .raw raw)",
+      "Bash(mv .workspace workspace)",
+      "Bash(sed -i 's/\\\\[\\\\[\\\\.wiki\\\\//[[wiki\\\\//g' index.md README.md log.md PROJECT.md)",
+      "Bash(sed -i 's/\\\\[\\\\[\\\\.raw\\\\//[[raw\\\\//g' index.md README.md log.md PROJECT.md)",
+      "Bash(sed -i 's/\\\\[\\\\[\\\\.workspace\\\\//[[workspace\\\\//g' index.md README.md log.md PROJECT.md)",
+      "Bash(sed -i 's/\\\\.raw\\\\//raw\\\\//g' index.md README.md log.md PROJECT.md)",
+      "Bash(sed -i 's/\\\\.wiki\\\\//wiki\\\\//g' index.md README.md log.md PROJECT.md)",
+      "Bash(find wiki/ -name \"*.md\" -exec sed -i 's/\\\\[\\\\[\\\\.wiki\\\\//[[wiki\\\\//g' {} \\\\;)",
+      "Bash(find wiki/ -name \"*.md\" -exec sed -i 's/\\\\.wiki\\\\//wiki\\\\//g' {} \\\\;)",
+      "Bash(find wiki/ -name \"*.md\" -exec sed -i 's/\\\\.raw\\\\//raw\\\\//g' {} \\\\;)",
+      "Bash(find wiki/ -name \"*.md\" -exec sed -i 's/\\\\.workspace\\\\//workspace\\\\//g' {} \\\\;)",
+      "Bash(cd \"F:/AI 驱动的流浪动物防重复救助系统设计\" && find raw/ -type f -name \"*.md\" -o -name \"*.txt\" -o -name \"*.pdf\" -o -name \"*.docx\" 2>/dev/null)"
+    ]
+  }
+}

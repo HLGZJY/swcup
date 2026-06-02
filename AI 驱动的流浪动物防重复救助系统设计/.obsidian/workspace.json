@@ -1,0 +1,232 @@
+{
+  "main": {
+    "id": "e82bddf3cdd32705",
+    "type": "split",
+    "children": [
+      {
+        "id": "9a02e0bac6a9b748",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "93c2c52f3dc247d6",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "新标签页"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "40780d2ba8089abe",
+    "type": "split",
+    "children": [
+      {
+        "id": "6df9e0dc1812420b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "37494e9e7ba2d1a8",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "60f1e793d7b02c40",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "32b83e9a3570a204",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200
+  },
+  "right": {
+    "id": "45a65ff4d8219c34",
+    "type": "split",
+    "children": [
+      {
+        "id": "947282d349ab6f04",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "1543e9fc884bd85b",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "README.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "README 的反向链接列表"
+            }
+          },
+          {
+            "id": "55c872c55faf6605",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "README.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "README 的出链列表"
+            }
+          },
+          {
+            "id": "f8dfa4411359ffd8",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "ceb5b5c2e2668425",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "413fd09a06150fca",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "README.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "README 的大纲"
+            }
+          },
+          {
+            "id": "f347b047fbf1b077",
+            "type": "leaf",
+            "state": {
+              "type": "claudian-view",
+              "state": {},
+              "icon": "bot",
+              "title": "Claudian"
+            }
+          }
+        ],
+        "currentTab": 5
+      }
+    ],
+    "direction": "horizontal",
+    "width": 215.5
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false,
+      "claudian:Open Claudian": false
+    }
+  },
+  "active": "37494e9e7ba2d1a8",
+  "lastOpenFiles": [
+    "wiki/概念/动物画像.md",
+    "wiki/概念/重复救助检测.md",
+    "wiki/阶段追踪/phase-2-技术选型.md",
+    "wiki/阶段追踪/phase-1-需求分析.md",
+    "wiki/阶段追踪/phase-1-架构设计.md",
+    "taste-skill-reference/image-to-code-skill/SKILL.md",
+    "taste-skill-reference/brandkit/SKILL.md",
+    "raw/参考资料/关于举办第十五届“中国软件杯”大学生软件设计大赛的通知_-_新闻动态_-_软件杯大赛官网.md",
+    "raw/参考资料/产品描述任务文档_v1.5.md",
+    "taste-skill-reference/redesign-skill/SKILL.md",
+    "taste-skill-reference/minimalist-skill/SKILL.md",
+    "taste-skill-reference/imagegen-frontend-mobile/SKILL.md",
+    "wiki/对比/方案对比.md",
+    "wiki/对比/算法对比.md",
+    "wiki/概念/边界情况清单.md",
+    "wiki/概念/鼻纹识别.md",
+    "wiki/概念/四维度融合策略.md",
+    "wiki/概念/相似度算法.md",
+    "wiki/overview.md",
+    "log.md.tmp.24500.1777869023659",
+    "index.md.tmp.24500.1777869022783",
+    "raw/参考资料/AI鼻纹救助系统_8周里程碑_v2.md",
+    "log.md",
+    "index.md",
+    "PROJECT.md",
+    "wiki/实体/实体-动物记录.md",
+    "wiki/实体/实体-鼻纹特征.md",
+    "log.md.tmp.24500.1777864234675",
+    "index.md.tmp.24500.1777864202697",
+    "README.md",
+    "wiki/概念/sedeRdhfF",
+    "wiki/概念/sed5J1bVB",
+    "wiki/概念/sedJFuIrD",
+    "wiki/对比/sedjLvHtz",
+    "wiki/实体/sedMzJ5iV",
+    "wiki/实体/sedJdM6qk"
+  ]
+}

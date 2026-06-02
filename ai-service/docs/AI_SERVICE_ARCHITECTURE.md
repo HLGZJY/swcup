@@ -15,7 +15,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        移动端（前端）                             │
-│   拍摄界面：全身照 + 鼻纹照（分两次拍）                            │
+│   拍摄界面：全身照（判断种类）+ 鼻纹特写（采集向量）               │
 └────────────────────────┬────────────────────────────────────────┘
                          │ HTTP JSON
                          ↓
@@ -46,9 +46,9 @@
 
 | 模型 | 用途 | 训练数据 | 输出 |
 |------|------|---------|------|
-| **品种分类模型** | 判断动物品种 | Stanford Dogs + Oxford Pets | 品种名+置信度+top3 |
+| **品种分类模型** | 判断动物品种 | Oxford Pets 37类 | 品种名（中文+英文）+ 置信度 |
 | **鼻纹特征模型** | 提取身份向量 | dir_train（6000只狗） | 512维float向量 |
-| **质量检测** | 判断图片是否可用 | 无需训练（规则算法） | blur_score+brightness+passed |
+| **质量检测** | 判断图片是否可用 | 无需训练（规则算法） | blur_score + brightness + passed |
 
 ---
 
@@ -63,41 +63,35 @@ GET /health
 ```
 
 ### 2. 图片质量检测（鼻纹照拍摄前调用）
-
 ```
 POST /detect/quality
 请求：{"image": "base64字符串"}
 响应：{
-  "blur_score": 156.3,      // 拉普拉斯方差，越高越清晰，>100可用
-  "brightness": 142.5,      // 0-255，>60且<200可用
-  "passed": true,           // 是否通过
-  "reason": null            // null=通过，字符串=失败原因
+  "blur_score": 156.3,       // 拉普拉斯方差，越高越清晰，>100可用
+  "brightness": 142.5,       // 0-255，>60且<200为正常
+  "passed": true,             // 是否通过
+  "reason": null              // null=通过，字符串=失败原因
 }
 ```
 
-**产品说明**：检测结果用于提示用户照片是否可用。照片质量不达标时阻止进入下一步，而非直接替换图片。
-
 ### 3. 品种分类（全身照调用）
-
 ```
 POST /classify/breed
 请求：{"image": "base64字符串"}
 响应：{
-  "breed": "shiba_inu",      // 品种英文名
+  "breed": "shiba_inu",       // 品种英文名（Oxford Pets格式）
+  "breed_cn": "柴犬",         // 品种中文名
   "breed_id": 35,            // 品种内部ID（0-36）
-  "confidence": 0.87,        // 最高置信度
+  "confidence": 0.87,        // 最高置信度（0-1）
   "top3": [                  // 前三名候选
-    {"breed": "shiba_inu", "confidence": 0.87},
-    {"breed": "akita", "confidence": 0.07},
-    {"breed": "malamute", "confidence": 0.03}
+    {"breed": "shiba_inu", "breed_cn": "柴犬", "confidence": 0.87},
+    {"breed": "akita", "breed_cn": "秋田犬", "confidence": 0.07},
+    {"breed": "malamute", "breed_cn": "马拉尼特犬", "confidence": 0.03}
   ]
 }
 ```
 
-**产品说明**：AI 分类结果作为**表单预填建议**，用户可修改或保留自己的判断。最终品种以用户确认为准，AI 结果仅作参考，不覆盖用户输入。
-
 ### 4. 鼻纹特征提取（鼻纹照调用）
-
 ```
 POST /extract/feature
 请求：{"image": "base64字符串"}
@@ -107,58 +101,51 @@ POST /extract/feature
 }
 ```
 
-**产品说明**：提取的 512 维向量存入数据库，用于后续与库内鼻纹做比对。比对在向量层面进行，不涉及图片传输。
-
 ---
 
-## 五、训练计划
+## 五、品种中文名对照表（Oxford Pets 37类）
 
-### 阶段一（当前）：品种分类模型
-- 训练集：Stanford Dogs（120类）+ Oxford Pets（37类）
-- 模型：MobileNetV2 backbone + 品种分类头
-- 目标：Accuracy ≥ 85%
-- 权重文件：`weights/breed_classifier.pth`
-
-### 阶段二：鼻纹特征模型
-- 训练集：dir_train（6000只狗，每狗4张）
-- 模型：MobileNetV2 backbone + 512维embedding头 + ArcFace Loss
-- 目标：同狗鼻纹相似度 > 0.8，不同狗 < 0.5
-- 权重文件：`weights/nose_feature.pth`
+| 英文名 | 中文名 | 英文名 | 中文名 |
+|--------|--------|--------|--------|
+| abyssinian | 阿比西尼亚猫 | leonberger | 莱昂贝格犬 |
+| american_bulldog | 美国 Bulldog | maine_coon | 缅因猫 |
+| american_pit_bull_terrier | 美国比特斗牛犬 | miniature_pinscher | 迷你杜宾犬 |
+| basset_hound | 巴吉度猎犬 | newfoundland | 纽芬兰犬 |
+| beagle | 比格犬 | persian | 波斯猫 |
+| bengal | 孟加拉猫 | pomeranian | 博美犬 |
+| birman | 伯曼猫 | pug | 巴哥犬 |
+| bombay | 孟买猫 | ragdoll | 布偶猫 |
+| boxer | 拳师犬 | russian_blue | 俄罗斯蓝猫 |
+| british_shorthair | 英国短毛猫 | saint_bernard | 圣伯纳犬 |
+| chihuahua | 吉娃娃 | samoyed | 萨摩耶 |
+| egyptian_mau | 埃及猫 | scottish_terrier | 苏格兰梗 |
+| english_cocker_spaniel | 英国可卡犬 | shiba_inu | 柴犬 |
+| english_setter | 英国塞特犬 | siamese | 暹罗猫 |
+| german_shorthaired | 德国短毛指示犬 | sphynx | 斯芬克斯猫 |
+| great_pyrenees | 大白熊犬 | staffordshire_bull_terrier | 斯塔福郡斗牛梗 |
+| havanese | 哈瓦那犬 | wheaten_terrier | 软毛麦色梗 |
+| japanese_chin | 日本 chin 犬 | yorkshire_terrier | 约克夏梗 |
 
 ---
 
 ## 六、与后端的分工
 
-| 事情 | 谁做 | 说明 |
-|------|------|------|
-| 接收前端base64图片 | 后端 | 接收后统一转发AI-service |
-| 调用AI-service接口 | 后端 | 调 breed / quality / extract 三个接口 |
-| 判断图片质量是否通过 | 前端 + 后端 | 前端先调 quality 提示用户，后端也做校验 |
-| 品种分类结果 | AI-service返回 | **作为表单预填建议，用户可修改，不覆盖用户输入** |
-| 鼻纹向量存储到MySQL | 后端 | 512维float向量 |
-| 向量比对（余弦相似度） | 后端 | 从库内向量取Top-N，逐个与新向量算cosine |
-| 融合分计算（三维度） | 后端 | `0.5×向量 + 0.3×GPS + 0.2×文字`，三维度均为真实值 |
-| 给前端返回最终结果 | 后端 | 含比对候选列表 + 融合得分 + 各维度得分明细 |
+| 事情 | 谁做 |
+|------|------|
+| 接收前端base64图片 | 后端 |
+| 调用AI-Service四个接口 | 后端 |
+| 判断图片质量是否通过 | 前端（前端也可先调quality接口给用户反馈） |
+| 品种分类结果（中英文） | AI-Service返回，后端转发 |
+| 鼻纹向量存储到MySQL | 后端 |
+| 向量比对（欧氏距离/余弦相似度） | 后端算，或调AI的 /compare/vector |
+| 融合分计算（0.4×向量+0.2×GPS+0.2×图像哈希+0.2×文本） | 后端 |
+| 给前端返回最终结果 | 后端 |
 
-**AI-Service 绝不碰数据库，只做纯粹的图片→信息转换。AI输出作为人类可审核的参考值，不直接覆盖用户输入。**
-
----
-
-## 七、AI 输出的人类可审核原则
-
-所有 AI 返回结果（品种分类、质量检测）均为**参考值**，前端展示时必须遵循：
-
-| AI 输出 | 前端处理方式 |
-|---------|-------------|
-| 品种分类建议 | 预填到表单，用户可修改，标注"AI建议" |
-| 质量检测结果 | 不通过时阻止进入下一步，给出重拍提示 |
-| 鼻纹比对得分 | 展示 cosine_similarity + 各维度得分，不隐藏数据来源 |
-
-> **核心原则**：AI 是助手，人是决策者。系统不出售结论，只提供参考。
+**AI-Service 绝不碰数据库，只做纯粹的图片→信息转换。**
 
 ---
 
-## 八、端口约定
+## 七、端口约定
 
 | 服务 | 端口 | 本地地址 |
 |------|------|---------|
@@ -168,43 +155,26 @@ POST /extract/feature
 
 ---
 
-## 九、当前进度
+## 八、当前进度
 
-| 任务 | 状态 | 备注 |
-|------|------|------|
-| 项目骨架搭建（FastAPI + 目录结构） | ✅ 完成 | |
-| 品种分类模型训练（stage1_oxford.pth） | ✅ 完成 | |
-| 品种分类接口暴露（/classify/breed） | 🔴 待完成 | 队长负责，复用 stage1_oxford.pth |
-| 质量检测接口完善（/detect/quality） | 🔴 待完成 | 需统一为 /detect/quality 输出格式 |
-| 鼻纹特征模型训练（dir_train，ArcFace） | ✅ 完成 | stage1_oxford.pth 已含鼻纹特征 |
-| 鼻纹特征接口暴露（/extract/feature） | ✅ 完成 | |
-| 权重合并部署（两个模型同时加载） | 🟡 进行中 | 队长负责 |
-| GPS 真实距离计算 | 🔴 待完成 | 老师负责，Haversine 公式 |
-| text_match_rate 真实计算 | 🔴 待完成 | 老师负责，关键词匹配 |
+- [x] 项目骨架搭建（FastAPI + 目录结构）
+- [x] 质量检测接口（/detect/quality）完善
+- [ ] 品种分类模型训练（breed_classifier.pth）
+- [ ] 品种分类接口暴露（/classify/breed，中英文）
+- [ ] 鼻纹特征模型训练（nose_feature.pth，ArcFace）
+- [ ] 鼻纹特征接口暴露（/extract/feature）
+- [ ] 权重部署（两个模型同时加载）
 
-## 十、鼻纹比对完整流程（融合得分三维度）
+---
+
+## 九、融合分说明（澄清）
 
 ```
-用户上传鼻纹照 + 全身照
-         ↓
-前端调 /detect/quality → 判断照片是否可用
-前端调 /classify/breed → 品种预填建议（用户可修改）
-         ↓
-后端调 /extract/feature → 512维向量
-         ↓
-后端从 MySQL 取同物种 Top-N 向量，逐个算 cosine_similarity
-         ↓
-融合得分 = 0.5×cosine + 0.3×gps_score + 0.2×text_match
-         ↓
-≥ 0.88 → 确认重复      → 自动合并到已有档案
-0.75-0.88 → 疑似重复  → 推管理员审核（含候选列表）
-< 0.75 → 无匹配        → 询问用户是否创建新档案（方案B）
+融合分 = 0.4 × sim_vector（鼻纹向量相似度）
+       + 0.2 × sim_location（GPS距离）
+       + 0.2 × sim_image（图像哈希相似度）
+       + 0.2 × sim_text（文本描述相似度）
 ```
 
-### 维度计算细则
-
-| 维度 | 公式 | 数据来源 |
-|------|------|----------|
-| cosine_similarity | `dot(v1,v2) / (|v1||v2|)` | AI `/extract/feature` + 后端计算 |
-| gps_score | `max(0, min(1, 1-(d-500)/1000))` | Haversine 公式，d=距离(m) |
-| text_match_rate | `关键词重合数 / 关键词总数` | breed + color + gender + tags |
+**其中 sim_vector 来自鼻纹特征模型的向量比对，不是品种分类模型。**
+品种分类模型**不参与**融合分计算，只负责显示"这是什么品种"。

@@ -37,7 +37,7 @@
 
 ---
 
-## 二、前端需要调用的接口（直接调后端，不调AI）
+## 二、前端需要调用的接口（通过后端间接调AI）
 
 | 步骤 | 调哪个接口 | 传给谁 | 目的 |
 |------|-----------|--------|------|
@@ -153,46 +153,27 @@
 
 ## 五、品种中文名对照表（37类 Oxford Pets）
 
-| 英文名 | 中文名 |
-|--------|--------|
-| shiba_inu | 柴犬 |
-| akita | 秋田犬 |
-| american_bulldog | 美国 Bulldog |
-| beagle | 比格犬 |
-| bengal | 孟加拉猫 |
-| birman | 伯曼猫 |
-| bombay | 孟买猫 |
-| boxer | 拳师犬 |
-| british_shorthair | 英国短毛猫 |
-| chihuahua | 吉娃娃 |
-| egyptian_mau | 埃及猫 |
-| english_cocker_spaniel | 英国可卡犬 |
-| english_setter | 英国塞特犬 |
-| german_shorthaired | 德国短毛指示犬 |
-| great_pyrenees | 大白熊犬 |
-| havanese | 哈瓦那犬 |
-| japanese_chin | 日本 chin 犬 |
-| keeshond | 荷兰毛狮犬 |
-| leonberger | 莱昂贝格犬 |
-| maine_coon | 缅因猫 |
-| miniature_pinscher | 迷你杜宾犬 |
-| newfoundland | 纽芬兰犬 |
-| persian | 波斯猫 |
-| pomeranian | 博美犬 |
-| pug | 巴哥犬 |
-| ragdoll | 布偶猫 |
-| russian_blue | 俄罗斯蓝猫 |
-| saint_bernard | 圣伯纳犬 |
-| samoyed | 萨摩耶 |
-| scottish_terrier | 苏格兰梗 |
-| shiba_inu | 柴犬 |
-| siamese | 暹罗猫 |
-| sphynx | 斯芬克斯猫 |
-| staffordshire_bull_terrier | 斯塔福郡斗牛梗 |
-| wheaten_terrier | 软毛麦色梗 |
-| yorkshire_terrier | 约克夏梗 |
-| abyssinian | 阿比西尼亚猫 |
-| american_pit_bull_terrier | 美国比特斗牛犬 |
+| 英文名 | 中文名 | 英文名 | 中文名 |
+|--------|--------|--------|--------|
+| shiba_inu | 柴犬 | leonberger | 莱昂贝格犬 |
+| akita | 秋田犬 | maine_coon | 缅因猫 |
+| american_bulldog | 美国 Bulldog | miniature_pinscher | 迷你杜宾犬 |
+| beagle | 比格犬 | newfoundland | 纽芬兰犬 |
+| bengal | 孟加拉猫 | persian | 波斯猫 |
+| birman | 伯曼猫 | pomeranian | 博美犬 |
+| bombay | 孟买猫 | pug | 巴哥犬 |
+| boxer | 拳师犬 | ragdoll | 布偶猫 |
+| british_shorthair | 英国短毛猫 | russian_blue | 俄罗斯蓝猫 |
+| chihuahua | 吉娃娃 | saint_bernard | 圣伯纳犬 |
+| egyptian_mau | 埃及猫 | samoyed | 萨摩耶 |
+| english_cocker_spaniel | 英国可卡犬 | scottish_terrier | 苏格兰梗 |
+| english_setter | 英国塞特犬 | siamese | 暹罗猫 |
+| german_shorthaired | 德国短毛指示犬 | sphynx | 斯芬克斯猫 |
+| great_pyrenees | 大白熊犬 | staffordshire_bull_terrier | 斯塔福郡斗牛梗 |
+| havanese | 哈瓦那犬 | wheaten_terrier | 软毛麦色梗 |
+| japanese_chin | 日本 chin 犬 | yorkshire_terrier | 约克夏梗 |
+| abyssinian | 阿比西尼亚猫 | american_pit_bull_terrier | 美国比特斗牛犬 |
+| basset_hound | 巴吉度猎犬 | keeshond | 荷兰毛狮犬 |
 
 ---
 
@@ -203,3 +184,4 @@
 - 特征向量的存储方式
 - 数据库结构
 - 向量比对的融合分算法
+- /compare/image 这个接口不存在（全身照比对不是AI服务的职责）

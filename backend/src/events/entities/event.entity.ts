@@ -43,7 +43,7 @@ export class RescueEvent {
   @Column({ type: 'enum', enum: EventType, name: 'event_type' })
   event_type: EventType;
 
-  @Column({ type: 'varchar', length: 36, name: 'reporter_id' })
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'reporter_id' })
   reporter_id: string;
 
   @ManyToOne(() => User)

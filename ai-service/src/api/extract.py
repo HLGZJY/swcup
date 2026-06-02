@@ -6,20 +6,43 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 import numpy as np
 
-from ..models.mobilenet import load_model, extract_feature
+from ..models.mobilenet import ResNet50_512d
 from ..utils.image import base64_to_image, image_to_tensor
 
 router = APIRouter(prefix="/extract", tags=["extract"])
 
-# Global model (lazy load on first request)
+import torch
+import asyncio
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+# Pre-load model at startup (runs in startup event, not in request handler)
 _model = None
+
+
+def _load_nose_model():
+    global _model
+    model = ResNet50_512d(embedding_dim=512, pretrained=False)
+    state_dict = torch.load("weights/nose_v3_sgd.pth", map_location="cpu", weights_only=False)
+    if isinstance(state_dict, dict) and "state_dict" in state_dict:
+        state_dict = state_dict["state_dict"]
+    model.load_state_dict(state_dict, strict=False)
+    model.eval()
+    _model = model
+    print("[extract] Nose model loaded OK")
 
 
 def get_model():
     global _model
-    if _model is None:
-        _model = load_model(weights_path="weights/stage1_oxford.pth", embedding_dim=512)
     return _model
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run blocking model loading in thread pool so it doesn't block the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _load_nose_model)
+    yield
 
 
 class ExtractRequest(BaseModel):
@@ -35,13 +58,13 @@ class ExtractResponse(BaseModel):
 async def extract_feature_endpoint(body: ExtractRequest):
     """
     Extract 512-dim feature vector from a base64 image.
-    Uses MobileNetV2 pretrained on ImageNet (no fine-tuning yet).
+    Uses ResNet50_512d fine-tuned on nose print data.
     """
     img = base64_to_image(body.image)
     tensor = image_to_tensor(img).unsqueeze(0)  # (1, 3, 224, 224)
 
     model = get_model()
-    vector = extract_feature(model, tensor)  # (512,)
+    vector = model(tensor).detach().squeeze().cpu().numpy().flatten()
 
     return ExtractResponse(
         vector=vector.tolist(),

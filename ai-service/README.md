@@ -1,5 +1,8 @@
 # 鼻纹智救 - AI 推理服务
 
+claude --resume fb372a46-081b-4bdc-9fd4-04e2ee4d1214
+claude --resume fb372a46-081b-4bdc-9fd4-04e2ee4d1214
+
 ## 项目结构
 
 ```
@@ -46,12 +49,12 @@ python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
 
 ## API 端点
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/health` | GET | 健康检查 |
+| 端点               | 方法 | 说明                     |
+| ------------------ | ---- | ------------------------ |
+| `/health`          | GET  | 健康检查                 |
 | `/detect/liveness` | POST | 活体检测（图片质量评估） |
-| `/extract/feature` | POST | 提取 512 维向量 |
-| `/compare/vector` | POST | 两向量相似度计算 |
+| `/extract/feature` | POST | 提取 512 维向量          |
+| `/compare/vector`  | POST | 两向量相似度计算         |
 
 ### 请求示例
 

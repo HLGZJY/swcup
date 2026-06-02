@@ -31,6 +31,7 @@ export enum AgeEstimate {
   PUPPY = 'puppy',
   ADULT = 'adult',
   SENIOR = 'senior',
+  UNKNOWN = 'unknown',
 }
 
 export enum HealthStatus {

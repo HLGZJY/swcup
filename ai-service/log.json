@@ -1,0 +1,110 @@
+PS D:\ai-server\ai-service> python -m src.scripts.train_breed --data-oxford oxford_pets_split/train --data-stanford Stanford_Dogs --epochs 50 --batch 32 --lr 0.0001 --embed-dim 512 --num-classes 157 --output weights/breed_classifier.pth --device cuda
+Device: cuda
+Oxford Pets: 37 classes
+Stanford Dogs: 120 classes
+Total classes: 157
+Building dataset...
+Train: 20647 images, Val: 5105 images
+Building ResNet50 model...
+Downloading: "https://download.pytorch.org/models/resnet50-0676ba61.pth" to C:\Users\13838/.cache\torch\hub\checkpoints\resnet50-0676ba61.pth
+100%|█████████████████████████████████████████████████████████████████████████████| 97.8M/97.8M [00:03<00:00, 30.9MB/s]
+Backbone frozen (stage 1)
+Epoch 1 [Train]: 100%|██████████████████████████████████████| 646/646 [02:21<00:00,  4.55it/s, loss=37.6744, acc=0.00%]
+Epoch 1 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.11it/s]
+Epoch 1: train_loss=37.5056, train_acc=0.00%, val_loss=34.7306, val_top1=0.00%, val_top3=0.00%
+Epoch 2 [Train]: 100%|██████████████████████████████████████| 646/646 [02:07<00:00,  5.05it/s, loss=35.4631, acc=0.00%]
+Epoch 2 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.10it/s]
+Epoch 2: train_loss=35.9040, train_acc=0.00%, val_loss=33.0407, val_top1=0.00%, val_top3=0.00%
+Epoch 3 [Train]: 100%|██████████████████████████████████████| 646/646 [02:12<00:00,  4.87it/s, loss=34.8489, acc=0.00%]
+Epoch 3 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:32<00:00,  4.90it/s]
+Epoch 3: train_loss=34.7450, train_acc=0.00%, val_loss=31.8866, val_top1=0.00%, val_top3=0.00%
+Epoch 4 [Train]: 100%|██████████████████████████████████████| 646/646 [02:10<00:00,  4.95it/s, loss=34.6389, acc=0.00%]
+Epoch 4 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.08it/s]
+Epoch 4: train_loss=33.8673, train_acc=0.00%, val_loss=31.0936, val_top1=0.00%, val_top3=0.00%
+Epoch 5 [Train]: 100%|██████████████████████████████████████| 646/646 [02:08<00:00,  5.01it/s, loss=32.1224, acc=0.00%]
+Epoch 5 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.12it/s]
+Epoch 5: train_loss=33.1599, train_acc=0.00%, val_loss=30.4789, val_top1=0.00%, val_top3=0.00%
+Epoch 6 [Train]: 100%|██████████████████████████████████████| 646/646 [02:08<00:00,  5.01it/s, loss=32.8292, acc=0.00%]
+Epoch 6 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.15it/s]
+Epoch 6: train_loss=32.6013, train_acc=0.00%, val_loss=29.9177, val_top1=0.00%, val_top3=0.00%
+Epoch 7 [Train]: 100%|██████████████████████████████████████| 646/646 [03:05<00:00,  3.49it/s, loss=32.7266, acc=0.00%]
+Epoch 7 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:31<00:00,  5.00it/s]
+Epoch 7: train_loss=32.1088, train_acc=0.00%, val_loss=29.4574, val_top1=0.00%, val_top3=0.00%
+Epoch 8 [Train]: 100%|██████████████████████████████████████| 646/646 [02:10<00:00,  4.96it/s, loss=31.7545, acc=0.00%]
+Epoch 8 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:32<00:00,  4.98it/s]
+Epoch 8: train_loss=31.6598, train_acc=0.00%, val_loss=28.9745, val_top1=0.00%, val_top3=0.00%
+Epoch 9 [Train]: 100%|██████████████████████████████████████| 646/646 [02:44<00:00,  3.92it/s, loss=31.3778, acc=0.00%]
+Epoch 9 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:55<00:00,  2.90it/s]
+Epoch 9: train_loss=31.2648, train_acc=0.00%, val_loss=28.5148, val_top1=0.00%, val_top3=0.00%
+
+[Epoch 10] Backbone unlocked (stage 2)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\ai-server\ai-service\src\scripts\train_breed.py", line 407, in <module>
+    main()
+  File "D:\ai-server\ai-service\src\scripts\train_breed.py", line 368, in main
+    {"params": list(model.fc.parameters()), "lr": args.lr * 0.1},
+                    ^^^^^^^^
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\module.py", line 1931, in __getattr__
+    raise AttributeError(
+AttributeError: 'ResNet50_512d' object has no attribute 'fc'
+PS D:\ai-server\ai-service> python -m src.scripts.train_breed --data-oxford oxford_pets_split/train --data-stanford Stanford_Dogs --epochs 50 --batch 32 --lr 0.0001 --embed-dim 512 --num-classes 157 --output weights/breed_classifier.pth --device cuda
+Device: cuda
+Oxford Pets: 37 classes
+Stanford Dogs: 120 classes
+Total classes: 157
+Building dataset...
+Train: 20647 images, Val: 5105 images
+Building ResNet50 model...
+Backbone frozen (stage 1)
+Epoch 1 [Train]: 100%|██████████████████████████████████████| 646/646 [03:42<00:00,  2.91it/s, loss=36.8492, acc=0.00%]
+Epoch 1 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [01:02<00:00,  2.54it/s]
+Epoch 1: train_loss=37.4412, train_acc=0.00%, val_loss=34.6713, val_top1=0.00%, val_top3=0.00%
+Epoch 2 [Train]: 100%|██████████████████████████████████████| 646/646 [03:51<00:00,  2.79it/s, loss=34.9545, acc=0.00%]
+Epoch 2 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:52<00:00,  3.03it/s]
+Epoch 2: train_loss=35.8440, train_acc=0.00%, val_loss=33.0046, val_top1=0.00%, val_top3=0.00%
+Epoch 3 [Train]: 100%|██████████████████████████████████████| 646/646 [03:54<00:00,  2.76it/s, loss=35.7099, acc=0.00%]
+Epoch 3 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:56<00:00,  2.82it/s]
+Epoch 3: train_loss=34.6884, train_acc=0.00%, val_loss=31.8834, val_top1=0.00%, val_top3=0.00%
+Epoch 4 [Train]: 100%|██████████████████████████████████████| 646/646 [03:49<00:00,  2.82it/s, loss=34.2840, acc=0.00%]
+Epoch 4 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:53<00:00,  2.99it/s]
+Epoch 4: train_loss=33.8285, train_acc=0.00%, val_loss=31.0001, val_top1=0.00%, val_top3=0.00%
+Epoch 5 [Train]: 100%|██████████████████████████████████████| 646/646 [04:02<00:00,  2.66it/s, loss=34.2396, acc=0.00%]
+Epoch 5 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:52<00:00,  3.03it/s]
+Epoch 5: train_loss=33.1232, train_acc=0.00%, val_loss=30.4201, val_top1=0.00%, val_top3=0.00%
+Epoch 6 [Train]: 100%|██████████████████████████████████████| 646/646 [03:44<00:00,  2.88it/s, loss=33.6801, acc=0.00%]
+Epoch 6 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [01:02<00:00,  2.57it/s]
+Epoch 6: train_loss=32.5358, train_acc=0.00%, val_loss=29.8538, val_top1=0.00%, val_top3=0.00%
+Epoch 7 [Train]: 100%|██████████████████████████████████████| 646/646 [03:49<00:00,  2.81it/s, loss=31.8071, acc=0.00%]
+Epoch 7 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:53<00:00,  2.98it/s]
+Epoch 7: train_loss=32.0217, train_acc=0.00%, val_loss=29.2974, val_top1=0.00%, val_top3=0.00%
+Epoch 8 [Train]: 100%|██████████████████████████████████████| 646/646 [03:59<00:00,  2.70it/s, loss=33.2399, acc=0.00%]
+Epoch 8 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:57<00:00,  2.80it/s]
+Epoch 8: train_loss=31.5735, train_acc=0.00%, val_loss=28.8183, val_top1=0.00%, val_top3=0.00%
+Epoch 9 [Train]: 100%|██████████████████████████████████████| 646/646 [03:48<00:00,  2.83it/s, loss=33.5610, acc=0.00%]
+Epoch 9 [Eval]: 100%|████████████████████████████████████████████████████████████████| 160/160 [00:54<00:00,  2.93it/s]
+Epoch 9: train_loss=31.1271, train_acc=0.00%, val_loss=28.3423, val_top1=0.00%, val_top3=0.00%
+
+[Epoch 10] Backbone unlocked (stage 2)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\ai-server\ai-service\src\scripts\train_breed.py", line 407, in <module>
+    main()
+  File "D:\ai-server\ai-service\src\scripts\train_breed.py", line 366, in main
+    optimizer = optim.AdamW([
+                ^^^^^^^^^^^^^
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\optim\adamw.py", line 77, in __init__
+    super().__init__(params, defaults)
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\optim\optimizer.py", line 371, in __init__
+    self.add_param_group(cast(dict, param_group))
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_compile.py", line 32, in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\eval_frame.py", line 632, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\13838\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\optim\optimizer.py", line 1050, in add_param_group
+    raise ValueError("some parameters appear in more than one parameter group")
+ValueError: some parameters appear in more than one parameter group

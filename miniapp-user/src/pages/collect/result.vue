@@ -71,16 +71,19 @@
 
     <!-- 底部操作 -->
     <view class="bottom-actions">
-      <!-- 确认重复提示 -->
-      <view class="action-hint" v-if="topScore >= 0.88">
+      <!-- 确认重复：显示认领按钮 -->
+      <view class="action-hint" v-if="isDuplicateConfirmed">
         <text class="hint-icon">⚠️</text>
-        <text>已确认重复，管理员将审核合并</text>
+        <text>已确认重复，是否认领这只动物？</text>
+      </view>
+      <view class="btn-primary" v-if="isDuplicateConfirmed" @click="onClaimAnimal">
+        <text>认领此动物</text>
       </view>
       <!-- 有匹配：上报此动物 -->
-      <view class="btn-primary" v-if="showMatchList" @click="onReport">
+      <view class="btn-primary" v-if="showMatchList && !isDuplicateConfirmed" @click="onReport">
         <text>上报此动物</text>
       </view>
-      <view class="btn-secondary" v-if="showMatchList" @click="onBackHome">
+      <view class="btn-secondary" v-if="showMatchList && !isDuplicateConfirmed" @click="onBackHome">
         <text>返回首页</text>
       </view>
       <!-- Plan B 无匹配：双按钮 -->
@@ -102,6 +105,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { apiNoseCompare, apiCreateAnimal, apiReportEvent } from '@/services/api'
 
+const collectResult = ref<any>(null)
 const compareResult = ref<any>(null)
 const selectedSpecies = ref('dog')
 const noseId = ref('')
@@ -112,7 +116,7 @@ const formGender = ref('')
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species, breed, color, gender } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender, is_duplicate, matched_animal_id, similarity } = currentPage.options || {}
 
   if (!nose_id || nose_id === 'undefined') {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
@@ -126,6 +130,38 @@ onMounted(async () => {
   formBreed.value = decodeURIComponent(breed || '')
   formColor.value = decodeURIComponent(color || '')
   formGender.value = decodeURIComponent(gender || 'unknown')
+
+  // 如果是同狗重复采集（collect 时已查到重复），直接显示重复提示
+  if (is_duplicate === 'true' && matched_animal_id && matched_animal_id !== 'null') {
+    compareResult.value = {
+      total: 1,
+      results: [{
+        animal_id: matched_animal_id,
+        fusion_score: parseFloat(similarity) || 0,
+        vector_similarity: parseFloat(similarity) || 0,
+        gps_distance_m: 0,
+        text_match_rate: 0,
+        image_similarity: 0,
+        is_recommended: true,
+        animal: {
+          animal_id: matched_animal_id,
+          species: selectedSpecies.value,
+          breed: formBreed.value,
+          color: formColor.value,
+          gender: formGender.value,
+          status: 'lost',
+          first_seen_at: new Date().toISOString(),
+          address: '',
+          photos: [],
+        },
+      }],
+      threshold_confirmed: 0.88,
+      threshold_suspected: 0.75,
+      next_action: 'duplicate_detected',
+      candidate: null,
+    }
+    return
+  }
 
   uni.showLoading({ title: '比对中...' })
   try {
@@ -174,6 +210,7 @@ const statusIcon = computed(() => {
 const statusText = computed(() => {
   if (!compareResult.value) return ''
   const score = compareResult.value.results[0]?.fusion_score
+  if (compareResult.value.next_action === 'duplicate_detected') return '已确认重复，是否认领这只动物？'
   if (score >= 0.88) return '确认重复，系统将自动合并'
   if (score >= 0.75) return '疑似重复，需管理员审核'
   return '未匹配到相似动物'
@@ -197,6 +234,13 @@ const needsConfirmation = computed(() => {
 })
 
 const showMatchList = computed(() => hasMatch.value)
+
+// 高相似度（确认重复）时隐藏上报按钮，显示认领引导
+const isDuplicateConfirmed = computed(() => {
+  if (!compareResult.value) return false
+  return compareResult.value.next_action === 'duplicate_detected'
+    || (compareResult.value.results[0]?.fusion_score >= 0.88 && compareResult.value.results[0]?.animal_id)
+})
 
 // GPS 维度得分：≤500m=1.0, ≥1500m=0, 中间线性衰减
 function calcLocationScore(distanceM) {
@@ -247,6 +291,18 @@ function onReport() {
 function onBackHome() {
   uni.switchTab({
     url: '/pages/index/index'
+  })
+}
+
+// 认领已确认重复的动物
+async function onClaimAnimal() {
+  const first = matchList.value[0]
+  if (!first?.animal_id) {
+    uni.showToast({ title: '数据异常，请重新采集', icon: 'none' })
+    return
+  }
+  uni.navigateTo({
+    url: '/pages/animal-detail/index?animal_id=' + first.animal_id
   })
 }
 

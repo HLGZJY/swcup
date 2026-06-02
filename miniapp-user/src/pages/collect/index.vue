@@ -450,6 +450,9 @@ async function onNext() {
     collectResult.value = collectRes.data
     // 后端返回 vector_id，前端用 nose_id 作参数名（后端已兼容）
     const noseId = collectRes.data.vector_id || collectRes.data.nose_id
+    const isDuplicate = collectRes.data.is_duplicate ? String(collectRes.data.is_duplicate) : 'false'
+    const matchedAnimalId = collectRes.data.matched_animal_id || ''
+    const similarity = collectRes.data.similarity || 0
     uni.setStorageSync('vector_id', noseId)
 
     uni.hideLoading()
@@ -458,7 +461,7 @@ async function onNext() {
     // 跳转到结果页
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}`
+        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}`
       })
     }, 1000)
   } catch (e: any) {
