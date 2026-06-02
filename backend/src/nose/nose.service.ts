@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
@@ -85,12 +85,16 @@ export class NoseService {
     sourceVec: number[],
     species: string | undefined,
     limit: number = 50,
+    excludeVectorId?: string,
   ): Promise<{ animal: Animal; nose_feature: NoseFeature; cosine_similarity: number }[]> {
     const qb = this.animalRepo.createQueryBuilder('a')
       .where('a.primary_nose_id IS NOT NULL')
       .andWhere('a.primary_nose_id != :empty', { empty: '' });
     if (species) {
       qb.andWhere('a.species = :species', { species });
+    }
+    if (excludeVectorId) {
+      qb.andWhere('a.primary_nose_id != :excludeVectorId', { excludeVectorId });
     }
     const animals = await qb.take(1000).getMany();
 
@@ -156,6 +160,11 @@ export class NoseService {
       throw new Error('缺少鼻纹照片');
     }
 
+    // 校验位置坐标有效性（禁止 0,0）
+    if (!dto.location_lat || !dto.location_lng || dto.location_lat === 0 || dto.location_lng === 0) {
+      throw new Error('请提供有效的位置信息，不支持默认坐标');
+    }
+
     // Step 1: 提向量
     const vector = await this.extractVectorFromImage(dto.nose_photo);
     const vector_id = uuidv4();
@@ -172,6 +181,7 @@ export class NoseService {
       animal_id: bestMatch?.animal.animal_id || null,
       feature_vector: this.encodeVector(vector) as any,
       nose_photo_url: dto.nose_photo_url || '/static/uploads/nose_' + vector_id + '.jpg',
+      body_photo_url: dto.body_photo_url || null,
       confidence_score,
       is_primary: bestMatch ? false : true,
       collection_angle: 'front',
@@ -193,49 +203,9 @@ export class NoseService {
       };
     }
 
-    // Step 5: 相似度低 → 创建新动物档案 + 上报事件
-    const animal_id = uuidv4();
-    const now = new Date();
-    const animal = this.animalRepo.create({
-      animal_id,
-      status: AnimalStatus.LOST,
-      species: dto.species as Species,
-      breed: '',
-      color: '',
-      gender: Gender.UNKNOWN,
-      age_estimate: AgeEstimate.UNKNOWN,
-      health_status: HealthStatus.UNKNOWN,
-      sterilized: false,
-      first_seen_at: now,
-      last_seen_at: now,
-      location_lat: dto.location_lat || 0,
-      location_lng: dto.location_lng || 0,
-      address: dto.description || '',
-      primary_nose_id: vector_id,
-    });
-    await this.animalRepo.save(animal);
-
-    // 更新刚存的鼻纹特征关联到新动物
-    feature.animal_id = animal_id;
-    feature.is_primary = true;
-    await this.noseRepo.save(feature);
-
-    // 创建上报事件
-    const event = this.eventRepo.create({
-      event_id: uuidv4(),
-      animal_id,
-      event_type: EventType.REPORT,
-      reporter_id: null as any,
-      occurred_at: now,
-      location_lat: dto.location_lat || 0,
-      location_lng: dto.location_lng || 0,
-      address: dto.description || '',
-      status: EventStatus.PENDING,
-      fusion_score: 1.0,
-      vector_similarity: 1.0,
-    });
-    await this.eventRepo.save(event);
-
+    // Step 5: 相似度低 → 只创建鼻纹特征记录，不创建动物档案
+    //        动物创建由 result.vue 比对后用户手动触发（避免重复创建）
+    //        body_photo_url 已在上方 Step 3 保存到 nose_feature
     return {
       vector_id,
       confidence_score,
@@ -243,8 +213,7 @@ export class NoseService {
       is_duplicate: false,
       matched_animal_id: null,
       similarity: null,
-      animal_id,
-      next_action: 'ask_claim_or_new',
+      next_action: 'ask_user_create',  // 引导用户去结果页确认是否建档
     };
   }
 
@@ -267,7 +236,7 @@ export class NoseService {
     const threshold_suspected = 0.75;
 
     // 2. 在 Animal.primary_nose_id 中搜索相似动物
-    const similarAnimals = await this.findSimilarAnimals(sourceVec, dto.species, 50);
+    const similarAnimals = await this.findSimilarAnimals(sourceVec, dto.species, 50, vectorId);
 
     if (similarAnimals.length === 0) {
       return {
