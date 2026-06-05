@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Param, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -32,5 +32,12 @@ export class UsersController {
     const avatarUrl = `/static/uploads/avatars/${file.filename}`;
     await this.usersService.update(req.user.user_id, { avatar_url: avatarUrl });
     return { avatar_url: avatarUrl };
+  }
+
+  @Post('admin/users/:id/avatar/reset')
+  @ApiOperation({ summary: '管理员重置用户头像' })
+  async resetUserAvatar(@Param('id') userId: string) {
+    await this.usersService.resetAvatar(userId);
+    return { message: '头像已重置' };
   }
 }

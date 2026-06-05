@@ -26,4 +26,8 @@ export class UsersService {
     await this.userRepo.update({ user_id }, dto);
     return this.findById(user_id);
   }
+
+  async resetAvatar(user_id: string) {
+    await this.userRepo.update({ user_id }, { avatar_url: null });
+  }
 }
