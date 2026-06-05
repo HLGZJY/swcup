@@ -28,6 +28,8 @@ export class UsersService {
   }
 
   async resetAvatar(user_id: string) {
+    const user = await this.userRepo.findOne({ where: { user_id } });
+    if (!user) throw new Error('用户不存在');
     await this.userRepo.update({ user_id }, { avatar_url: null });
   }
 }

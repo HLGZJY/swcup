@@ -2,6 +2,8 @@ import { Controller, Get, Patch, Post, Body, Param, UseGuards, Request, UseInter
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { UsersService } from './users.service';
 import { avatarStorage, avatarFilter } from '../common/multer.config';
 
@@ -36,6 +38,8 @@ export class UsersController {
 
   @Post('admin/users/:id/avatar/reset')
   @ApiOperation({ summary: '管理员重置用户头像' })
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   async resetUserAvatar(@Param('id') userId: string) {
     await this.usersService.resetAvatar(userId);
     return { message: '头像已重置' };
