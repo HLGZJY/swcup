@@ -9,8 +9,11 @@
           mode="aspectFill"
           @error="onAvatarError"
         />
-        <view class="avatar-edit" @click="onEditAvatar">
-          <text>✎</text>
+                <view class="avatar-edit" @click="onEditAvatar">
+         <text>✎</text>
+        </view>
+        <view v-if="user.openid && user.avatar_url" class="avatar-reset-btn" @click="onResetWechatAvatar">
+          <text>恢复微信头像</text>
         </view>
       </view>
       <view class="user-info">
@@ -99,7 +102,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { apiGetCurrentUser, apiGetMyClaims } from '@/services/api'
+import { apiGetCurrentUser, apiGetMyClaims, apiUpdateAvatar, apiResetWechatAvatar } from '@/services/api'
 
 async function refreshUserData() {
   const [userRes, claimRes] = await Promise.all([
@@ -158,11 +161,67 @@ function onAvatarError() {
 }
 
 function onEditAvatar() {
-  uni.chooseAvatar({
-    success: (res: any) => {
-      user.value.avatar_url = res.avatarUrl
+  if (user.value.openid) {
+    // 微信用户：显示选择菜单
+    uni.showActionSheet({
+      itemList: ['从微信头像选', '从相册选择'],
+      success: (res: any) => {
+        if (res.tapIndex === 0) {
+          uni.chooseAvatar({
+            success: (res: any) => uploadAvatar(res.avatarUrl),
+          });
+        } else {
+          uni.chooseImage({
+            count: 1,
+            sourceType: ['album'],
+            success: (res: any) => uploadAvatar(res.tempFilePaths[0]),
+          });
+        }
+      }
+    });
+  } else {
+    // 手机号用户：从相册选
+    uni.chooseImage({
+      count: 1,
+      sourceType: ['album'],
+      success: (res: any) => uploadAvatar(res.tempFilePaths[0]),
+    });
+  }
+}
+
+async function uploadAvatar(filePath: string) {
+  uni.showLoading({ title: '上传中...' });
+  try {
+    const res = await apiUpdateAvatar(filePath);
+    uni.hideLoading();
+    if (res.code === 0) {
+      user.value.avatar_url = res.data.avatar_url;
+      uni.$emit('page:refresh-user');
+    } else {
+      uni.showToast({ title: res.message || '上传失败', icon: 'none' });
     }
-  })
+  } catch (e) {
+    uni.hideLoading();
+    uni.showToast({ title: '上传失败', icon: 'none' });
+  }
+}
+
+async function onResetWechatAvatar() {
+  uni.showModal({
+    title: '恢复微信头像',
+    content: '确定要恢复为微信头像吗？',
+    success: async (res: any) => {
+      if (res.confirm) {
+        try {
+          await apiResetWechatAvatar();
+          uni.showToast({ title: '已恢复', icon: 'success' });
+          refreshUserData();
+        } catch (e) {
+          uni.showToast({ title: '恢复失败，请重新登录', icon: 'none' });
+        }
+      }
+    }
+  });
 }
 
 function goToMyReports() {
@@ -243,6 +302,14 @@ function onLogout() {
   justify-content: center;
   font-size: 20rpx;
   color: #0FBF9F;
+}
+
+.avatar-reset-btn {
+  margin-left: 44px;
+  margin-top: 8px;
+  font-size: 22rpx;
+  color: #0FBF9F;
+  text-align: center;
 }
 
 .user-info {
