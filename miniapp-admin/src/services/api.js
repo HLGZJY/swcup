@@ -4,7 +4,7 @@
  * 所有接口均需 admin role
  */
 
-const BASE_URL = 'http://192.168.32.1:3000'
+const BASE_URL = 'http://192.168.32.1:3000/v1'
 
 /**
  * 解析图片完整 URL
@@ -231,6 +231,16 @@ export function apiUpdateUser(userId, data) {
 }
 
 /**
+ * 重置用户头像
+ * POST /admin/users/:user_id/avatar/reset
+ */
+export function apiResetUserAvatar(userId) {
+  return request(`/admin/users/${userId}/avatar/reset`, {
+    method: 'POST',
+  })
+}
+
+/**
  * 获取用户信息
  * GET /users/me
  */
@@ -249,7 +259,7 @@ function request(path, options = {}) {
     setTimeout(() => {
       console.log('[API-TIMEOUT] still pending after 5s, path=', path)
     }, 5000)
-let fullPath = path
+    let fullPath = path
     if (Object.keys(params).length > 0) {
       // 手动拼接 query string，避免小程序端 URLSearchParams 兼容性问题
       const query = Object.entries(params)
