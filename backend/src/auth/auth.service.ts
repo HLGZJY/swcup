@@ -40,6 +40,7 @@ export class AuthService {
     const wxSecret = process.env.WX_SECRET;
 
     let openid: string;
+    let sessionKey: string | undefined;
     try {
       const wxRes = await fetch(
         `https://api.weixin.qq.com/sns/jscode2session?appid=${wxAppId}&secret=${wxSecret}&js_code=${code}&grant_type=authorization_code`,
@@ -50,8 +51,22 @@ export class AuthService {
         throw new Error(wxData.errmsg || '微信授权失败');
       }
       openid = wxData.openid;
+      sessionKey = wxData.session_key;
     } catch (err) {
       throw new Error('微信授权失败，请稍后重试');
+    }
+
+    // 获取微信用户信息（含头像）
+    let avatarUrl: string | null = null;
+    try {
+      const wxUserInfoRes = await fetch(
+        `https://api.weixin.qq.com/sns/userinfo?access_token=${sessionKey}&openid=${openid}`,
+        { method: 'GET' }
+      );
+      const wxUserInfo = await wxUserInfoRes.json() as { headimgurl?: string };
+      avatarUrl = wxUserInfo.headimgurl || null;
+    } catch {
+      // 微信头像获取失败不影响登录
     }
 
     // 先查是否存在，不存在才新建（避免每次 upsert 生成新 UUID）
@@ -63,7 +78,7 @@ export class AuthService {
         nickname: '',
         phone: null,
         password_hash: null,
-        avatar_url: null,
+        avatar_url: avatarUrl,
         role: UserRole.USER,
         agreed_privacy_at: new Date(),
       });
