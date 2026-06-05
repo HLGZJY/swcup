@@ -125,6 +125,47 @@ export function apiUpdateCurrentUser(params) {
 }
 
 /**
+ * 上传头像
+ * POST /v1/users/me/avatar
+ * 请求: filePath - 文件临时路径
+ */
+export function apiUpdateAvatar(filePath) {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token')
+    const header = {}
+    if (token) {
+      header['Authorization'] = 'Bearer ' + token
+    }
+
+    uni.uploadFile({
+      url: BASE_URL + '/v1/users/me/avatar',
+      filePath,
+      name: 'file',
+      header,
+      success: (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(res)
+          return
+        }
+        const data = JSON.parse(res.data)
+        resolve(data)
+      },
+      fail: reject,
+    })
+  })
+}
+
+/**
+ * 重置微信头像
+ * POST /v1/users/me/avatar/wechat
+ */
+export function apiResetWechatAvatar() {
+  return request('/v1/users/me/avatar/wechat', {
+    method: 'POST'
+  })
+}
+
+/**
  * 上报救助事件
  * POST /events
  * 请求: { event_type, species, gender, age_estimate, health_status, sterilized, color, breed, notes, first_seen_at, last_seen_at, location_lat, location_lng, address, tags, photos }
@@ -209,6 +250,46 @@ export function apiCreateAnimal(params) {
   return request('/v2/animals', {
     method: 'POST',
     body: params
+  })
+}
+
+/**
+ * 上传文件
+ * POST /v1/upload
+ * 用于采集流程中上传全身照和鼻纹照
+ */
+export function apiUploadFile(tempFilePath) {
+  return new Promise((resolve, reject) => {
+    const BASE_URL = 'http://127.0.0.1:3000'
+    const token = uni.getStorageSync('token')
+    const header = {}
+    if (token) {
+      header['Authorization'] = 'Bearer ' + token
+    }
+
+    uni.uploadFile({
+      url: BASE_URL + '/v1/upload',
+      filePath: tempFilePath,
+      name: 'file',
+      header,
+      success: (res) => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          uni.showToast({ title: '上传失败', icon: 'none' })
+          reject(res)
+          return
+        }
+        try {
+          const data = JSON.parse(res.data)
+          resolve(data.url)
+        } catch (e) {
+          reject(e)
+        }
+      },
+      fail: (err) => {
+        uni.showToast({ title: '网络异常，上传失败', icon: 'none' })
+        reject(err)
+      }
+    })
   })
 }
 
