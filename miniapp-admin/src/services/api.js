@@ -235,7 +235,7 @@ export function apiUpdateUser(userId, data) {
  * POST /admin/users/:user_id/avatar/reset
  */
 export function apiResetUserAvatar(userId) {
-  return request(`/admin/users/${userId}/avatar/reset`, {
+  return request(`/users/admin/users/${userId}/avatar/reset`, {
     method: 'POST',
   })
 }
