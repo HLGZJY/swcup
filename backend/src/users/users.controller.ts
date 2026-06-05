@@ -1,5 +1,5 @@
 import { Controller, Get, Patch, Post, Body, Param, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -28,7 +28,7 @@ export class UsersController {
 
   @Post('me/avatar')
   @ApiOperation({ summary: '上传头像' })
-  @UseInterceptors(AnyFilesInterceptor({ storage: avatarStorage, fileFilter: avatarFilter }))
+  @UseInterceptors(FileInterceptor('file', { storage: avatarStorage, fileFilter: avatarFilter }))
   async uploadAvatar(@UploadedFile() file: Express.Multer.File, @Request() req: any) {
     if (!file) throw new Error('未选择图片');
     const avatarUrl = `/static/uploads/avatars/${file.filename}`;
