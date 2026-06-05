@@ -206,6 +206,7 @@ export class AuthService {
       nickname: user.nickname,
       phone: user.phone ? user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : null,
       avatar_url: user.avatar_url,
+      openid: user.openid,
       role: user.role,
       created_at: user.created_at,
     };
