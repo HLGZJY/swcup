@@ -8,15 +8,21 @@
       </view>
     </view>
 
-    <!-- 状态筛选 -->
-    <view class="filter-tabs">
-      <view
-        v-for="tab in statusTabs"
-        :key="tab.value"
-        :class="['filter-tab', { active: currentStatus === tab.value }]"
-        @click="onFilter(tab.value)"
-      >
-        <text>{{ tab.label }}</text>
+    <!-- 状态筛选 + 归档 toggle -->
+    <view class="filter-bar">
+      <view class="filter-tabs">
+        <view
+          v-for="tab in statusTabs"
+          :key="tab.value"
+          :class="['filter-tab', { active: currentStatus === tab.value }]"
+          @click="onFilter(tab.value)"
+        >
+          <text>{{ tab.label }}</text>
+        </view>
+      </view>
+      <view class="archive-toggle">
+        <switch :checked="showArchived" @change="onToggleArchive" color="#0FBF9F" style="transform: scale(0.8);" />
+        <text class="archive-label">显示归档</text>
       </view>
     </view>
 
@@ -24,7 +30,7 @@
     <scroll-view class="list-area" scroll-y @scrolltolower="onLoadMore">
       <view class="empty-state" v-if="animals.length === 0 && !loading">
         <image class="empty-icon-img" src="/static/icons/icon-image.png" mode="aspectFit" />
-        <text class="empty-text">暂无动物档案</text>
+        <text class="empty-text">{{ showArchived ? '暂无归档档案' : '暂无动物档案' }}</text>
       </view>
 
       <view
@@ -52,6 +58,11 @@
         <text>— 没有更多了 —</text>
       </view>
     </scroll-view>
+
+    <!-- 浮动新建按钮 -->
+    <view class="fab-add" @click="onCreateNew">
+      <text class="fab-icon">+</text>
+    </view>
   </view>
 </template>
 
@@ -61,6 +72,7 @@ import { apiGetAdminAnimals, resolveImageUrl } from '@/services/api'
 
 const keyword = ref('')
 const currentStatus = ref('all')
+const showArchived = ref(false)
 const animals = ref<any[]>([])
 const loading = ref(false)
 const hasMore = ref(true)
@@ -71,16 +83,15 @@ const statusTabs = [
   { label: '全部', value: 'all' },
   { label: '走失', value: 'lost' },
   { label: '发现', value: 'found' },
-  { label: '待认领', value: 'claimed' }
+  { label: '待认领', value: 'claimed' },
+  { label: '归档', value: 'archived' },
 ]
 
 const statusMap: Record<string, string> = {
   lost: '走失', found: '发现', claimed: '待认领', archived: '归档'
 }
 
-// TabBar 页面切换时 onMounted 触发，加载数据
 onMounted(() => {
-  console.log('[DEBUG] animals onMounted fired, calling loadAnimals')
   loadAnimals()
 })
 
@@ -96,9 +107,10 @@ async function loadAnimals(append = false) {
   const params: any = { page: page.value, limit: pageSize }
   if (currentStatus.value !== 'all') params.status = currentStatus.value
   if (keyword.value) params.keyword = keyword.value
+  params.include_archived = showArchived.value
 
   try {
-    console.log('[PAGE] apiGetAdminAnimals called, params=', JSON.stringify(params)); const res: any = await apiGetAdminAnimals(params)
+    const res: any = await apiGetAdminAnimals(params)
     if (res.code === 0) {
       if (append) {
         animals.value.push(...res.data?.list || [])
@@ -109,21 +121,29 @@ async function loadAnimals(append = false) {
       if (hasMore.value) page.value++
     }
   } catch (e) {
-    console.error('加载动物列表失败', e)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+    // 错误已由 api.js 拦截器统一处理
   }
   loading.value = false
 }
 
 function onSearch() {
   animals.value = []
-  console.log('[PAGE>>] loadAnimals called'); loadAnimals()
+  loadAnimals()
 }
 
 function onFilter(status: string) {
   currentStatus.value = status
   animals.value = []
-  console.log('[PAGE>>] loadAnimals called'); loadAnimals()
+  loadAnimals()
+}
+
+function onToggleArchive(e: any) {
+  showArchived.value = e.detail.value
+  // 切到"归档"tab 时,后端 include_archived 已无效(因为 status=archived 自身就显示归档)
+  if (e.detail.value && currentStatus.value !== 'archived') {
+    currentStatus.value = 'all'
+  }
+  loadAnimals()
 }
 
 function onLoadMore() {
@@ -133,6 +153,10 @@ function onLoadMore() {
 
 function showAnimalDetail(animal: any) {
   uni.navigateTo({ url: `/pages/animals/detail/index?animal_id=${animal.animal_id}` })
+}
+
+function onCreateNew() {
+  uni.navigateTo({ url: '/pages/animals/detail/index?mode=new' })
 }
 </script>
 
@@ -178,7 +202,7 @@ function showAnimalDetail(animal: any) {
 .filter-tabs {
   display: flex;
   background: #FFFFFF;
-  padding: 0 36rpx;
+  padding: 0 24rpx;
 }
 
 .filter-tab {
@@ -308,4 +332,36 @@ function showAnimalDetail(animal: any) {
   font-size: 24rpx;
   color: #999999;
 }
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  background: #FFF;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.filter-bar .filter-tabs { flex: 1; padding: 0 24rpx; }
+.filter-tabs { display: flex; }
+.archive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 0 24rpx;
+  flex-shrink: 0;
+}
+.archive-label { font-size: 24rpx; color: #666; }
+.fab-add {
+  position: fixed;
+  right: 32rpx;
+  bottom: 48rpx;
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: #0FBF9F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 20rpx rgba(15, 191, 159, 0.4);
+  z-index: 100;
+}
+.fab-icon { color: #FFF; font-size: 56rpx; font-weight: 300; line-height: 1; }
 </style>
