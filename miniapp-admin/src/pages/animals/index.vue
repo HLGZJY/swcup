@@ -139,7 +139,8 @@ function onFilter(status: string) {
 
 function onToggleArchive(e: any) {
   showArchived.value = e.detail.value
-  // 切到"归档"tab 时,后端 include_archived 已无效(因为 status=archived 自身就显示归档)
+  // 开启归档 toggle 时,若当前在 lost/found/claimed tab,自动切到"全部",
+  // 避免双重过滤造成列表混乱
   if (e.detail.value && currentStatus.value !== 'archived') {
     currentStatus.value = 'all'
   }
@@ -220,7 +221,7 @@ function onCreateNew() {
 
 .list-area {
   flex: 1;
-  padding: 28rpx;
+  padding: 28rpx 28rpx 160rpx 28rpx;
   box-sizing: border-box;
 }
 
@@ -340,7 +341,6 @@ function onCreateNew() {
   border-bottom: 1rpx solid #F5F5F5;
 }
 .filter-bar .filter-tabs { flex: 1; padding: 0 24rpx; }
-.filter-tabs { display: flex; }
 .archive-toggle {
   display: flex;
   align-items: center;
