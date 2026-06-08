@@ -31,4 +31,8 @@ export class QueryAnimalDto {
   @IsOptional()
   @IsString()
   keyword?: string;
+
+  @ApiPropertyOptional({ description: '是否包含已归档的动物' })
+  @IsOptional()
+  include_archived?: boolean | string;
 }

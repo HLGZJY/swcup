@@ -5,8 +5,8 @@
       <view class="form-row">
         <text class="form-label">状态</text>
         <text v-if="mode === 'read'" class="form-value">{{ statusMap[form.status] || form.status }}</text>
-        <picker v-else mode="selector" :range="statusOptions" range-key="label" :value="statusIndex" @change="onStatusChange">
-          <text class="form-picker">{{ statusOptions[statusIndex]?.label || '请选择' }}</text>
+        <picker v-else mode="selector" :range="statusOptionsForMode" range-key="label" :value="statusIndex" @change="onStatusChange">
+          <text class="form-picker">{{ statusOptionsForMode[statusIndex]?.label || '请选择' }}</text>
         </picker>
       </view>
 
@@ -140,6 +140,13 @@ const statusOptions = [
   { value: 'claimed', label: '待认领' },
   { value: 'archived', label: '归档' },
 ]
+// new 模式下隐藏 archived(后端 create 硬编码 status=lost,前端给选项无意义)
+const statusOptionsForMode = computed(() => {
+  if (props.mode === 'new') {
+    return statusOptions.filter((o) => o.value !== 'archived')
+  }
+  return statusOptions
+})
 const speciesOptions = [
   { value: 'cat', label: '猫' },
   { value: 'dog', label: '狗' },
@@ -164,7 +171,7 @@ const healthOptions = [
 ]
 
 const statusIndex = computed(() => {
-  const idx = statusOptions.findIndex((o) => o.value === form.value.status)
+  const idx = statusOptionsForMode.value.findIndex((o) => o.value === form.value.status)
   return idx === -1 ? 0 : idx
 })
 const speciesIndex = computed(() => {
@@ -184,7 +191,7 @@ const healthIndex = computed(() => {
   return idx === -1 ? 0 : idx
 })
 
-function onStatusChange(e: any) { form.value.status = statusOptions[e.detail.value]?.value || 'lost' }
+function onStatusChange(e: any) { form.value.status = statusOptionsForMode.value[e.detail.value]?.value || 'lost' }
 function onSterilizedChange(e: { detail: { value: boolean } }) {
   form.value.sterilized = e.detail.value
 }
@@ -196,6 +203,7 @@ function onHealthChange(e: any) { form.value.health_status = healthOptions[e.det
 // 对外暴露的方法,供父组件触发提交
 defineExpose<{ submit: () => void; cancel: () => void; archive: () => void }>({
   submit() {
+    if (props.submitting) return
     emit('submit', { ...form.value })
   },
   cancel() {
