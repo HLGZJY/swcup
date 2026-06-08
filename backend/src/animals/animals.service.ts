@@ -9,11 +9,14 @@ import { v4 as uuidv4 } from 'uuid';
 export class AnimalsService {
   constructor(@InjectRepository(Animal) private readonly animalRepo: Repository<Animal>) {}
 
-  async findAll(query: { page?: number; limit?: number; species?: string; status?: string; keyword?: string }) {
-    const { page = 1, limit = 20, species, status, keyword } = query;
+  async findAll(query: { page?: number; limit?: number; species?: string; status?: string; keyword?: string; include_archived?: boolean | string }) {
+    const { page = 1, limit = 20, species, status, keyword, include_archived } = query;
     const qb = this.animalRepo.createQueryBuilder('a');
     if (species) qb.andWhere('a.species = :species', { species });
     if (status) qb.andWhere('a.status = :status', { status });
+    if (!include_archived || include_archived === 'false') {
+      qb.andWhere('a.status != :archived', { archived: 'archived' });
+    }
     if (keyword) {
       qb.andWhere('(a.breed LIKE :kw OR a.color LIKE :kw OR a.address LIKE :kw)', { kw: `%${keyword}%` });
     }
