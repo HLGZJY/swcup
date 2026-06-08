@@ -12,7 +12,7 @@
 
       <view class="form-row">
         <text class="form-label">物种</text>
-        <text v-if="mode === 'read'" class="form-value">{{ form.species === 'cat' ? '猫' : form.species === 'dog' ? '狗' : '其他' }}</text>
+        <text v-if="mode === 'read'" class="form-value">{{ speciesMap[form.species] || '其他' }}</text>
         <picker v-else mode="selector" :range="speciesOptions" range-key="label" :value="speciesIndex" @change="onSpeciesChange">
           <text class="form-picker">{{ speciesOptions[speciesIndex]?.label || '请选择' }}</text>
         </picker>
@@ -57,7 +57,7 @@
       <view class="form-row form-row-switch">
         <text class="form-label">是否绝育</text>
         <text v-if="mode === 'read'" class="form-value">{{ form.sterilized ? '已绝育' : '未绝育' }}</text>
-        <switch v-else :checked="!!form.sterilized" @change="(e: any) => form.sterilized = e.detail.value" color="#0FBF9F" />
+        <switch v-else :checked="!!form.sterilized" @change="onSterilizedChange" color="#0FBF9F" />
       </view>
     </view>
 
@@ -129,6 +129,7 @@ watch(
 )
 
 const statusMap: Record<string, string> = { lost: '走失', found: '发现', claimed: '待认领', archived: '归档' }
+const speciesMap: Record<string, string> = { cat: '猫', dog: '狗', other: '其他' }
 const genderMap: Record<string, string> = { male: '公', female: '母', unknown: '未知' }
 const ageMap: Record<string, string> = { puppy: '幼年', adult: '成年', senior: '老年' }
 const healthMap: Record<string, string> = { healthy: '健康', injured: '受伤', ill: '生病', unknown: '未知' }
@@ -162,23 +163,38 @@ const healthOptions = [
   { value: 'unknown', label: '未知' },
 ]
 
-const statusIndex = computed(() => statusOptions.findIndex((o) => o.value === form.value.status))
-const speciesIndex = computed(() => speciesOptions.findIndex((o) => o.value === form.value.species))
-const genderIndex = computed(() => genderOptions.findIndex((o) => o.value === form.value.gender))
+const statusIndex = computed(() => {
+  const idx = statusOptions.findIndex((o) => o.value === form.value.status)
+  return idx === -1 ? 0 : idx
+})
+const speciesIndex = computed(() => {
+  const idx = speciesOptions.findIndex((o) => o.value === form.value.species)
+  return idx === -1 ? 0 : idx
+})
+const genderIndex = computed(() => {
+  const idx = genderOptions.findIndex((o) => o.value === form.value.gender)
+  return idx === -1 ? 0 : idx
+})
 const ageIndex = computed(() => {
   const idx = ageOptions.findIndex((o) => o.value === form.value.age_estimate)
   return idx === -1 ? 0 : idx
 })
-const healthIndex = computed(() => healthOptions.findIndex((o) => o.value === form.value.health_status))
+const healthIndex = computed(() => {
+  const idx = healthOptions.findIndex((o) => o.value === form.value.health_status)
+  return idx === -1 ? 0 : idx
+})
 
 function onStatusChange(e: any) { form.value.status = statusOptions[e.detail.value]?.value || 'lost' }
+function onSterilizedChange(e: { detail: { value: boolean } }) {
+  form.value.sterilized = e.detail.value
+}
 function onSpeciesChange(e: any) { form.value.species = speciesOptions[e.detail.value]?.value || 'dog' }
 function onGenderChange(e: any) { form.value.gender = genderOptions[e.detail.value]?.value || 'unknown' }
 function onAgeChange(e: any) { form.value.age_estimate = ageOptions[e.detail.value]?.value || '' }
 function onHealthChange(e: any) { form.value.health_status = healthOptions[e.detail.value]?.value || 'unknown' }
 
 // 对外暴露的方法,供父组件触发提交
-defineExpose({
+defineExpose<{ submit: () => void; cancel: () => void; archive: () => void }>({
   submit() {
     emit('submit', { ...form.value })
   },
