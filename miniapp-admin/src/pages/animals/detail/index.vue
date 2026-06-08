@@ -17,7 +17,7 @@
         @cancel="onCancel"
       />
       <view class="action-bar">
-        <button class="btn-secondary" @click="onCancel">取消</button>
+        <button class="btn-secondary" :disabled="submitting" @click="onCancel">取消</button>
         <button class="btn-primary" :disabled="submitting" @click="formRef?.submit()">
           {{ submitting ? '创建中...' : '创建' }}
         </button>
@@ -51,7 +51,7 @@
       />
 
       <view v-if="mode === 'edit'" class="action-bar">
-        <button class="btn-secondary" @click="onCancelEdit">取消</button>
+        <button class="btn-secondary" :disabled="submitting" @click="onCancelEdit">取消</button>
         <button class="btn-primary" :disabled="submitting" @click="formRef?.submit()">
           {{ submitting ? '保存中...' : '保存' }}
         </button>
@@ -138,11 +138,10 @@ async function onSave(data: any) {
       editingSnapshot.value = null
       mode.value = 'read'
       uni.showToast({ title: '保存成功', icon: 'success' })
-    } else {
-      uni.showModal({ title: '保存失败', content: res.message || '未知错误', showCancel: false, confirmText: '我知道了' })
     }
+    // 注: code !== 0 由 api.js 拦截器 reject,不会到达此处
   } catch (e) {
-    uni.showModal({ title: '保存失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+    // 错误已由 api.js 拦截器统一提示(短消息 toast / 长消息 modal),此处不重复弹窗
   } finally {
     submitting.value = false
   }
@@ -162,11 +161,10 @@ async function onCreate(data: any) {
       } else {
         setTimeout(() => uni.navigateBack(), 600)
       }
-    } else {
-      uni.showModal({ title: '创建失败', content: res.message || '未知错误', showCancel: false, confirmText: '我知道了' })
     }
+    // 注: code !== 0 由 api.js 拦截器 reject,不会到达此处
   } catch (e) {
-    uni.showModal({ title: '创建失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+    // 错误已由 api.js 拦截器统一提示(短消息 toast / 长消息 modal),此处不重复弹窗
   } finally {
     submitting.value = false
   }
@@ -190,11 +188,10 @@ function onArchiveClick() {
           mode.value = 'read'
           uni.showToast({ title: '已归档', icon: 'success' })
           setTimeout(() => uni.navigateBack(), 800)
-        } else {
-          uni.showModal({ title: '归档失败', content: r.message || '未知错误', showCancel: false, confirmText: '我知道了' })
         }
+        // 注: code !== 0 由 api.js 拦截器 reject,不会到达此处
       } catch (e) {
-        uni.showModal({ title: '归档失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+        // 错误已由 api.js 拦截器统一提示(短消息 toast / 长消息 modal),此处不重复弹窗
       } finally {
         submitting.value = false
       }
@@ -304,4 +301,5 @@ function onArchiveClick() {
 .btn-primary { background: #0FBF9F; color: #FFF; }
 .btn-primary[disabled] { background: #BFE9DF; color: #FFF; }
 .btn-secondary { background: #F5F5F5; color: #666; }
+.btn-secondary[disabled] { opacity: 0.5; color: #999; }
 </style>
