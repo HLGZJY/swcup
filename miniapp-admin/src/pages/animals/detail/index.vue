@@ -1,100 +1,102 @@
 <template>
   <view class="page">
     <!-- 加载中 -->
-    <view class="loading-state" v-if="loading">
+    <view class="loading-state" v-if="loading && mode === 'read'">
       <text>加载中...</text>
     </view>
 
-    <!-- 空状态 -->
-    <view class="empty-state" v-else-if="!animal">
+    <!-- 新建模式无 animal_id,直接渲染空表单 -->
+    <template v-else-if="mode === 'new'">
+      <view class="page-header">
+        <text class="page-title">新建动物档案</text>
+      </view>
+      <AnimalForm
+        ref="formRef"
+        mode="new"
+        @submit="onCreate"
+        @cancel="onCancel"
+      />
+      <view class="action-bar">
+        <button class="btn-secondary" @click="onCancel">取消</button>
+        <button class="btn-primary" :disabled="submitting" @click="formRef?.submit()">
+          {{ submitting ? '创建中...' : '创建' }}
+        </button>
+      </view>
+    </template>
+
+    <!-- 详情/编辑模式:有 animal_id -->
+    <template v-else-if="animal">
+      <view class="page-header">
+        <text class="page-title">{{ mode === 'edit' ? '编辑档案' : '档案详情' }}</text>
+        <view v-if="mode === 'read'" class="header-actions">
+          <text class="action-link" @click="onEdit">编辑</text>
+          <text class="action-link action-danger" @click="onArchiveClick">归档</text>
+        </view>
+      </view>
+
+      <!-- 照片区(只读) -->
+      <view v-if="mode === 'read'" class="photo-section">
+        <image class="main-photo" :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+      </view>
+
+      <AnimalForm
+        v-if="mode !== 'new'"
+        ref="formRef"
+        :mode="mode"
+        :initialValue="animal"
+        :submitting="submitting"
+        @submit="onSave"
+        @cancel="onCancelEdit"
+        @delete="onArchiveClick"
+      />
+
+      <view v-if="mode === 'edit'" class="action-bar">
+        <button class="btn-secondary" @click="onCancelEdit">取消</button>
+        <button class="btn-primary" :disabled="submitting" @click="formRef?.submit()">
+          {{ submitting ? '保存中...' : '保存' }}
+        </button>
+      </view>
+    </template>
+
+    <!-- 找不到档案 -->
+    <view class="empty-state" v-else>
       <image class="empty-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
       <text class="empty-text">未找到该动物档案</text>
     </view>
-
-    <template v-else>
-      <!-- 照片区 -->
-      <view class="photo-section">
-        <image class="main-photo" :src="resolveImageUrl(animal?.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
-      </view>
-
-      <!-- 基本信息 -->
-      <view class="info-card">
-        <view class="info-header">
-          <text class="breed">{{ animal?.breed }}</text>
-          <view :class="['status-tag', 'status-' + animal?.status]">{{ statusMap[animal?.status] }}</view>
-        </view>
-        <view class="info-grid">
-          <view class="info-item"><text class="label">颜色</text><text class="value">{{ animal?.color }}</text></view>
-          <view class="info-item"><text class="label">性别</text><text class="value">{{ genderMap[animal?.gender] }}</text></view>
-          <view class="info-item"><text class="label">年龄</text><text class="value">{{ ageMap[animal?.age_estimate] }}</text></view>
-          <view class="info-item"><text class="label">健康</text><text class="value">{{ healthMap[animal?.health_status] }}</text></view>
-          <view class="info-item"><text class="label">绝育</text><text class="value">{{ animal?.sterilized ? '已绝育' : '未绝育' }}</text></view>
-        </view>
-      </view>
-
-      <!-- 位置信息 -->
-      <view class="info-card">
-        <text class="section-title">位置信息</text>
-        <view class="address-wrap">
-          <image class="address-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
-          <text class="address">{{ animal?.address }}</text>
-        </view>
-        <view class="map-preview" @click="openMap" v-if="animal?.location_lat">
-          <view class="map-overlay">
-            <image class="map-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
-            <text>点击查看地图</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 时间线 -->
-      <view class="info-card">
-        <text class="section-title">时间记录</text>
-        <view class="time-item"><text class="label">首次发现</text><text class="value">{{ formatTime(animal?.first_seen_at) }}</text></view>
-        <view class="time-item"><text class="label">最后出现</text><text class="value">{{ formatTime(animal?.last_seen_at) }}</text></view>
-      </view>
-
-      <!-- 备注 -->
-      <view class="info-card" v-if="animal?.notes">
-        <text class="section-title">备注</text>
-        <text class="notes">{{ animal?.notes }}</text>
-      </view>
-
-      <!-- 标签 -->
-      <view class="info-card" v-if="animal?.tags?.length">
-        <text class="section-title">标签</text>
-        <view class="tags">
-          <view class="tag" v-for="t in animal.tags" :key="t">{{ t }}</view>
-        </view>
-      </view>
-
-      <!-- 鼻纹ID -->
-      <view class="info-card">
-        <text class="section-title">鼻纹特征</text>
-        <text class="nose-id">{{ animal?.primary_nose_id || '暂无' }}</text>
-      </view>
-    </template>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAdminAnimalDetail, resolveImageUrl } from '@/services/api'
+import { apiGetAdminAnimalDetail, apiCreateAnimal, apiUpdateAnimal, resolveImageUrl } from '@/services/api'
+import AnimalForm from '../components/AnimalForm.vue'
 
 const animal = ref<any>(null)
 const loading = ref(false)
+const submitting = ref(false)
+const mode = ref<'read' | 'edit' | 'new'>('read')
+const formRef = ref<InstanceType<typeof AnimalForm> | null>(null)
+const editingSnapshot = ref<any>(null)
 
-const statusMap: Record<string, string> = { lost: '走失', found: '发现', claimed: '待认领', archived: '归档' }
-const genderMap: Record<string, string> = { male: '公', female: '母', unknown: '未知' }
-const ageMap: Record<string, string> = { puppy: '幼年', adult: '成年', senior: '老年' }
-const healthMap: Record<string, string> = { healthy: '健康', injured: '受伤', ill: '生病', unknown: '未知' }
+function extractErrorMessage(e: any): string {
+  const data = e?.data
+  const msg = data?.message ?? data?.data?.message
+  if (Array.isArray(msg)) return msg.filter(Boolean).map(String).join('；')
+  if (typeof msg === 'string') return msg
+  if (typeof data?.message === 'string') return data.message
+  return e?.errMsg || e?.message || '未知错误'
+}
 
-// 使用原生 getCurrentPages 获取跳转时携带的 query 参数（与 user 端保持一致）
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
   const animalId = currentPage?.options?.animal_id
-  if (!animalId) return
+  const queryMode = currentPage?.options?.mode
+
+  if (queryMode === 'new' || !animalId) {
+    mode.value = 'new'
+    return
+  }
 
   loading.value = true
   try {
@@ -103,34 +105,100 @@ onMounted(async () => {
       animal.value = res.data
     }
   } catch (e) {
-    // error handled in api
+    // 错误由 api.js 拦截器处理
   } finally {
     loading.value = false
   }
 })
 
-function formatTime(isoString?: string) {
-  if (!isoString) return '-'
-  const d = new Date(isoString)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+function onEdit() {
+  if (!animal.value) return
+  editingSnapshot.value = JSON.parse(JSON.stringify(animal.value))
+  mode.value = 'edit'
 }
 
-function openMap() {
-  if (!animal.value) return
-  if (!animal.value.location_lat || !animal.value.location_lng) {
-    uni.showToast({ title: '暂无位置坐标', icon: 'none' })
-    return
+function onCancelEdit() {
+  if (editingSnapshot.value) {
+    animal.value = editingSnapshot.value
   }
-  const name = animal.value.address || `${animal.value.location_lat},${animal.value.location_lng}`
-  uni.openLocation({
-    latitude: Number(animal.value.location_lat),
-    longitude: Number(animal.value.location_lng),
-    name,
-    address: animal.value.address,
-    fail: (err) => {
-      console.error('openLocation fail', err)
-      uni.showToast({ title: '地图打开失败', icon: 'none' })
+  mode.value = 'read'
+}
+
+function onCancel() {
+  uni.navigateBack()
+}
+
+async function onSave(data: any) {
+  if (!animal.value) return
+  submitting.value = true
+  try {
+    const res: any = await apiUpdateAnimal(animal.value.animal_id, data)
+    if (res.code === 0) {
+      animal.value = { ...animal.value, ...data }
+      editingSnapshot.value = null
+      mode.value = 'read'
+      uni.showToast({ title: '保存成功', icon: 'success' })
+    } else {
+      uni.showModal({ title: '保存失败', content: res.message || '未知错误', showCancel: false, confirmText: '我知道了' })
     }
+  } catch (e) {
+    uni.showModal({ title: '保存失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onCreate(data: any) {
+  submitting.value = true
+  try {
+    const res: any = await apiCreateAnimal(data)
+    if (res.code === 0) {
+      const newId = res.data?.animal_id
+      uni.showToast({ title: '创建成功', icon: 'success' })
+      if (newId) {
+        setTimeout(() => {
+          uni.redirectTo({ url: `/pages/animals/detail/index?animal_id=${newId}` })
+        }, 600)
+      } else {
+        setTimeout(() => uni.navigateBack(), 600)
+      }
+    } else {
+      uni.showModal({ title: '创建失败', content: res.message || '未知错误', showCancel: false, confirmText: '我知道了' })
+    }
+  } catch (e) {
+    uni.showModal({ title: '创建失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+  } finally {
+    submitting.value = false
+  }
+}
+
+function onArchiveClick() {
+  if (!animal.value) return
+  uni.showModal({
+    title: '归档动物档案',
+    content: `确认将「${animal.value.breed || '该动物'}」归档吗?归档后默认不在列表显示,可在归档筛选中查看。`,
+    cancelText: '取消',
+    confirmText: '确认归档',
+    success: async (res) => {
+      if (!res.confirm) return
+      submitting.value = true
+      try {
+        const r: any = await apiUpdateAnimal(animal.value.animal_id, { status: 'archived' })
+        if (r.code === 0) {
+          animal.value = { ...animal.value, status: 'archived' }
+          editingSnapshot.value = null
+          mode.value = 'read'
+          uni.showToast({ title: '已归档', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 800)
+        } else {
+          uni.showModal({ title: '归档失败', content: r.message || '未知错误', showCancel: false, confirmText: '我知道了' })
+        }
+      } catch (e) {
+        uni.showModal({ title: '归档失败', content: extractErrorMessage(e), showCancel: false, confirmText: '我知道了' })
+      } finally {
+        submitting.value = false
+      }
+    },
   })
 }
 </script>
@@ -198,4 +266,42 @@ function openMap() {
 .tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .tag { background: #E8FDF8; color: #0FBF9F; font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 8rpx; }
 .nose-id { font-size: 24rpx; color: #666; font-family: monospace; }
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background: #FFF;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.page-title { font-size: 32rpx; font-weight: 700; color: #1A1A1A; }
+.header-actions { display: flex; gap: 24rpx; }
+.action-link { font-size: 26rpx; color: #0FBF9F; padding: 8rpx 12rpx; }
+.action-danger { color: #FF6B6B; }
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx 32rpx;
+  background: #FFF;
+  border-top: 1rpx solid #F5F5F5;
+  z-index: 10;
+}
+.btn-primary, .btn-secondary {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+.btn-primary { background: #0FBF9F; color: #FFF; }
+.btn-primary[disabled] { background: #BFE9DF; color: #FFF; }
+.btn-secondary { background: #F5F5F5; color: #666; }
 </style>
