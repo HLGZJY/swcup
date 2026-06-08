@@ -14,7 +14,7 @@ export class AnimalsService {
     const qb = this.animalRepo.createQueryBuilder('a');
     if (species) qb.andWhere('a.species = :species', { species });
     if (status) qb.andWhere('a.status = :status', { status });
-    if (!include_archived || include_archived === 'false') {
+    if (status !== 'archived' && (!include_archived || include_archived === 'false')) {
       qb.andWhere('a.status != :archived', { archived: 'archived' });
     }
     if (keyword) {
