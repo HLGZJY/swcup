@@ -78,15 +78,6 @@ const mode = ref<'read' | 'edit' | 'new'>('read')
 const formRef = ref<InstanceType<typeof AnimalForm> | null>(null)
 const editingSnapshot = ref<any>(null)
 
-function extractErrorMessage(e: any): string {
-  const data = e?.data
-  const msg = data?.message ?? data?.data?.message
-  if (Array.isArray(msg)) return msg.filter(Boolean).map(String).join('；')
-  if (typeof msg === 'string') return msg
-  if (typeof data?.message === 'string') return data.message
-  return e?.errMsg || e?.message || '未知错误'
-}
-
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
