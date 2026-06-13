@@ -6,6 +6,21 @@
 
 const BASE_URL = 'http://192.168.32.1:3000'
 
+/**
+ * 解析图片完整 URL
+ * - http:// 开头 → 直接返回
+ * - /static/mock/ 开头 → 本地静态资源，返回原路径
+ * - 其他以 / 开头 → 拼上 BASE_URL
+ * - 字面字符串 "undefined"/"null" 视为空值（防御历史脏数据导致 /v1undefined 404）
+ */
+export function resolveImageUrl(path) {
+  if (!path) return ''
+  if (path === 'undefined' || path === 'null') return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  if (path.startsWith('/static/mock/')) return path
+  return BASE_URL + path
+}
+
 // ============ 认证相关 ============
 
 /**
@@ -125,47 +140,6 @@ export function apiUpdateCurrentUser(params) {
 }
 
 /**
- * 上传头像
- * POST /v1/users/me/avatar
- * 请求: filePath - 文件临时路径
- */
-export function apiUpdateAvatar(filePath) {
-  return new Promise((resolve, reject) => {
-    const token = uni.getStorageSync('token')
-    const header = {}
-    if (token) {
-      header['Authorization'] = 'Bearer ' + token
-    }
-
-    uni.uploadFile({
-      url: BASE_URL + '/v1/users/me/avatar',
-      filePath,
-      name: 'file',
-      header,
-      success: (res) => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(res)
-          return
-        }
-        const data = JSON.parse(res.data)
-        resolve(data)
-      },
-      fail: reject,
-    })
-  })
-}
-
-/**
- * 重置微信头像
- * POST /v1/users/me/avatar/wechat
- */
-export function apiResetWechatAvatar() {
-  return request('/v1/users/me/avatar/wechat', {
-    method: 'POST'
-  })
-}
-
-/**
  * 上报救助事件
  * POST /events
  * 请求: { event_type, species, gender, age_estimate, health_status, sterilized, color, breed, notes, first_seen_at, last_seen_at, location_lat, location_lng, address, tags, photos }
@@ -280,7 +254,15 @@ export function apiUploadFile(tempFilePath) {
         }
         try {
           const data = JSON.parse(res.data)
-          resolve(data.url)
+          // 后端 TransformInterceptor 把响应包装为 {code,message,data:{url}}
+          // 同时兼容直接返回 {url} 的旧响应形态
+          const url = data?.data?.url ?? data?.url
+          if (typeof url !== 'string' || !url) {
+            uni.showToast({ title: '上传响应格式异常', icon: 'none' })
+            reject(new Error('upload: missing url in response'))
+            return
+          }
+          resolve(url)
         } catch (e) {
           reject(e)
         }
@@ -294,6 +276,19 @@ export function apiUploadFile(tempFilePath) {
 }
 
 // ============ 内部工具函数 ============
+
+/**
+ * 把后端 message 字段（可能是字符串、字符串数组、对象）归一为可读字符串
+ */
+function formatBackendError(msg) {
+  if (!msg) return ''
+  if (typeof msg === 'string') return msg
+  if (Array.isArray(msg)) return msg.filter(Boolean).map(String).join('；')
+  if (typeof msg === 'object') {
+    try { return JSON.stringify(msg) } catch { return String(msg) }
+  }
+  return String(msg)
+}
 
 /**
  * 统一请求封装
@@ -334,15 +329,23 @@ function request(path, options = {}, opts = {}) {
       success: (res) => {
         // HTTP 状态码非 2xx → 视为网络/服务器错误
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          let msg = '请求失败'
-          if (res.statusCode === 401) msg = '登录已过期，请重新登录'
-          else if (res.statusCode === 403) msg = '无权限访问'
-          else if (res.statusCode === 500) msg = '服务器异常'
-          uni.showToast({ title: msg, icon: 'none' })
+          // 401 走专用流程
           if (res.statusCode === 401) {
+            uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
             uni.removeStorageSync('token')
             uni.removeStorageSync('user_info')
             setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 1500)
+            reject(res)
+            return
+          }
+
+          // 4xx 优先透传后端 message（可能是字符串或字符串数组）
+          const detail = formatBackendError(res.data?.message) || (res.statusCode === 403 ? '无权限访问' : res.statusCode === 500 ? '服务器异常' : '请求失败')
+          // 短用 toast，长用 modal 保证可读
+          if (detail.length <= 18) {
+            uni.showToast({ title: detail, icon: 'none' })
+          } else {
+            uni.showModal({ title: res.statusCode === 500 ? '服务器异常' : '请求被拒绝', content: detail, showCancel: false, confirmText: '我知道了' })
           }
           reject(res)
           return
