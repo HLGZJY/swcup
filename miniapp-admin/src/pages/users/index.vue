@@ -35,7 +35,6 @@
         :key="u.user_id"
         :class="['user-row', { 'user-row-blocked': u.role === 'blocked' }]"
       >
-        <image class="user-avatar" src="/static/mock/avatar-default.png" mode="aspectFill" />
         <view class="user-info">
           <view class="info-header">
             <text class="nickname">{{ u.nickname }}</text>
@@ -231,15 +230,6 @@ const goToDetail = (userId: number) => {
 
 .user-row-blocked {
   opacity: 0.5;
-}
-
-.user-avatar {
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 50%;
-  margin-right: 16rpx;
-  background: #F5F5F5;
-  flex-shrink: 0;
 }
 
 .user-info {
