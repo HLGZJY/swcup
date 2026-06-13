@@ -66,9 +66,9 @@ user_ids = {}
 for key, phone, nickname, role in users:
     uid_val = uid()
     cur.execute(
-        "INSERT INTO users (user_id, nickname, phone, avatar_url, role, created_at, updated_at) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-        (uid_val, nickname, phone, '', role, ts(30), ts())
+        "INSERT INTO users (user_id, nickname, phone, role, created_at, updated_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s)",
+        (uid_val, nickname, phone, role, ts(30), ts())
     )
     user_ids[key] = uid_val
     print(f"  [{role:5}] {nickname} ({phone}) → {uid_val[:8]}...")
