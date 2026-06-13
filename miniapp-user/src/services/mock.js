@@ -157,12 +157,12 @@ export const mockEvents = [
 ]
 
 // ============ 比对结果 Mock ============
-// 用正确公式验算：
+// 采集流公式 (2026-06-13 修订):
 // S_location = max(0, 1-(d-500)/1000)
-// fusion = 0.40*vector + 0.20*S_location + 0.20*image + 0.20*text
-// a001: 320m → S_loc=1.0 → 0.40*0.95+0.20*1.0+0.20*0.88+0.20*0.80 = 0.91 ✓
-// a002: 1250m → S_loc=0.25 → 0.40*0.89+0.20*0.25+0.20*0.79+0.20*0.72 = 0.71
-// a003: 2100m → S_loc=0 → 0.40*0.82+0.20*0+0.20*0.71+0.20*0.68 = 0.63
+// fusion = 0.50*vector + 0.30*S_location + 0.20*text
+// a001: 320m → S_loc=1.0 → 0.50*0.95 + 0.30*1.0 + 0.20*0.80 = 0.935
+// a002: 1250m → S_loc=0.25 → 0.50*0.89 + 0.30*0.25 + 0.20*0.72 = 0.709
+// a003: 2100m → S_loc=0 → 0.50*0.82 + 0.30*0 + 0.20*0.68 = 0.546
 export const mockCompareResults = {
   total: 3,
   results: [
@@ -171,7 +171,6 @@ export const mockCompareResults = {
       fusion_score: 0.91,
       vector_similarity: 0.95,
       gps_distance_m: 320,
-      image_similarity: 0.88,
       text_match_rate: 0.80,
       animal: mockAnimals[0]
     },
@@ -180,7 +179,6 @@ export const mockCompareResults = {
       fusion_score: 0.71,
       vector_similarity: 0.89,
       gps_distance_m: 1250,
-      image_similarity: 0.79,
       text_match_rate: 0.72,
       animal: mockAnimals[1]
     },
@@ -189,7 +187,6 @@ export const mockCompareResults = {
       fusion_score: 0.63,
       vector_similarity: 0.82,
       gps_distance_m: 2100,
-      image_similarity: 0.71,
       text_match_rate: 0.68,
       animal: mockAnimals[2]
     }
@@ -203,7 +200,6 @@ export const mockUser = {
   user_id: 'u001',
   nickname: '爱心市民',
   phone: '138****8000',
-  avatar_url: '/static/mock/avatar-default.png',
   role: 'user',
   created_at: '2026-04-01T00:00:00Z'
 }
