@@ -2,20 +2,6 @@
   <view class="page">
     <!-- 用户信息卡片 -->
     <view class="user-card">
-      <view class="user-avatar-wrap">
-        <image
-          class="user-avatar"
-          :src="user.avatar_url || '/static/mock/avatar-default.png'"
-          mode="aspectFill"
-          @error="onAvatarError"
-        />
-                <view class="avatar-edit" @click="onEditAvatar">
-         <text>✎</text>
-        </view>
-        <view v-if="user.openid && user.avatar_url" class="avatar-reset-btn" @click="onResetWechatAvatar">
-          <text>恢复微信头像</text>
-        </view>
-      </view>
       <view class="user-info">
         <text class="user-name">{{ user.nickname }}</text>
         <text class="user-phone">{{ user.phone }}</text>
@@ -56,14 +42,14 @@
     <view class="menu-section">
       <!-- 我的上报 -->
       <view class="menu-item" @click="goToMyReports">
-        <image class="menu-icon-img" src="/static/icons/icon-filetext.png" mode="aspectFit" />
+        <image class="menu-icon-img" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
         <text class="menu-text">我的上报</text>
         <text class="menu-arrow">›</text>
       </view>
 
       <!-- 认领记录 -->
       <view class="menu-item" @click="goToMyClaims">
-        <image class="menu-icon-img" src="/static/icons/icon-heart.png" mode="aspectFit" />
+        <image class="menu-icon-img" src="/static/icons/icon-heart.svg" mode="aspectFit" />
         <text class="menu-text">认领记录</text>
         <text class="menu-arrow">›</text>
       </view>
@@ -86,7 +72,7 @@
 
       <!-- 关于我们 -->
       <view class="menu-item" @click="goToAbout">
-        <image class="menu-icon-img" src="/static/icons/icon-info-gray.png" mode="aspectFit" />
+        <image class="menu-icon-img" src="/static/icons/icon-info-gray.svg" mode="aspectFit" />
         <text class="menu-text">关于我们</text>
         <text class="menu-version">v1.0.0</text>
         <text class="menu-arrow">›</text>
@@ -102,7 +88,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { apiGetCurrentUser, apiGetMyClaims, apiUpdateAvatar, apiResetWechatAvatar } from '@/services/api'
+import { apiGetCurrentUser, apiGetMyClaims } from '@/services/api'
 
 async function refreshUserData() {
   const [userRes, claimRes] = await Promise.all([
@@ -123,7 +109,6 @@ async function refreshUserData() {
 const user = ref<any>({
   nickname: '加载中...',
   phone: '',
-  avatar_url: '',
   role: 'user'
 })
 
@@ -155,74 +140,6 @@ onMounted(async () => {
 onUnmounted(() => {
   uni.$off('page:refresh-user', refreshUserData)
 })
-
-function onAvatarError() {
-  user.value.avatar_url = '/static/mock/avatar-default.png'
-}
-
-function onEditAvatar() {
-  if (user.value.openid) {
-    // 微信用户：显示选择菜单
-    uni.showActionSheet({
-      itemList: ['从微信头像选', '从相册选择'],
-      success: (res: any) => {
-        if (res.tapIndex === 0) {
-          uni.chooseAvatar({
-            success: (res: any) => uploadAvatar(res.avatarUrl),
-          });
-        } else {
-          uni.chooseImage({
-            count: 1,
-            sourceType: ['album'],
-            success: (res: any) => uploadAvatar(res.tempFilePaths[0]),
-          });
-        }
-      }
-    });
-  } else {
-    // 手机号用户：从相册选
-    uni.chooseImage({
-      count: 1,
-      sourceType: ['album'],
-      success: (res: any) => uploadAvatar(res.tempFilePaths[0]),
-    });
-  }
-}
-
-async function uploadAvatar(filePath: string) {
-  uni.showLoading({ title: '上传中...' });
-  try {
-    const res = await apiUpdateAvatar(filePath);
-    uni.hideLoading();
-    if (res.code === 0) {
-      user.value.avatar_url = res.data.avatar_url;
-      uni.$emit('page:refresh-user');
-    } else {
-      uni.showToast({ title: res.message || '上传失败', icon: 'none' });
-    }
-  } catch (e) {
-    uni.hideLoading();
-    uni.showToast({ title: '上传失败', icon: 'none' });
-  }
-}
-
-async function onResetWechatAvatar() {
-  uni.showModal({
-    title: '恢复微信头像',
-    content: '确定要恢复为微信头像吗？',
-    success: async (res: any) => {
-      if (res.confirm) {
-        try {
-          await apiResetWechatAvatar();
-          uni.showToast({ title: '已恢复', icon: 'success' });
-          refreshUserData();
-        } catch (e) {
-          uni.showToast({ title: '恢复失败，请重新登录', icon: 'none' });
-        }
-      }
-    }
-  });
-}
 
 function goToMyReports() {
   uni.navigateTo({ url: '/pages/my-reports/index' })
@@ -274,42 +191,6 @@ function onLogout() {
   padding: 48rpx 32rpx 32rpx;
   display: flex;
   align-items: center;
-}
-
-.user-avatar-wrap {
-  position: relative;
-  margin-right: 24rpx;
-}
-
-.user-avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  border: 4rpx solid rgba(255,255,255,0.4);
-  background: rgba(255,255,255,0.2);
-}
-
-.avatar-edit {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 40rpx;
-  height: 40rpx;
-  background: #FFFFFF;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20rpx;
-  color: #0FBF9F;
-}
-
-.avatar-reset-btn {
-  margin-left: 44px;
-  margin-top: 8px;
-  font-size: 22rpx;
-  color: #0FBF9F;
-  text-align: center;
 }
 
 .user-info {
