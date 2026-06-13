@@ -6,17 +6,25 @@
 
 const BASE_URL = 'http://192.168.32.1:3000/v1'
 
+// 静态资源 URL 不走 API versioning (NestJS URI versioning 只对 controller 路由生效)
+// ServeStaticModule 实际挂在 /static, 拼成 /v1/static/... 会 404
+// 修复: 解析图片 URL 时必须用 STATIC_BASE_URL (无 /v1)
+const STATIC_BASE_URL = 'http://192.168.32.1:3000'
+
 /**
  * 解析图片完整 URL
  * - http:// 开头 → 直接返回
  * - /static/mock/ 开头 → 本地静态资源，返回原路径
- * - 其他以 / 开头 → 拼上 BASE_URL
+ * - 其他以 / 开头 → 拼上 STATIC_BASE_URL (无 /v1 前缀, 否则 ServeStatic 404)
+ * - 字面字符串 "undefined"/"null" 视为空值（防御历史脏数据导致 /v1undefined 404）
  */
 export function resolveImageUrl(path) {
   if (!path) return ''
+  // 防御:某些历史数据/异常上下游可能传入字符串 "undefined"/"null"
+  if (path === 'undefined' || path === 'null') return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
   if (path.startsWith('/static/mock/')) return path
-  return BASE_URL + path
+  return STATIC_BASE_URL + path
 }
 
 // ============ 管理端接口（需认证+admin）============
@@ -221,22 +229,12 @@ export function apiGetUserAnimals(userId, params = {}) {
 /**
  * 更新用户信息
  * PUT /admin/users/:user_id
- * 请求: { nickname, phone, email, avatar } —— 可只传需要更新的字段
+ * 请求: { nickname, phone, email } —— 可只传需要更新的字段
  */
 export function apiUpdateUser(userId, data) {
   return request(`/admin/users/${userId}`, {
     method: 'PUT',
     body: data
-  })
-}
-
-/**
- * 重置用户头像
- * POST /admin/users/:user_id/avatar/reset
- */
-export function apiResetUserAvatar(userId) {
-  return request(`/users/admin/users/${userId}/avatar/reset`, {
-    method: 'POST',
   })
 }
 
