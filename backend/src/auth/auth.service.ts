@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,14 +19,14 @@ export class AuthService {
   async login(phone: string, password: string) {
     const user = await this.userRepo.findOne({ where: { phone } });
     if (!user) {
-      throw new Error('用户不存在');
+      throw new UnauthorizedException('用户不存在');
     }
     if (!user.password_hash) {
-      throw new Error('密码未设置，请使用微信登录');
+      throw new UnauthorizedException('密码未设置，请使用微信登录');
     }
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      throw new Error('手机号或密码错误');
+      throw new UnauthorizedException('手机号或密码错误');
     }
     const token = this.jwtService.sign({ user_id: user.user_id, role: user.role });
     return {
@@ -56,19 +56,6 @@ export class AuthService {
       throw new Error('微信授权失败，请稍后重试');
     }
 
-    // 获取微信用户信息（含头像）
-    let avatarUrl: string | null = null;
-    try {
-      const wxUserInfoRes = await fetch(
-        `https://api.weixin.qq.com/sns/userinfo?access_token=${sessionKey}&openid=${openid}`,
-        { method: 'GET' }
-      );
-      const wxUserInfo = await wxUserInfoRes.json() as { headimgurl?: string };
-      avatarUrl = wxUserInfo.headimgurl || null;
-    } catch {
-      // 微信头像获取失败不影响登录
-    }
-
     // 先查是否存在，不存在才新建（避免每次 upsert 生成新 UUID）
     let user = await this.userRepo.findOne({ where: { openid } });
     if (!user) {
@@ -78,7 +65,6 @@ export class AuthService {
         nickname: '',
         phone: null,
         password_hash: null,
-        avatar_url: avatarUrl,
         role: UserRole.USER,
         agreed_privacy_at: new Date(),
       });
@@ -99,13 +85,13 @@ export class AuthService {
   async register(phone: string, password: string) {
     // 密码强度校验
     if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
-      throw new Error('密码最短8位，需包含字母和数字');
+      throw new BadRequestException('密码最短8位，需包含字母和数字');
     }
 
     // 检查手机号是否已注册
     const existing = await this.userRepo.findOne({ where: { phone } });
     if (existing) {
-      throw new Error('该手机号已注册，请直接登录');
+      throw new ConflictException('该手机号已注册，请直接登录');
     }
 
     const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -115,7 +101,6 @@ export class AuthService {
       phone,
       password_hash,
       openid: null,
-      avatar_url: null,
       role: UserRole.USER,
       agreed_privacy_at: new Date(),
     });
@@ -144,16 +129,16 @@ export class AuthService {
     // 验证码校验
     const stored = this.mockCodes.get(phone);
     if (!stored || stored.code !== code) {
-      throw new Error('验证码错误');
+      throw new BadRequestException('验证码错误');
     }
     if (Date.now() > stored.expiresAt) {
-      throw new Error('验证码已过期');
+      throw new BadRequestException('验证码已过期');
     }
     this.mockCodes.delete(phone);
 
     // 更新字段
     if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
-      throw new Error('密码最短8位，需包含字母和数字');
+      throw new BadRequestException('密码最短8位，需包含字母和数字');
     }
     await this.userRepo.update({ user_id }, {
       phone,
@@ -170,22 +155,22 @@ export class AuthService {
     // 验证码校验
     const stored = this.mockCodes.get(phone);
     if (!stored || stored.code !== code) {
-      throw new Error('验证码错误');
+      throw new BadRequestException('验证码错误');
     }
     if (Date.now() > stored.expiresAt) {
-      throw new Error('验证码已过期');
+      throw new BadRequestException('验证码已过期');
     }
     this.mockCodes.delete(phone);
 
     // 检查用户是否存在
     const user = await this.userRepo.findOne({ where: { phone } });
     if (!user) {
-      throw new Error('该手机号未注册，请先注册');
+      throw new BadRequestException('该手机号未注册，请先注册');
     }
 
     // 密码强度校验
     if (!/(?=.*[a-zA-Z])(?=.*\d).{8,}/.test(password)) {
-      throw new Error('密码最短8位，需包含字母和数字');
+      throw new BadRequestException('密码最短8位，需包含字母和数字');
     }
 
     // 更新密码
@@ -205,7 +190,6 @@ export class AuthService {
       user_id: user.user_id,
       nickname: user.nickname,
       phone: user.phone ? user.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : null,
-      avatar_url: user.avatar_url,
       openid: user.openid,
       role: user.role,
       created_at: user.created_at,
