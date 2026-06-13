@@ -24,12 +24,6 @@
       <!-- 用户基本信息卡片 -->
       <view class="info-card user-card">
         <view class="user-header">
-          <view class="avatar-section">
-            <image class="avatar" :src="userInfo.avatar || '/static/mock/avatar-default.png'" mode="aspectFill" />
-            <view class="avatar-reset" @tap="onResetAvatar">
-              <text>重置头像</text>
-            </view>
-          </view>
           <view class="user-base">
             <view class="name-row">
               <text class="nickname">{{ userInfo.nickname }}</text>
@@ -119,7 +113,7 @@
             @tap="goToAnimal(an.animal_id)"
           >
             <view class="card-header">
-              <image class="animal-thumb" :src="an.photos?.[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+              <image class="animal-thumb" :src="resolveImageUrl(an.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
               <view class="animal-info">
                 <text class="card-title">{{ an.breed || '动物 #' + an.animal_id }}</text>
                 <text class="card-desc">{{ an.color || '' }} · {{ genderMap[an.gender] || '' }}</text>
@@ -174,7 +168,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiGetUserDetail, apiGetUserEvents, apiGetUserClaims, apiGetUserAnimals, apiUpdateUser, apiResetUserAvatar, resolveImageUrl } from '@/services/api'
+import { apiGetUserDetail, apiGetUserEvents, apiGetUserClaims, apiGetUserAnimals, apiUpdateUser, resolveImageUrl } from '@/services/api'
 
 const userId = ref<string>('')
 const userInfo = ref<any>(null)
@@ -390,24 +384,6 @@ const toggleBlock = async () => {
   loadUserDetail()
 }
 
-async function onResetAvatar() {
-  uni.showModal({
-    title: '重置头像',
-    content: '确定要重置该用户的头像吗？',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          await apiResetUserAvatar(userId.value)
-          uni.showToast({ title: '已重置', icon: 'success' })
-          loadUserDetail()
-        } catch (e) {
-          uni.showToast({ title: '重置失败', icon: 'none' })
-        }
-      }
-    }
-  })
-}
-
 function goBack() {
   uni.navigateBack()
 }
@@ -459,9 +435,6 @@ function goToAnimal(animalId: number) {
 .info-card { background: #FFF; margin: 24rpx; border-radius: 16rpx; padding: 24rpx; }
 .user-card { margin-bottom: 0; }
 .user-header { display: flex; align-items: center; margin-bottom: 20rpx; }
-.avatar { width: 100rpx; height: 100rpx; border-radius: 50%; margin-right: 20rpx; background: #F5F5F5; flex-shrink: 0; }
-.avatar-section { position: relative; display: inline-block; }
-.avatar-reset { font-size: 20rpx; color: #FF6B6B; text-align: center; margin-top: 4rpx; }
 .user-base { flex: 1; }
 .name-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
 .nickname { font-size: 32rpx; font-weight: 600; color: #1A1A1A; }
