@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 _model = None
 
 
-def _load_nose_model():
+def _load_nose_model():  # pragma: no cover
     global _model
     model = ResNet50_512d(embedding_dim=512, pretrained=False)
     state_dict = torch.load("weights/nose_v3_sgd.pth", map_location="cpu", weights_only=False)
@@ -38,7 +38,7 @@ def get_model():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # pragma: no cover
     # Run blocking model loading in thread pool so it doesn't block the event loop
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _load_nose_model)

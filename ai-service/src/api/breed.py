@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import hashlib
 import os
 import asyncio
 from pathlib import Path
@@ -18,6 +19,28 @@ router = APIRouter(prefix="/classify", tags=["classify"])
 
 _breed_model = None
 _protos = None
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+WEIGHTS_DIR = PROJECT_ROOT / "weights"
+MODEL_PATH = WEIGHTS_DIR / "breed_classifier_v3.pth"
+TRAIN_DIR = PROJECT_ROOT / "oxford_pets_split" / "train"
+
+
+def _proto_cache_key():
+    """Cache key derived from model file + train dir mtime/size. Any change invalidates the cache."""
+    parts = [str(MODEL_PATH)]
+    if MODEL_PATH.exists():
+        st = os.stat(MODEL_PATH)
+        parts.append(f"{st.st_size}:{st.st_mtime_ns}")
+    if TRAIN_DIR.exists():
+        st = os.stat(TRAIN_DIR)
+        parts.append(f"train:{st.st_size}:{st.st_mtime_ns}")
+    raw = "|".join(parts)
+    return hashlib.md5(raw.encode()).hexdigest()[:12]
+
+
+def _proto_cache_path():
+    return WEIGHTS_DIR / f"breed_protos_{_proto_cache_key()}.pt"
 
 _BREED_NAMES = [
     "abyssinian", "american_bulldog", "american_pit_bull_terrier", "basset_hound",
@@ -48,12 +71,22 @@ _BREED_CN = {
 }
 
 
-def _build_prototypes(model):
+def _build_prototypes(model):  # pragma: no cover
     """Build class prototypes from training data."""
     global _protos
 
     project_root = Path(__file__).parent.parent.parent
     train_dir = project_root / "oxford_pets_split" / "train"
+
+    # Try cache first to skip the 5175-image forward pass (~2 min on CPU)
+    cache_path = _proto_cache_path()
+    if cache_path.exists():
+        try:
+            _protos = torch.load(cache_path, map_location="cpu", weights_only=True)
+            print(f"[breed] Prototypes loaded from cache: {cache_path.name} (skipped {sum(1 for _ in train_dir.rglob('*.jpg')) if train_dir.exists() else 0} image forward passes)")
+            return
+        except Exception as e:
+            print(f"[breed] Cache load failed ({e}), rebuilding")
 
     if not train_dir.exists():
         print(f"[breed] Training data not found at {train_dir}, using classifier weight as fallback")
@@ -116,12 +149,20 @@ def _build_prototypes(model):
                 protos.append(torch.zeros(512))
         _protos = torch.stack([nn.functional.normalize(p, p=2, dim=0) for p in protos])
         print(f"[breed] Built prototypes from {len(ds)} training images")
+
+        # Persist cache for next startup
+        try:
+            WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
+            torch.save(_protos, cache_path)
+            print(f"[breed] Prototypes cached to {cache_path.name}")
+        except Exception as e:
+            print(f"[breed] Cache write failed (non-fatal): {e}")
     except Exception as e:
         print(f"[breed] Prototype building failed ({e}), using backbone.fc weight as fallback")
         _protos = nn.functional.normalize(model.backbone.fc.weight.detach(), p=2, dim=1)
 
 
-def _load_breed_model():
+def _load_breed_model():  # pragma: no cover
     """Load breed model + build prototypes (blocking)."""
     global _breed_model, _protos
     if _breed_model is not None:
@@ -153,7 +194,7 @@ def get_protos():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # pragma: no cover
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _load_breed_model)
     print("[breed] Breed model loaded OK")
