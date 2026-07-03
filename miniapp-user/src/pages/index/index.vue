@@ -1,23 +1,40 @@
 <template>
   <view class="page">
+    <!-- 顶部占位（关掉系统胶囊后，需要 88rpx 让 hero 不顶到状态栏） -->
+    <view class="navbar-placeholder" />
+
     <!-- 顶部搜索 & 定位 -->
     <view class="home-header">
-      <view class="location-bar" @click="onRefreshLocation">
-        <image class="location-icon-img" src="/static/icons/icon-mappin.png" mode="aspectFit" />
-        <text class="location-text">{{ locationText }}</text>
-        <text class="refresh-icon" v-if="refreshing">⟳</text>
+      <!-- 装饰背景 -->
+      <view class="hero-decor">
+        <view class="hero-blob hero-blob-1" />
+        <view class="hero-blob hero-blob-2" />
       </view>
+
+      <view class="location-bar" @click="onRefreshLocation">
+        <image class="location-icon-img" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
+        <text class="location-text">{{ locationText }}</text>
+        <view class="refresh-icon-wrap" v-if="refreshing">
+          <image class="refresh-icon-img" src="/static/icons/icon-refresh.svg" mode="aspectFit" />
+        </view>
+      </view>
+
       <view class="search-row">
         <view class="search-bar">
-          <image class="search-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
+          <image class="search-icon-img" src="/static/icons/icon-search.svg" mode="aspectFit" />
           <input
             class="search-input"
             placeholder="搜索走失/发现的动物"
             v-model="searchKeyword"
             @confirm="onSearch"
+            @input="onInputKeyword"
           />
+          <view class="search-clear" v-if="searchKeyword" @click="onClearSearch">
+            <image class="clear-icon-img" src="/static/icons/icon-close.svg" mode="aspectFit" />
+          </view>
         </view>
         <view class="collect-btn" @click="onCollect">
+          <image class="collect-icon-img" src="/static/icons/icon-camera.svg" mode="aspectFit" />
           <text>采集</text>
         </view>
       </view>
@@ -46,7 +63,9 @@
       @refresherrefresh="onRefresh"
     >
       <view class="list-empty" v-if="animalList.length === 0 && !loading">
-        <image class="empty-icon" src="/static/icons/icon-image.png" mode="aspectFit" />
+        <view class="empty-icon-wrap">
+          <image class="empty-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" />
+        </view>
         <text class="empty-text">暂无相关动物信息</text>
         <text class="empty-hint">成为第一个上报的人</text>
       </view>
@@ -57,19 +76,27 @@
         class="animal-card"
         @click="goToDetail(animal.animal_id)"
       >
+        <!-- 左侧色条 -->
+        <view :class="['card-accent', 'accent-' + animal.status]" />
+
         <!-- 照片区 -->
         <view class="card-photo-wrap">
           <image
             class="card-photo"
-            :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'"
+            :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'"
             mode="aspectFill"
           />
           <view :class="['status-tag', 'status-' + animal.status]">
+            <view class="status-dot" />
             {{ statusMap[animal.status] }}
+          </view>
+          <!-- Bug5 修复: 显示已 N 次上报(后端 report_count 字段) -->
+          <view v-if="animal.report_count && animal.report_count > 1" class="report-count-badge">
+            <text>已 {{ animal.report_count }} 次上报</text>
           </view>
           <view class="card-actions">
             <view class="share-btn" @click.stop="onShareCard(animal)">
-              <image src="/static/icons/icon-share.png" mode="aspectFit" />
+              <image src="/static/icons/icon-share.svg" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -78,13 +105,17 @@
         <view class="card-info">
           <view class="info-header">
             <text class="breed">{{ animal.breed }}</text>
-            <text class="gender">{{ animal.gender === 'male' ? '♂️' : '♀️' }}</text>
+            <image
+              class="gender-icon"
+              :src="animal.gender === 'male' ? '/static/icons/icon-gender-male.svg' : '/static/icons/icon-gender-female.svg'"
+              mode="aspectFit"
+            />
           </view>
 
           <view class="info-detail">
             <text class="detail-item">颜色: {{ animal.color }}</text>
             <text class="detail-item">
-              <image class="detail-icon-img" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+              <image class="detail-icon-img" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
               {{ animal.address }}
             </text>
           </view>
@@ -96,6 +127,7 @@
           <view class="info-footer">
             <text class="time">{{ formatTime(animal.last_seen_at) }}</text>
             <view class="action-btn">
+              <image class="action-icon-img" src="/static/icons/icon-paw-white.svg" mode="aspectFit" />
               <text>鼻纹比对</text>
             </view>
           </view>
@@ -110,12 +142,16 @@
         <text>— 没有更多了 —</text>
       </view>
     </scroll-view>
+
+    <!-- 自定义 tabBar（覆盖系统原生） -->
+    <custom-tabbar />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAnimals } from '@/services/api'
+import { apiGetAnimals, resolveImageUrl } from '@/services/api'
+import CustomTabbar from '@/components/custom-tabbar/custom-tabbar.vue'
 
 const locationText = ref('北京市朝阳区')
 const searchKeyword = ref('')
@@ -159,6 +195,9 @@ async function loadAnimals() {
   const params: any = { page: page.value, limit: 20 }
   if (currentFilter.value !== 'all') {
     params.status = currentFilter.value
+  }
+  if (searchKeyword.value.trim()) {
+    params.keyword = searchKeyword.value.trim()
   }
 
   try {
@@ -214,6 +253,25 @@ function onRefreshLocation() {
 
 function onSearch() {
   page.value = 1
+  animalList.value = []
+  loadAnimals()
+}
+
+function onInputKeyword() {
+  // Small delay to wait for input to update
+  setTimeout(() => {
+    if (!searchKeyword.value.trim()) {
+      page.value = 1
+      animalList.value = []
+      loadAnimals()
+    }
+  }, 300)
+}
+
+function onClearSearch() {
+  searchKeyword.value = ''
+  page.value = 1
+  animalList.value = []
   loadAnimals()
 }
 
@@ -264,23 +322,72 @@ function onCollect() {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #F5F5F5;
+  background: #F5F8F7;
+  overflow: hidden;
 }
 
+/* 顶部占位（关掉系统胶囊后，留 88rpx 让 hero 不顶到状态栏） */
+.navbar-placeholder {
+  height: 88rpx;
+  background: #FAFCFB;
+  flex-shrink: 0;
+}
+
+/* 顶部 hero */
 .home-header {
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  padding: 16rpx 24rpx 20rpx;
+  padding: 24rpx 32rpx 28rpx;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.hero-decor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40rpx);
+  opacity: 0.4;
+}
+
+.hero-blob-1 {
+  width: 280rpx;
+  height: 280rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%);
+  top: -100rpx;
+  right: -60rpx;
+}
+
+.hero-blob-2 {
+  width: 200rpx;
+  height: 200rpx;
+  background: radial-gradient(circle, rgba(7,193,96,0.4), transparent 70%);
+  bottom: -80rpx;
+  left: -40rpx;
 }
 
 .location-bar {
   display: flex;
   align-items: center;
-  margin-bottom: 16rpx;
+  margin-bottom: 20rpx;
+  position: relative;
+  z-index: 2;
 }
 
-.location-icon {
-  font-size: 28rpx;
-  margin-right: 8rpx;
+.location-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 10rpx;
+  filter: brightness(0) invert(1);
 }
 
 .location-text {
@@ -289,11 +396,20 @@ function onCollect() {
   font-weight: 600;
 }
 
-.refresh-icon {
-  font-size: 28rpx;
-  color: #FFFFFF;
-  margin-left: 8rpx;
+.refresh-icon-wrap {
+  margin-left: 10rpx;
+  width: 28rpx;
+  height: 28rpx;
   animation: spin 1s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-icon-img {
+  width: 24rpx;
+  height: 24rpx;
+  filter: brightness(0) invert(1);
 }
 
 @keyframes spin {
@@ -305,6 +421,8 @@ function onCollect() {
   display: flex;
   align-items: center;
   gap: 16rpx;
+  position: relative;
+  z-index: 2;
 }
 
 .search-bar {
@@ -313,12 +431,16 @@ function onCollect() {
   align-items: center;
   background: #FFFFFF;
   border-radius: 40rpx;
-  padding: 16rpx 24rpx;
+  padding: 14rpx 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.08);
 }
 
-.search-icon {
-  font-size: 28rpx;
+.search-icon-img {
+  width: 32rpx;
+  height: 32rpx;
   margin-right: 12rpx;
+  flex-shrink: 0;
+  opacity: 0.5;
 }
 
 .search-input {
@@ -327,15 +449,34 @@ function onCollect() {
   color: #1A1A1A;
 }
 
-.collect-btn {
-  background: rgba(255,255,255,0.25);
-  border: 1rpx solid rgba(255,255,255,0.4);
-  border-radius: 40rpx;
-  padding: 16rpx 24rpx;
+.search-clear {
+  width: 36rpx;
+  height: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: #F0F0F0;
+  border-radius: 50%;
+}
+
+.clear-icon-img {
+  width: 22rpx;
+  height: 22rpx;
+  opacity: 0.6;
+}
+
+.collect-btn {
+  background: rgba(255,255,255,0.25);
+  border: 1rpx solid rgba(255,255,255,0.45);
+  border-radius: 40rpx;
+  padding: 14rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 8rpx;
+  backdrop-filter: blur(8rpx);
 }
 
 .collect-btn text {
@@ -344,11 +485,20 @@ function onCollect() {
   font-weight: 600;
 }
 
+.collect-icon-img {
+  width: 30rpx;
+  height: 30rpx;
+  filter: brightness(0) invert(1);
+}
+
+/* 筛选标签 */
 .filter-tabs {
   display: flex;
   background: #FFFFFF;
   padding: 0 16rpx;
   border-bottom: 1rpx solid #F0F0F0;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .filter-tab {
@@ -356,15 +506,16 @@ function onCollect() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20rpx 0;
+  padding: 24rpx 0;
   font-size: 26rpx;
   color: #666666;
   position: relative;
+  transition: color 0.2s ease;
 }
 
 .filter-tab.active {
   color: #0FBF9F;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .filter-tab.active::after {
@@ -373,24 +524,31 @@ function onCollect() {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 48rpx;
-  height: 4rpx;
-  background: #0FBF9F;
-  border-radius: 2rpx;
+  width: 64rpx;
+  height: 8rpx;
+  background: linear-gradient(90deg, #0FBF9F, #07C160);
+  border-radius: 4rpx;
+  box-shadow: 0 2rpx 8rpx rgba(15, 191, 159, 0.4);
 }
 
 .tab-count {
-  background: #0FBF9F;
+  background: linear-gradient(135deg, #0FBF9F, #07C160);
   color: #FFFFFF;
   font-size: 18rpx;
-  padding: 2rpx 8rpx;
+  font-weight: 600;
+  padding: 2rpx 10rpx;
   border-radius: 20rpx;
-  margin-left: 6rpx;
+  margin-left: 8rpx;
+  min-width: 32rpx;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
+/* 列表 */
 .animal-list {
   flex: 1;
-  padding: 24rpx 0;
+  min-height: 0;
+  padding: 20rpx 0 160rpx;
 }
 
 .list-empty {
@@ -400,14 +558,27 @@ function onCollect() {
   padding: 120rpx 0;
 }
 
-.empty-icon {
-  font-size: 96rpx;
+.empty-icon-wrap {
+  width: 140rpx;
+  height: 140rpx;
+  background: linear-gradient(135deg, #E8FDF8, #F5F9F8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 24rpx;
+}
+
+.empty-icon {
+  width: 80rpx;
+  height: 80rpx;
+  opacity: 0.5;
 }
 
 .empty-text {
   font-size: 28rpx;
   color: #666666;
+  font-weight: 500;
 }
 
 .empty-hint {
@@ -416,15 +587,36 @@ function onCollect() {
   margin-top: 8rpx;
 }
 
+/* 动物卡片 */
 .animal-card {
-  background: #FFFFFF;
-  border-radius: 16rpx;
+  background: #FAFCFB;
+  border-radius: 20rpx;
   overflow: hidden;
   margin: 0 24rpx 24rpx;
   display: flex;
   min-height: 220rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.06);
+  position: relative;
+  transition: transform 0.15s ease;
 }
+
+.animal-card:active {
+  transform: scale(0.98);
+}
+
+/* 左侧色条（按状态变色） */
+.card-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 6rpx;
+}
+
+.accent-lost     { background: linear-gradient(180deg, #FF6B6B 0%, rgba(255,107,107,0) 100%); }
+.accent-found    { background: linear-gradient(180deg, #0FBF9F 0%, rgba(15,191,159,0) 100%); }
+.accent-claimed  { background: linear-gradient(180deg, #FF9F00 0%, rgba(255,159,0,0) 100%); }
+.accent-archived { background: linear-gradient(180deg, #999999 0%, rgba(153,153,153,0) 100%); }
 
 .card-photo-wrap {
   position: relative;
@@ -439,15 +631,48 @@ function onCollect() {
   background: #E8FDF8;
 }
 
+/* 状态徽章：admin 同款（圆点+半透明背景） */
 .status-tag {
   position: absolute;
-  top: 12rpx;
-  left: 0;
-  background: #FF6B6B;
-  color: #FFFFFF;
+  top: 16rpx;
+  left: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
   font-size: 20rpx;
+  font-weight: 600;
   padding: 4rpx 12rpx;
-  border-radius: 0 12rpx 12rpx 0;
+  border-radius: 12rpx;
+  color: #FF6B6B;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
+}
+
+.status-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-lost     { color: #FF6B6B; }
+.status-found    { color: #0FBF9F; }
+.status-claimed  { color: #FF9F00; }
+.status-archived { color: #888888; }
+
+/* Bug5 修复: 已 N 次上报徽章 */
+.report-count-badge {
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  background: rgba(255, 107, 107, 0.92);
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 6rpx 14rpx;
+  border-radius: 20rpx;
+  z-index: 10;
+  box-shadow: 0 2rpx 8rpx rgba(255, 107, 107, 0.35);
 }
 
 .card-actions {
@@ -460,21 +685,19 @@ function onCollect() {
 .share-btn {
   width: 48rpx;
   height: 48rpx;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.4);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(8rpx);
 }
 
 .share-btn image {
   width: 28rpx;
   height: 28rpx;
+  filter: brightness(0) invert(1);
 }
-
-.status-found { background: #0FBF9F !important; }
-.status-claimed { background: #FF9F00 !important; }
-.status-archived { background: #999999 !important; }
 
 .card-info {
   flex: 1;
@@ -494,8 +717,8 @@ function onCollect() {
 }
 
 .breed {
-  font-size: 28rpx;
-  font-weight: 600;
+  font-size: 30rpx;
+  font-weight: 700;
   color: #1A1A1A;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -503,8 +726,9 @@ function onCollect() {
   max-width: 100%;
 }
 
-.gender {
-  font-size: 28rpx;
+.gender-icon {
+  width: 36rpx;
+  height: 36rpx;
   flex-shrink: 0;
   margin-left: 8rpx;
 }
@@ -512,7 +736,7 @@ function onCollect() {
 .info-detail {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
   min-width: 0;
 }
 
@@ -520,7 +744,7 @@ function onCollect() {
   font-size: 22rpx;
   color: #666666;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -544,13 +768,9 @@ function onCollect() {
 .detail-icon-img {
   width: 22rpx;
   height: 22rpx;
-  margin-right: 4rpx;
+  margin-right: 6rpx;
   flex-shrink: 0;
-  vertical-align: middle;
-}
-
-.detail-icon {
-  margin-right: 4rpx;
+  opacity: 0.7;
 }
 
 .info-tags {
@@ -562,9 +782,10 @@ function onCollect() {
 .tag {
   font-size: 20rpx;
   color: #0FBF9F;
-  background: #E8FDF8;
+  background: rgba(15, 191, 159, 0.08);
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
+  font-weight: 500;
 }
 
 .info-footer {
@@ -572,7 +793,7 @@ function onCollect() {
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  margin-top: 8rpx;
+  margin-top: 4rpx;
 }
 
 .time {
@@ -583,21 +804,58 @@ function onCollect() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .action-btn {
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
   color: #FFFFFF;
-  font-size: 22rpx;
-  padding: 8rpx 20rpx;
-  border-radius: 20rpx;
+  font-size: 24rpx;
+  padding: 10rpx 22rpx;
+  border-radius: 26rpx;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-weight: 700;
+  box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.load-more, .no-more {
+.action-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2rpx 6rpx rgba(15, 191, 159, 0.3);
+}
+
+.action-icon-img {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+/* 加载 / 无更多 */
+.load-more {
   text-align: center;
   padding: 24rpx;
   font-size: 24rpx;
   color: #999999;
+}
+
+.no-more {
+  text-align: center;
+  padding: 32rpx 0;
+  font-size: 22rpx;
+  color: #BBBBBB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.no-more::before,
+.no-more::after {
+  content: '';
+  width: 80rpx;
+  height: 1rpx;
+  background: #DDDDDD;
 }
 </style>
