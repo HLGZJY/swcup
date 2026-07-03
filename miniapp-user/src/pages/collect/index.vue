@@ -333,6 +333,8 @@ const locationText = ref('定位中...')
 const collectResult = ref<any>(null)
 const locationLat = ref<number | null>(null)
 const locationLng = ref<number | null>(null)
+// 位置已被用户/预填锁定,GPS 回调不能覆盖
+const locationLocked = ref(false)
 
 const breed = ref('')
 const color = ref('')
@@ -415,6 +417,10 @@ async function loadAnimalForPrefill(id: string) {
     if (data.location_lat != null) locationLat.value = Number(data.location_lat)
     if (data.location_lng != null) locationLng.value = Number(data.location_lng)
     if (data.address) locationText.value = data.address
+    // 补录预填了位置:锁定,后续 GPS 回调不能覆盖
+    if (data.location_lat != null && data.location_lng != null) {
+      locationLocked.value = true
+    }
   } catch (e) {
     console.error('[collect] 加载动物信息失败', e)
   } finally {
@@ -443,6 +449,8 @@ function getLocation() {
   uni.getLocation({
     type: 'gcj02',
     success: (res) => {
+      // 已锁定(用户手动选了/补录预填了)则不覆盖
+      if (locationLocked.value) return
       locationLat.value = res.latitude
       locationLng.value = res.longitude
       locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
@@ -450,7 +458,9 @@ function getLocation() {
     fail: (err) => {
       console.error('GPS 获取失败', err)
       // 静默降级:location-box 仍可点击,用户手动选位置
-      locationText.value = '未定位,点击选择位置'
+      if (!locationLocked.value) {
+        locationText.value = '未定位,点击选择位置'
+      }
     }
   })
 }
@@ -462,6 +472,8 @@ function onManualSelectLocation() {
       locationLat.value = res.latitude
       locationLng.value = res.longitude
       locationText.value = res.address || `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+      // 锁定:用户已选位置,后续 GPS 回调不能覆盖
+      locationLocked.value = true
     },
     fail: (err) => {
       // 用户主动取消不报错;其他错误给提示
