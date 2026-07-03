@@ -122,4 +122,34 @@ describe('collect → result 数据传递(age/health/sterilized/notes)', () => {
     expect(callArg.notes).toContain('蓝色项圈')
     expect(callArg.notes).not.toBe('通过鼻纹采集新建')
   })
+
+  it('result 页 onMounted 接收 location_lat/lng 并传给 apiNoseCompare (修复 Bug4 GPS NULL)', async () => {
+    ;(globalThis as any).getCurrentPages = vi.fn(() => [
+      {
+        options: {
+          nose_id: 'v1',
+          species: 'dog',
+          breed: '金毛',
+          color: '金色',
+          gender: 'male',
+          location_lat: '31.228',
+          location_lng: '121.447',
+          body_photo_url: '',
+          nose_photo_url: '',
+        },
+      },
+    ])
+    mockApiNoseCompare.mockResolvedValue({
+      data: { results: [], next_action: 'no_match' },
+    })
+
+    mount(ResultPage as any)
+    await flushPromises()
+
+    expect(mockApiNoseCompare).toHaveBeenCalledTimes(1)
+    const callArg = mockApiNoseCompare.mock.calls[0][0]
+    // GPS 维度不能为 NULL,否则 fusion_score 永远 < 0.88
+    expect(callArg.location_lat).toBe(31.228)
+    expect(callArg.location_lng).toBe(121.447)
+  })
 })

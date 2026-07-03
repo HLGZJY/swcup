@@ -121,13 +121,17 @@ const formAge = ref('')
 const formHealth = ref('')
 const formSterilized = ref('')
 const formNotes = ref('')
+// 位置(用于传给 apiNoseCompare 的 GPS 维度)
+const locationLat = ref<number | null>(null)
+const locationLng = ref<number | null>(null)
+const locationText = ref('')
 const bodyPhotoUrl = ref('')
 const nosePhotoUrl = ref('')
 
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text } = currentPage.options || {}
 
   if (!nose_id || nose_id === 'undefined') {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
@@ -157,6 +161,16 @@ onMounted(async () => {
   formHealth.value = safeDecode(health)
   formSterilized.value = safeDecode(sterilized)
   formNotes.value = safeDecode(notes)
+  // 接收位置(GPS 维度需要)
+  if (location_lat && location_lat !== 'undefined') {
+    const lat = Number(location_lat)
+    if (!isNaN(lat) && lat !== 0) locationLat.value = lat
+  }
+  if (location_lng && location_lng !== 'undefined') {
+    const lng = Number(location_lng)
+    if (!isNaN(lng) && lng !== 0) locationLng.value = lng
+  }
+  locationText.value = safeDecode(location_text)
 
   // 统一走 compare 主路径: 不再因 is_duplicate=true 而本地伪造 compareResult
   // (旧逻辑伪造的 animal.photos=[] 导致匹配卡片预览图永远是 mock 占位图,
@@ -173,6 +187,9 @@ onMounted(async () => {
       coat_length: formCoatLength.value,
       ear_type: formEarType.value,
       tail_type: formTailType.value,
+      // 修复 Bug4: GPS 维度不能为 NULL,否则 fusion_score 永远 < 0.88 阈值
+      location_lat: locationLat.value,
+      location_lng: locationLng.value,
     })
     compareResult.value = result.data
   } catch (e) {
@@ -330,17 +347,20 @@ async function onCreateAnimal() {
     const isValidUrl = (s: string) => !!s && s !== 'undefined' && s !== 'null'
     const photos = isValidUrl(bodyPhotoUrl.value) ? [bodyPhotoUrl.value] : []
 
-    // 尝试拿一次真实 GPS；拿不到就传 null 让后端从 animal 反查
-    let realLat: number | null = null
-    let realLng: number | null = null
-    try {
-      const loc: any = await uni.getLocation({ type: 'gcj02' })
-      if (loc && loc.latitude && loc.longitude && loc.latitude !== 0 && loc.longitude !== 0) {
-        realLat = loc.latitude
-        realLng = loc.longitude
+    // 优先使用 collect 页传来的位置(用户实际选择的);
+    // 没有时才重新拿一次 GPS
+    let realLat: number | null = locationLat.value
+    let realLng: number | null = locationLng.value
+    if (realLat == null || realLng == null || realLat === 0 || realLng === 0) {
+      try {
+        const loc: any = await uni.getLocation({ type: 'gcj02' })
+        if (loc && loc.latitude && loc.longitude && loc.latitude !== 0 && loc.longitude !== 0) {
+          realLat = loc.latitude
+          realLng = loc.longitude
+        }
+      } catch {
+        // 静默失败，让后端自取
       }
-    } catch {
-      // 静默失败，让后端自取
     }
 
     // Step 1: 创建动物档案
@@ -361,7 +381,7 @@ async function onCreateAnimal() {
         : undefined,  // 'unknown' / 空 -> undefined,不传给后端
       location_lat: realLat,
       location_lng: realLng,
-      address: '',
+      address: locationText.value || '',
       notes: formNotes.value || '',
       primary_nose_id: noseId.value,
       photos,
