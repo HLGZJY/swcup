@@ -2,9 +2,6 @@
   <view class="page">
     <!-- 位置选择(始终可见,可点击重新选) -->
     <view class="location-box" @click="onManualSelectLocation">
-      <view class="location-icon-wrap">
-        <image class="location-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" @error="onLocationIconError" />
-      </view>
       <view class="location-info">
         <text class="location-text">{{ locationText }}</text>
         <text class="location-tip">点击选择位置</text>
@@ -999,39 +996,15 @@ async function onNext() {
   margin-top: 8rpx;
 }
 
-/* 顶部位置栏(跟 report 页一致) */
+/* 顶部位置栏(纯文字,无外框) */
 .location-box {
-  display: flex;
-  align-items: center;
-  background: #FFFFFF;
-  padding: 24rpx 32rpx;
-  margin: 24rpx 24rpx 0;
-  border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
-}
-
-.location-icon-wrap {
-  width: 64rpx;
-  height: 64rpx;
-  background: #E8FDF8;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 20rpx;
-  flex-shrink: 0;
-}
-
-.location-icon {
-  width: 36rpx;
-  height: 36rpx;
+  padding: 16rpx 32rpx;
+  margin: 16rpx 32rpx 0;
 }
 
 .location-info {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
 .location-text {
