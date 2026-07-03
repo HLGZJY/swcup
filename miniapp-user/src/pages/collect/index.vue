@@ -21,8 +21,8 @@
           <image class="logo-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" @error="onImageError" />
         </view>
         <view class="guide-title">
-          <text class="title-main">鼻纹采集</text>
-          <text class="title-sub">为你的宠物建立唯一身份档案</text>
+          <text class="title-main">{{ animalId ? '鼻纹补录' : '鼻纹采集' }}</text>
+          <text class="title-sub">{{ animalId ? '为已建档的动物补录鼻纹数据' : '为你的宠物建立唯一身份档案' }}</text>
         </view>
       </view>
     </view>
@@ -314,11 +314,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { apiNoseCollect, apiClassifyBreed, apiUploadFile } from '@/services/api'
+import { ref, computed, onMounted } from 'vue'
+import { apiNoseCollect, apiClassifyBreed, apiUploadFile, apiGetAnimalDetail } from '@/services/api'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
+// 补录模式:从 animal-detail 跳过来时携带,代表"为这只动物补录鼻纹"
+const animalId = ref('')
+const prefilling = ref(false)
 const bodyPhoto = ref('')
 const bodyPhotoBase64 = ref('')
 const bodyPhotoUrl = ref('') // 上传后的全身照 URL
@@ -396,6 +399,43 @@ const canNext = computed(() => {
   if (currentStep.value === 2) return !!nosePhoto.value
   if (currentStep.value === 3) return true
   return true
+})
+
+// 补录模式:加载已有动物信息并预填
+async function loadAnimalForPrefill(id: string) {
+  prefilling.value = true
+  try {
+    const res: any = await apiGetAnimalDetail(id)
+    const data = res?.data
+    if (!data) return
+    if (data.species) selectedSpecies.value = data.species
+    if (data.breed) breed.value = data.breed
+    if (data.color) color.value = data.color
+    if (data.gender) gender.value = data.gender
+    if (data.location_lat != null) locationLat.value = Number(data.location_lat)
+    if (data.location_lng != null) locationLng.value = Number(data.location_lng)
+    if (data.address) locationText.value = data.address
+  } catch (e) {
+    console.error('[collect] 加载动物信息失败', e)
+  } finally {
+    prefilling.value = false
+  }
+}
+
+onMounted(() => {
+  // 拿 query 参数(uni-app 小程序环境下 getCurrentPages 可用;测试环境下安全降级)
+  let animal_id = ''
+  try {
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1] as any
+    animal_id = currentPage?.options?.animal_id || ''
+  } catch {
+    // 单元测试或非小程序环境:无 query
+  }
+  if (animal_id) {
+    animalId.value = animal_id
+    loadAnimalForPrefill(animal_id)
+  }
 })
 
 // 获取位置（gcj02 坐标系，与腾讯/高德地图一致）
@@ -592,7 +632,7 @@ async function onNext() {
     const collectRes: any = await apiNoseCollect({
       nose_photo: nosePhotoBase64.value,
       species: selectedSpecies.value,
-      animal_id: null,
+      animal_id: animalId.value || null,
       location_lat: locationLat.value ?? 0,
       location_lng: locationLng.value ?? 0,
       device_id: 'miniapp_user',

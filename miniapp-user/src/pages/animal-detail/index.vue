@@ -4,7 +4,7 @@
     <view class="photo-section">
       <swiper class="photo-swiper" circular :indicator-dots="true" indicator-color="rgba(255,255,255,0.4)" indicator-active-color="#FFFFFF">
         <swiper-item v-for="(photo, idx) in (animal.photos || [])" :key="idx">
-          <image class="photo" :src="photo || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+          <image class="photo" :src="resolveImageUrl(photo) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
         </swiper-item>
         <swiper-item v-if="(animal.photos || []).length === 0">
           <image class="photo" src="/static/mock/dog-placeholder.png" mode="aspectFill" />
@@ -60,7 +60,7 @@
     <view class="section location-section" @click="openMap">
       <view class="section-header">
         <view class="section-title-wrap">
-          <image class="section-title-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+          <image class="section-title-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
           <text class="section-title">发现地点</text>
         </view>
         <text class="map-nav">导航 ›</text>
@@ -68,7 +68,7 @@
       <text class="address-text">{{ animal.address }}</text>
       <view class="map-preview" v-if="animal.location_lat" @click="openMap">
         <view class="map-overlay">
-          <image class="map-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
+          <image class="map-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
           <text>点击查看地图</text>
         </view>
       </view>
@@ -77,7 +77,7 @@
     <!-- 备注信息 -->
     <view class="section notes-section" v-if="animal.notes">
       <view class="section-title-wrap">
-        <image class="section-title-icon" src="/static/icons/icon-filetext.png" mode="aspectFit" />
+        <image class="section-title-icon" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
         <text class="section-title">备注信息</text>
       </view>
       <text class="notes-text">{{ animal.notes }}</text>
@@ -123,11 +123,11 @@
     <view class="bottom-bar" v-if="animal.status !== 'claimed'">
       <view class="bar-left">
         <view class="bar-icon-btn" @click="onShare">
-          <image class="icon-img" src="/static/icons/icon-share.png" mode="aspectFit" />
+          <image class="icon-img" src="/static/icons/icon-share.svg" mode="aspectFit" />
           <text class="label">分享</text>
         </view>
         <view class="bar-icon-btn" @click="onCollect">
-          <image class="icon-img" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
+          <image class="icon-img" src="/static/icons/icon-fingerprint.svg" mode="aspectFit" />
           <text class="label">鼻纹</text>
         </view>
       </view>
@@ -150,6 +150,7 @@
 </template>
 
 <script lang="ts">
+import { resolveImageUrl } from '@/services/api'
 export default {
   data() {
     return {
@@ -165,7 +166,7 @@ export default {
     if (!animal) return {}
     return {
       title: `${animal.breed} ${this.statusMap[animal.status]} | ${animal.address}`,
-      imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+      imageUrl: resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png',
       path: `/pages/animal-detail/index?animal_id=${animal.animal_id}`
     }
   },
@@ -176,7 +177,7 @@ export default {
     if (!animal) return {}
     return {
       title: `${animal.breed} ${this.statusMap[animal.status]}`,
-      imageUrl: animal.photos?.[0] || '/static/mock/dog-placeholder.png',
+      imageUrl: resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png',
       query: `animal_id=${animal.animal_id}`
     }
   }
@@ -185,7 +186,7 @@ export default {
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAnimalDetail } from '@/services/api'
+import { apiGetAnimalDetail, resolveImageUrl } from '@/services/api'
 
 const animal = ref<any>(null)
 const showFuseScore = ref(false)
@@ -273,7 +274,12 @@ function onShare() {
 }
 
 function onCollect() {
-  uni.navigateTo({ url: '/pages/collect/index' })
+  const id = animal.value?.animal_id
+  if (!id) {
+    uni.showToast({ title: '档案信息缺失', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/collect/index?animal_id=${id}` })
 }
 
 function onClaim() {
