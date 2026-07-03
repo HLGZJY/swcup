@@ -33,4 +33,10 @@ describe('collect 页 location-box', () => {
     const wrapper = mount(CollectPage)
     expect(wrapper.find('.location-text').text()).toBe('定位中...')
   })
+
+  it('点击 location-box 触发 uni.chooseLocation', async () => {
+    const wrapper = mount(CollectPage)
+    await wrapper.find('.location-box').trigger('click')
+    expect((globalThis as any).uni.chooseLocation).toHaveBeenCalledTimes(1)
+  })
 })

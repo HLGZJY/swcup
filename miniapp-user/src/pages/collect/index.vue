@@ -1,5 +1,16 @@
 <template>
   <view class="page">
+    <!-- 位置选择(始终可见,可点击重新选) -->
+    <view class="location-box" @click="onManualSelectLocation">
+      <view class="location-icon-wrap">
+        <image class="location-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" @error="onLocationIconError" />
+      </view>
+      <view class="location-info">
+        <text class="location-text">{{ locationText }}</text>
+        <text class="location-tip">点击选择位置</text>
+      </view>
+    </view>
+
     <!-- 顶部引导区 -->
     <view class="guide-header">
       <view class="guide-title">
@@ -300,6 +311,28 @@ function getLocation() {
       })
     }
   })
+}
+
+// 手动选择位置(微信原生 chooseLocation,弹窗带搜索栏)
+function onManualSelectLocation() {
+  uni.chooseLocation({
+    success: (res) => {
+      locationLat.value = res.latitude
+      locationLng.value = res.longitude
+      locationText.value = res.address || `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+    },
+    fail: (err) => {
+      // 用户主动取消不报错;其他错误给提示
+      if (err.errMsg && !err.errMsg.includes('cancel')) {
+        uni.showToast({ title: '位置选择失败', icon: 'none' })
+      }
+    }
+  })
+}
+
+// 占位图加载失败时静默忽略
+function onLocationIconError() {
+  // no-op
 }
 
 getLocation()
