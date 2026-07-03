@@ -46,26 +46,26 @@
         </view>
         <image
           class="match-photo"
-          :src="item.animal?.photos?.[0] || '/static/mock/dog-placeholder.png'"
+          :src="resolveImageUrl(item.animal?.photos?.[0]) || '/static/mock/dog-placeholder.png'"
           mode="aspectFill"
         />
         <view class="match-info">
           <view class="match-header">
-            <text class="match-breed">{{ item.animal.breed }}</text>
+            <text class="match-breed">{{ item.animal?.breed }}</text>
             <view class="match-score" :class="getScoreClass(item.fusion_score)">
               {{ (item.fusion_score * 100).toFixed(0) }}%
             </view>
           </view>
-          <text class="match-color">{{ item.animal.color }}</text>
-          <text class="match-location">{{ item.animal.address }}</text>
+          <text class="match-color">{{ item.animal?.color }}</text>
+          <text class="match-location">{{ item.animal?.address }}</text>
           <view class="match-tags">
             <text class="match-tag">距 {{ item.gps_distance_m }}m</text>
-            <text class="match-tag status-badge" :class="'status-' + item.animal.status">
-              {{ statusTextMap[item.animal.status] }}
+            <text class="match-tag status-badge" :class="'status-' + (item.animal?.status || 'orphan')">
+              {{ statusTextMap[item.animal?.status || 'orphan'] || '未建档' }}
             </text>
           </view>
         </view>
-        <image class="arrow-img" src="/static/icons/icon-chevron-right.png" mode="aspectFit" />
+        <image class="arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
 
@@ -103,7 +103,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiNoseCompare, apiCreateAnimal, apiReportEvent } from '@/services/api'
+import { apiNoseCompare, apiCreateAnimal, apiReportEvent, resolveImageUrl } from '@/services/api'
 
 const collectResult = ref<any>(null)
 const compareResult = ref<any>(null)
@@ -112,11 +112,22 @@ const noseId = ref('')
 const formBreed = ref('')
 const formColor = ref('')
 const formGender = ref('')
+const formSize = ref('')
+const formCoatLength = ref('')
+const formEarType = ref('')
+const formTailType = ref('')
+// 补充属性(从 collect 页带过来,用户实际选择)
+const formAge = ref('')
+const formHealth = ref('')
+const formSterilized = ref('')
+const formNotes = ref('')
+const bodyPhotoUrl = ref('')
+const nosePhotoUrl = ref('')
 
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species, breed, color, gender, is_duplicate, matched_animal_id, similarity } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes } = currentPage.options || {}
 
   if (!nose_id || nose_id === 'undefined') {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
@@ -126,43 +137,30 @@ onMounted(async () => {
 
   noseId.value = nose_id
   selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
-
-  formBreed.value = decodeURIComponent(breed || '')
-  formColor.value = decodeURIComponent(color || '')
-  formGender.value = decodeURIComponent(gender || 'unknown')
-
-  // 如果是同狗重复采集（collect 时已查到重复），直接显示重复提示
-  if (is_duplicate === 'true' && matched_animal_id && matched_animal_id !== 'null') {
-    compareResult.value = {
-      total: 1,
-      results: [{
-        animal_id: matched_animal_id,
-        fusion_score: parseFloat(similarity) || 0,
-        vector_similarity: parseFloat(similarity) || 0,
-        gps_distance_m: 0,
-        text_match_rate: 0,
-        image_similarity: 0,
-        is_recommended: true,
-        animal: {
-          animal_id: matched_animal_id,
-          species: selectedSpecies.value,
-          breed: formBreed.value,
-          color: formColor.value,
-          gender: formGender.value,
-          status: 'lost',
-          first_seen_at: new Date().toISOString(),
-          address: '',
-          photos: [],
-        },
-      }],
-      threshold_confirmed: 0.88,
-      threshold_suspected: 0.75,
-      next_action: 'duplicate_detected',
-      candidate: null,
-    }
-    return
+  // sanitize: URL 参数若为字符串 "undefined"/"null"(由 encodeURIComponent(undefined) 产生)视为空值
+  // 避免污染 photos 字段
+  const safeDecode = (s: string | undefined) => {
+    if (!s || s === 'undefined' || s === 'null') return ''
+    try { return decodeURIComponent(s) } catch { return '' }
   }
+  bodyPhotoUrl.value = safeDecode(body_photo_url)
+  nosePhotoUrl.value = safeDecode(nose_photo_url)
 
+  formBreed.value = safeDecode(breed)
+  formColor.value = safeDecode(color)
+  formGender.value = safeDecode(gender) || 'unknown'
+  formSize.value = safeDecode(size)
+  formCoatLength.value = safeDecode(coat_length)
+  formEarType.value = safeDecode(ear_type)
+  formTailType.value = safeDecode(tail_type)
+  formAge.value = safeDecode(age)
+  formHealth.value = safeDecode(health)
+  formSterilized.value = safeDecode(sterilized)
+  formNotes.value = safeDecode(notes)
+
+  // 统一走 compare 主路径: 不再因 is_duplicate=true 而本地伪造 compareResult
+  // (旧逻辑伪造的 animal.photos=[] 导致匹配卡片预览图永远是 mock 占位图,
+  //  但点进去又能看到真实档案 → 显示与详情不一致的漏洞)
   uni.showLoading({ title: '比对中...' })
   try {
     const result: any = await apiNoseCompare({
@@ -171,6 +169,10 @@ onMounted(async () => {
       breed: formBreed.value,
       color: formColor.value,
       gender: formGender.value,
+      size: formSize.value,
+      coat_length: formCoatLength.value,
+      ear_type: formEarType.value,
+      tail_type: formTailType.value,
     })
     compareResult.value = result.data
   } catch (e) {
@@ -256,8 +258,7 @@ const dimensions = computed(() => {
   return [
     { name: '鼻纹相似度', value: (r.vector_similarity * 100).toFixed(0) + '%', percent: r.vector_similarity * 100, desc: '128维特征向量余弦相似度', color: '#0FBF9F' },
     { name: 'GPS距离', value: r.gps_distance_m + 'm', percent: gpsScore * 100, desc: '≤500m满分，≥1500m得0分', color: '#FF9F00' },
-    { name: '图像相似度', value: (r.image_similarity * 100).toFixed(0) + '%', percent: r.image_similarity * 100, desc: 'pHash感知哈希相似度', color: '#07C160' },
-    { name: '文本匹配度', value: (r.text_match_rate * 100).toFixed(0) + '%', percent: r.text_match_rate * 100, desc: '品种+颜色+性别关键词', color: '#5872E0' }
+    { name: '文本匹配度', value: (r.text_match_rate * 100).toFixed(0) + '%', percent: r.text_match_rate * 100, desc: '颜色/体型/毛长等身体特征加权评分', color: '#5872E0' }
   ]
 })
 
@@ -307,6 +308,16 @@ async function onClaimAnimal() {
 }
 
 // ============ Plan B 无匹配流程 ============
+function extractErrorMessage(e: any): string {
+  // uni.request 失败时 e.data?.message 是后端返回的 message 字段（可能为字符串或字符串数组）
+  const data = e?.data
+  const msg = data?.message ?? data?.data?.message
+  if (Array.isArray(msg)) return msg.join('；')
+  if (typeof msg === 'string') return msg
+  if (typeof data?.message === 'string') return data.message
+  return e?.errMsg || e?.message || '未知错误'
+}
+
 async function onCreateAnimal() {
   if (!noseId.value) {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
@@ -314,32 +325,60 @@ async function onCreateAnimal() {
   }
   uni.showLoading({ title: '创建中...' })
   try {
+    // 构建 photos 数组:仅在有有效全身照 URL 时才放进数组
+    // 过滤字符串 "undefined"/"null" 等无效值,防止数据库 photos 字段被污染
+    const isValidUrl = (s: string) => !!s && s !== 'undefined' && s !== 'null'
+    const photos = isValidUrl(bodyPhotoUrl.value) ? [bodyPhotoUrl.value] : []
+
+    // 尝试拿一次真实 GPS；拿不到就传 null 让后端从 animal 反查
+    let realLat: number | null = null
+    let realLng: number | null = null
+    try {
+      const loc: any = await uni.getLocation({ type: 'gcj02' })
+      if (loc && loc.latitude && loc.longitude && loc.latitude !== 0 && loc.longitude !== 0) {
+        realLat = loc.latitude
+        realLng = loc.longitude
+      }
+    } catch {
+      // 静默失败，让后端自取
+    }
+
     // Step 1: 创建动物档案
     const animalRes: any = await apiCreateAnimal({
       species: selectedSpecies.value,
       breed: formBreed.value,
       color: formColor.value,
       gender: formGender.value,
-      age_estimate: 'unknown',
-      health_status: 'unknown',
-      location_lat: 0,
-      location_lng: 0,
+      size: formSize.value || undefined,
+      coat_length: formCoatLength.value || undefined,
+      ear_type: formEarType.value || undefined,
+      tail_type: formTailType.value || undefined,
+      // 使用用户实际选择的值(不再硬编码 unknown)
+      age_estimate: formAge.value || undefined,
+      health_status: formHealth.value || undefined,
+      sterilized: formSterilized.value === 'yes' ? true
+        : formSterilized.value === 'no' ? false
+        : undefined,  // 'unknown' / 空 -> undefined,不传给后端
+      location_lat: realLat,
+      location_lng: realLng,
       address: '',
-      notes: '通过鼻纹采集新建',
+      notes: formNotes.value || '',
       primary_nose_id: noseId.value,
-      photos: [],
+      photos,
     })
     const animalId = animalRes.data?.animal_id || animalRes.animal_id
     if (!animalId) throw new Error('创建动物档案失败')
 
-    // Step 2: 上报事件（关联到新建的动物）
+    // Step 2: 上报事件（关联到新建的动物；lat/lng 缺省由后端从 animal 反查）
+    // 修复: 之前用 'report' 跟"上报"流程的 report 事件混淆,在"我的上报"列表看起来像重复
+    // 现在用 'collect' 区分,管理端和我的上报页都会显示"采集"标签
     await apiReportEvent({
-      event_type: 'report',
+      event_type: 'collect',
       animal_id: animalId,
       nose_vector_id: noseId.value,
       species: selectedSpecies.value,
-      location_lat: 0,
-      location_lng: 0,
+      location_lat: realLat,
+      location_lng: realLng,
     })
 
     uni.hideLoading()
@@ -347,10 +386,16 @@ async function onCreateAnimal() {
     setTimeout(() => {
       uni.redirectTo({ url: `/pages/animal-detail/index?animal_id=${animalId}` })
     }, 1000)
-  } catch (e) {
+  } catch (e: any) {
     uni.hideLoading()
     console.error('[onCreateAnimal]', e)
-    uni.showToast({ title: '创建失败，请重试', icon: 'none' })
+    const detail = extractErrorMessage(e)
+    uni.showModal({
+      title: '创建失败',
+      content: detail,
+      showCancel: false,
+      confirmText: '我知道了',
+    })
   }
 }
 
