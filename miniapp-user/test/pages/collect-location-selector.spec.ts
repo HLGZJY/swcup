@@ -39,4 +39,14 @@ describe('collect 页 location-box', () => {
     await wrapper.find('.location-box').trigger('click')
     expect((globalThis as any).uni.chooseLocation).toHaveBeenCalledTimes(1)
   })
+
+  it('GPS 获取失败时 locationText 降级为"未定位,点击选择位置"', async () => {
+    ;(globalThis as any).uni.getLocation = vi.fn(({ fail }) => {
+      fail && fail({ errMsg: 'getLocation:fail' })
+    })
+    const wrapper = mount(CollectPage)
+    // 等待 micro task 队列清空
+    await new Promise((r) => setTimeout(r, 0))
+    expect(wrapper.find('.location-text').text()).toBe('未定位,点击选择位置')
+  })
 })

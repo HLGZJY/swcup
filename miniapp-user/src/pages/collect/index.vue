@@ -303,12 +303,8 @@ function getLocation() {
     },
     fail: (err) => {
       console.error('GPS 获取失败', err)
-      locationText.value = '定位失败，请开启位置权限'
-      uni.showToast({
-        title: '需要定位权限才能记录救助位置',
-        icon: 'none',
-        duration: 3000
-      })
+      // 静默降级:location-box 仍可点击,用户手动选位置
+      locationText.value = '未定位,点击选择位置'
     }
   })
 }
