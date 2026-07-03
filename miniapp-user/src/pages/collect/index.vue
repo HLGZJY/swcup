@@ -1,5 +1,8 @@
 <template>
   <view class="page">
+    <!-- 顶部占位(关掉系统胶囊后,需要 88rpx 让内容不顶到状态栏) -->
+    <view class="navbar-placeholder" />
+
     <!-- 位置选择(始终可见,可点击重新选) -->
     <view class="location-box" @click="onManualSelectLocation">
       <view class="location-icon-wrap">
@@ -11,31 +14,35 @@
       </view>
     </view>
 
-    <!-- 顶部引导区 -->
+    <!-- 顶部品牌区(照抄 report 页:paw logo + 副标题) -->
     <view class="guide-header">
-      <view class="guide-title">
-        <text class="title-main">鼻纹采集</text>
-        <text class="title-sub">为你的宠物建立唯一身份档案</text>
-      </view>
-      <!-- 鼻纹示意 -->
-      <view class="nose-preview">
-        <image class="nose-icon" src="/static/mock/nose-guide.png" mode="aspectFit" @error="onImageError" />
+      <view class="guide-brand">
+        <view class="guide-logo">
+          <image class="logo-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" @error="onImageError" />
+        </view>
+        <view class="guide-title">
+          <text class="title-main">鼻纹采集</text>
+          <text class="title-sub">为你的宠物建立唯一身份档案</text>
+        </view>
       </view>
     </view>
 
-    <!-- 步骤指示 -->
+    <!-- 步骤指示(照抄 report 页:5 圆点 + 连线 + 步骤计数) -->
     <view class="steps-indicator">
-      <view
-        v-for="(step, index) in steps"
-        :key="index"
-        :class="['step-item', { active: currentStep === index, completed: currentStep > index }]"
-      >
-        <view class="step-circle">
-          <text v-if="currentStep <= index">{{ index + 1 }}</text>
-          <text v-else>✓</text>
-        </view>
-        <text class="step-text">{{ step }}</text>
-        <view v-if="index < steps.length - 1" class="step-line" :class="{ filled: currentStep > index }"></view>
+      <view class="steps-progress">
+        <template v-for="(s, i) in steps" :key="i">
+          <view
+            :class="['steps-dot', { done: i < currentStep, active: i === currentStep }]"
+          />
+          <view
+            v-if="i < steps.length - 1"
+            :class="['steps-line', { done: i < currentStep }]"
+          />
+        </template>
+      </view>
+      <view class="steps-info">
+        <text class="steps-counter">步骤 {{ currentStep + 1 }} / {{ steps.length }}</text>
+        <text class="steps-name">{{ steps[currentStep] }}</text>
       </view>
     </view>
 
@@ -532,114 +539,164 @@ async function onNext() {
   padding-bottom: 160rpx;
 }
 
+/* 顶部占位(关掉系统胶囊后,需要 88rpx 让内容不顶到状态栏) */
+.navbar-placeholder {
+  height: 88rpx;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  flex-shrink: 0;
+}
+
 .guide-header {
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  padding: 48rpx 32rpx 32rpx;
+  padding: 24rpx 32rpx 28rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.guide-header::before {
+  content: '';
+  position: absolute;
+  top: -60rpx;
+  right: -40rpx;
+  width: 240rpx;
+  height: 240rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.guide-brand {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.guide-logo {
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.guide-title {
+  display: flex;
+  flex-direction: column;
 }
 
 .title-main {
-  font-size: 40rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: #FFFFFF;
   display: block;
+  line-height: 1.2;
 }
 
 .title-sub {
-  font-size: 24rpx;
-  color: rgba(255,255,255,0.8);
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
+  letter-spacing: 1rpx;
   display: block;
-  margin-top: 8rpx;
+  margin-top: 4rpx;
 }
 
-.nose-preview {
-  width: 120rpx;
-  height: 120rpx;
-  background: rgba(255,255,255,0.2);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nose-icon {
-  width: 80rpx;
-  height: 80rpx;
-}
-
+/* 步骤指示(照抄 report 页:5 圆点 + 连线 + 步骤计数) */
 .steps-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32rpx;
+  padding: 32rpx 32rpx 24rpx;
   background: #FFFFFF;
 }
 
-.step-item {
+.steps-progress {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  position: relative;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding: 0 8rpx;
 }
 
-.step-circle {
-  width: 56rpx;
-  height: 56rpx;
+.steps-dot {
+  width: 16rpx;
+  height: 16rpx;
   border-radius: 50%;
-  background: #E0E0E0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  color: #FFFFFF;
-  font-weight: 600;
+  background: #E5E7EB;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
-.step-item.active .step-circle {
+.steps-dot.done {
   background: #0FBF9F;
 }
 
-.step-item.completed .step-circle {
-  background: #07C160;
+.steps-dot.active {
+  width: 20rpx;
+  height: 20rpx;
+  background: #FFFFFF;
+  border: 4rpx solid #0FBF9F;
+  box-shadow: 0 0 0 6rpx rgba(15, 191, 159, 0.15);
 }
 
-.step-text {
-  font-size: 20rpx;
-  color: #999999;
-  margin-top: 8rpx;
-}
-
-.step-item.active .step-text {
-  color: #0FBF9F;
-  font-weight: 600;
-}
-
-.step-line {
-  position: absolute;
-  top: 28rpx;
-  left: 70rpx;
-  width: 120rpx;
+.steps-line {
+  flex: 1;
   height: 4rpx;
-  background: #E0E0E0;
+  background: #E5E7EB;
+  margin: 0 -2rpx;
+  position: relative;
+  z-index: 1;
 }
 
-.step-line.filled {
-  background: #0FBF9F;
+.steps-line.done {
+  background: linear-gradient(90deg, #0FBF9F, #07C160);
+}
+
+.steps-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.steps-counter {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.steps-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1A1A1A;
 }
 
 .section {
-  margin: 24rpx;
+  margin: 16rpx 24rpx 24rpx;
   background: #FFFFFF;
   border-radius: 16rpx;
-  padding: 32rpx;
+  padding: 28rpx;
 }
 
 .section-title {
   font-size: 30rpx;
   font-weight: 600;
   color: #1A1A1A;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.section-hint {
+  font-size: 24rpx;
+  color: #999999;
   display: block;
   margin-bottom: 24rpx;
 }
@@ -659,11 +716,15 @@ async function onNext() {
   border-radius: 16rpx;
   border: 4rpx solid transparent;
   transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
 .species-card.selected {
   border-color: #0FBF9F;
-  background: #E8FDF8;
+  background: linear-gradient(135deg, #E8FDF8 0%, #F5FBFA 100%);
+  box-shadow: 0 6rpx 20rpx rgba(15, 191, 159, 0.2);
+  transform: translateY(-2rpx);
 }
 
 .species-icon {
@@ -674,10 +735,42 @@ async function onNext() {
   border-radius: 50%;
 }
 
+.species-card.selected .species-icon {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
+}
+
 .species-name {
   font-size: 26rpx;
   color: #1A1A1A;
   font-weight: 600;
+}
+
+.species-paw-mark {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background: #0FBF9F;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(15, 191, 159, 0.4);
+}
+
+.species-paw-mark image {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.step-hint {
+  margin-top: 24rpx;
+  padding: 16rpx 24rpx;
+  background: rgba(15, 191, 159, 0.06);
+  border-left: 6rpx solid #0FBF9F;
+  border-radius: 8rpx;
 }
 
 .camera-area {
@@ -753,15 +846,16 @@ async function onNext() {
 
 .tips-box {
   margin-top: 24rpx;
-  background: #FFF8E8;
+  background: rgba(15, 191, 159, 0.06);
+  border-left: 6rpx solid #0FBF9F;
   border-radius: 12rpx;
-  padding: 20rpx;
+  padding: 20rpx 24rpx;
 }
 
 .tips-title {
   font-size: 26rpx;
   font-weight: 600;
-  color: #FF9F00;
+  color: #0FBF9F;
   display: flex;
   align-items: center;
   margin-bottom: 12rpx;
@@ -781,13 +875,13 @@ async function onNext() {
 }
 
 .tip-bullet {
-  color: #FF9F00;
+  color: #0FBF9F;
   margin-right: 8rpx;
 }
 
 .tip-text {
   font-size: 24rpx;
-  color: #666666;
+  color: #1A1A1A;
   flex: 1;
 }
 
@@ -896,14 +990,15 @@ async function onNext() {
 
 .bottom-bar {
   position: fixed;
-  bottom: 0;
+  bottom: 120rpx;
   left: 0;
   right: 0;
   display: flex;
   gap: 24rpx;
-  padding: 24rpx 32rpx 48rpx;
+  padding: 24rpx 32rpx;
   background: #FFFFFF;
   box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  z-index: 998;
 }
 
 .btn-back {
@@ -935,13 +1030,16 @@ async function onNext() {
 }
 
 .form-item {
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
 }
 
 .form-label {
-  font-size: 28rpx;
-  color: #1A1A1A;
-  font-weight: 600;
+  font-size: 26rpx;
+  color: #666666;
   display: block;
   margin-bottom: 12rpx;
 }
@@ -949,9 +1047,13 @@ async function onNext() {
 .form-input {
   background: #F5F5F5;
   border-radius: 12rpx;
-  padding: 20rpx 24rpx;
+  padding: 24rpx 28rpx;
   font-size: 28rpx;
   color: #1A1A1A;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96rpx;
+  line-height: 1.5;
 }
 
 .input-placeholder {
@@ -965,13 +1067,15 @@ async function onNext() {
 
 .gender-btn {
   flex: 1;
+  text-align: center;
+  padding: 20rpx;
   background: #F5F5F5;
   border-radius: 12rpx;
-  padding: 20rpx;
-  text-align: center;
   font-size: 28rpx;
-  color: #666666;
+  color: #1A1A1A;
   border: 4rpx solid transparent;
+  box-sizing: border-box;
+  transition: all 0.2s;
 }
 
 .gender-btn.selected {
