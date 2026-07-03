@@ -282,9 +282,9 @@ const tips = [
 ]
 
 const speciesList = [
-  { value: 'dog', label: '狗狗', icon: '/static/mock/dog-icon.png' },
-  { value: 'cat', label: '猫咪', icon: '/static/mock/cat-icon.png' },
-  { value: 'other', label: '其他', icon: '/static/mock/other-icon.png' }
+  { value: 'dog', label: '狗狗', icon: '/static/mock/dog-icon.svg' },
+  { value: 'cat', label: '猫咪', icon: '/static/mock/cat-icon.svg' },
+  { value: 'other', label: '其他', icon: '/static/mock/other-icon.svg' }
 ]
 
 const speciesLabel = computed(() => {
@@ -776,18 +776,19 @@ async function onNext() {
 .camera-area {
   position: relative;
   height: 400rpx;
-  background: #1A1A1A;
-  border-radius: 16rpx;
+  background: #F5F5F5;
+  border-radius: 12rpx;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 4rpx dashed #CCCCCC;
 }
 
 .camera-placeholder {
   width: 200rpx;
   height: 200rpx;
-  opacity: 0.3;
+  opacity: 0.6;
 }
 
 .captured-photo {
@@ -807,8 +808,8 @@ async function onNext() {
 
 .camera-text {
   font-size: 28rpx;
-  color: #FFFFFF;
-  background: rgba(0,0,0,0.5);
+  color: #1A1A1A;
+  background: rgba(15, 191, 159, 0.1);
   padding: 12rpx 24rpx;
   border-radius: 40rpx;
 }
@@ -823,13 +824,13 @@ async function onNext() {
 .outline-ring {
   width: 180rpx;
   height: 180rpx;
-  border: 4rpx dashed rgba(255,255,255,0.6);
+  border: 4rpx dashed #0FBF9F;
   border-radius: 50%;
 }
 
 .outline-hint {
   font-size: 22rpx;
-  color: rgba(255,255,255,0.6);
+  color: #666666;
   margin-top: 12rpx;
 }
 
