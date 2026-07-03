@@ -635,7 +635,7 @@ async function onNext() {
 .page {
   min-height: 100vh;
   background: #F5F5F5;
-  padding-bottom: 160rpx;
+  padding-bottom: 280rpx;
 }
 
 /* 顶部占位(关掉系统胶囊后,需要 88rpx 让内容不顶到状态栏) */
