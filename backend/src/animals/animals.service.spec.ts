@@ -17,6 +17,7 @@ function makeRepo() {
     getManyAndCount: jest.fn(),
     getMany: jest.fn(),
     getCount: jest.fn().mockResolvedValue(0),
+    getRawMany: jest.fn().mockResolvedValue([]),
     addSelect: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
@@ -69,17 +70,19 @@ describe('AnimalsService', () => {
   let service: AnimalsService;
   let animalRepo: ReturnType<typeof makeRepo>;
   let noseRepo: ReturnType<typeof makeRepo>;
+  let eventRepo: ReturnType<typeof makeRepo>;
 
   beforeEach(async () => {
     animalRepo = makeRepo();
     noseRepo = makeRepo();
+    eventRepo = makeRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AnimalsService,
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(NoseFeature), useValue: noseRepo },
-        { provide: getRepositoryToken(RescueEvent), useValue: animalRepo },
+        { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
       ],
     }).compile();
 
@@ -156,17 +159,31 @@ describe('AnimalsService', () => {
     });
 
     // ========== Bug5 修复: report_count 字段 ==========
-    it('【Bug5】findAll 应通过 addSelect 加载每个动物的 report_count 子查询', async () => {
-      animalRepo._qb.getManyAndCount.mockResolvedValue([[], 0]);
-      await service.findAll({});
-      // 验证调用了 addSelect(为 report_count)
-      expect(animalRepo._qb.addSelect).toHaveBeenCalled();
-      const addSelectCalls = animalRepo._qb.addSelect.mock.calls;
-      // 至少有一次 addSelect 涉及到 report_count
-      const hasReportCount = addSelectCalls.some((call: any[]) =>
-        call.some((arg: any) => typeof arg === 'string' && arg.toLowerCase().includes('report_count'))
-      );
-      expect(hasReportCount).toBe(true);
+    it('【Bug5】findAll 应通过 eventRepo 单独查每个动物的 report_count 并合并', async () => {
+      // 模拟 2 只 animal 列表
+      const a1 = makeAnimal({ animal_id: 'a-1' });
+      const a2 = makeAnimal({ animal_id: 'a-2' });
+      animalRepo._qb.getManyAndCount.mockResolvedValue([[a1, a2], 2]);
+      // eventRepo 单独查 counts
+      const countQb: any = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          { animal_id: 'a-1', cnt: 2 },
+        ]),
+      };
+      eventRepo.createQueryBuilder.mockReturnValue(countQb);
+
+      const result = await service.findAll({});
+      // a-1 命中 2,a-2 查不到 counts → 0
+      expect(result.list).toHaveLength(2);
+      expect(result.list[0].report_count).toBe(2);
+      expect(result.list[1].report_count).toBe(0);
+      // 验证有调用 createQueryBuilder 查 counts
+      expect(eventRepo.createQueryBuilder).toHaveBeenCalled();
+      expect(countQb.groupBy).toHaveBeenCalledWith('e.animal_id');
     });
   });
 

@@ -22,13 +22,6 @@ export class AnimalsService {
   async findAll(query: { page?: number; limit?: number; species?: string; status?: string; keyword?: string; include_archived?: boolean | string }) {
     const { page = 1, limit = 20, species, status, keyword, include_archived } = query;
     const qb = this.animalRepo.createQueryBuilder('a');
-    // Bug5 修复: 加载每个动物关联的事件数(用于首页"已 N 次上报"展示)
-    qb.addSelect((sub) => {
-      return sub
-        .select('COUNT(*)', 'report_count')
-        .from(RescueEvent, 'e')
-        .where('e.animal_id = a.animal_id');
-    }, 'report_count');
     if (species) qb.andWhere('a.species = :species', { species });
     if (status) qb.andWhere('a.status = :status', { status });
     if (status !== 'archived' && (!include_archived || include_archived === 'false')) {
@@ -38,10 +31,27 @@ export class AnimalsService {
       qb.andWhere('(a.breed LIKE :kw OR a.color LIKE :kw OR a.address LIKE :kw)', { kw: `%${keyword}%` });
     }
     const [list, total] = await qb.orderBy('a.created_at', 'DESC').skip((page - 1) * limit).take(limit).getManyAndCount();
-    // report_count 是 string(数据库 SUM/COUNT 返回),统一转 number
+
+    // Bug5 修复: 单独查每个 animal 的事件数,再 merge
+    // 原因: TypeORM 的 addSelect(sub) 在 getMany() 时不会 hydration 到 entity,
+    //       必须 getRawMany() 才能拿到,但又不想放弃 entity hydration,
+    //       所以拆成两个查询,内存里 O(1) 合
+    const ids = list.map((a) => a.animal_id);
+    let countMap = new Map<string, number>();
+    if (ids.length > 0) {
+      const rows: any[] = await this.eventRepo
+        .createQueryBuilder('e')
+        .select('e.animal_id', 'animal_id')
+        .addSelect('COUNT(*)', 'cnt')
+        .where('e.animal_id IN (:...ids)', { ids })
+        .groupBy('e.animal_id')
+        .getRawMany();
+      countMap = new Map(rows.map((r) => [r.animal_id, Number(r.cnt) || 0]));
+    }
+
     const listWithCount = list.map((a: any) => ({
       ...a,
-      report_count: Number(a.report_count) || 0,
+      report_count: countMap.get(a.animal_id) || 0,
     }));
     return { total, list: listWithCount };
   }
