@@ -169,6 +169,60 @@
           </view>
         </view>
       </view>
+
+      <view class="form-item">
+        <text class="form-label">年龄段</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in ageOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: age === opt.value }]"
+            @click="age = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">健康状况</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in healthOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: health === opt.value }]"
+            @click="health = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">绝育</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in sterilizedOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: sterilized === opt.value }]"
+            @click="sterilized = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">补充描述</text>
+        <textarea
+          class="form-textarea"
+          v-model="notes"
+          placeholder="补充特征（如：佩戴蓝色项圈、尾巴尖有白毛、亲人等）"
+          placeholder-class="input-placeholder"
+          maxlength="500"
+        />
+        <text class="char-count">{{ notes.length }}/500</text>
+      </view>
     </view>
 
     <!-- 确认提交 -->
@@ -201,6 +255,22 @@
         <view class="confirm-item">
           <text class="confirm-label">性别</text>
           <text class="confirm-value">{{ genderLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">年龄段</text>
+          <text class="confirm-value">{{ ageLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">健康状况</text>
+          <text class="confirm-value">{{ healthLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">绝育</text>
+          <text class="confirm-value">{{ sterilizedLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">补充描述</text>
+          <text class="confirm-value">{{ notes || '未填写' }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">位置</text>
@@ -272,6 +342,35 @@ const genderOptions = [
 const genderLabel = computed(() => {
   return genderOptions.find(g => g.value === gender.value)?.label || '未知'
 })
+
+// 补充属性(本地存储,后端接口暂不接收,功能 0 改动)
+const age = ref('')
+const ageOptions = [
+  { value: 'junior', label: '幼年' },
+  { value: 'adult', label: '成年' },
+  { value: 'senior', label: '老年' },
+  { value: 'unknown', label: '未知' },
+]
+const ageLabel = computed(() => ageOptions.find(a => a.value === age.value)?.label || '未填写')
+
+const health = ref('')
+const healthOptions = [
+  { value: 'healthy', label: '健康' },
+  { value: 'injured', label: '受伤' },
+  { value: 'sick', label: '生病' },
+  { value: 'unknown', label: '未知' },
+]
+const healthLabel = computed(() => healthOptions.find(h => h.value === health.value)?.label || '未填写')
+
+const sterilized = ref('')
+const sterilizedOptions = [
+  { value: 'yes', label: '已绝育' },
+  { value: 'no', label: '未绝育' },
+  { value: 'unknown', label: '未知' },
+]
+const sterilizedLabel = computed(() => sterilizedOptions.find(s => s.value === sterilized.value)?.label || '未填写')
+
+const notes = ref('')
 
 const steps = ['选择物种', '拍摄全身照', '拍摄鼻纹', '填写信息', '确认提交']
 const tips = [
@@ -1055,6 +1154,26 @@ async function onNext() {
   box-sizing: border-box;
   min-height: 96rpx;
   line-height: 1.5;
+}
+
+.form-textarea {
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  min-height: 160rpx;
+  width: 100%;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.char-count {
+  font-size: 22rpx;
+  color: #AAAAAA;
+  text-align: right;
+  display: block;
+  margin-top: 8rpx;
 }
 
 .input-placeholder {
