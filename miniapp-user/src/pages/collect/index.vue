@@ -2,10 +2,12 @@
   <view class="page">
     <!-- 位置选择(始终可见,可点击重新选) -->
     <view class="location-box" @click="onManualSelectLocation">
-      <image class="location-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" @error="onLocationIconError" />
+      <view class="location-icon-wrap">
+        <image class="location-icon" src="/static/mock/location-icon.png" mode="aspectFit" @error="onLocationIconError" />
+      </view>
       <view class="location-info">
         <text class="location-text">{{ locationText }}</text>
-        <text class="location-tip">点击选择位置</text>
+        <text class="location-tip">点击重新选择位置</text>
       </view>
     </view>
 
@@ -997,42 +999,47 @@ async function onNext() {
   margin-top: 8rpx;
 }
 
-/* 顶部位置栏(沿用 .section 卡片风格:白底+16rpx 圆角+24rpx 边距) */
+/* 顶部位置栏(照抄 report 页 location-box) */
 .location-box {
   display: flex;
   align-items: center;
-  background: #FFFFFF;
-  border-radius: 16rpx;
+  background: #F5F5F5;
+  border-radius: 12rpx;
   margin: 24rpx;
-  padding: 24rpx 32rpx;
+  padding: 24rpx;
+}
+
+.location-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  background: #E8FDF8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
 }
 
 .location-icon {
   width: 40rpx;
   height: 40rpx;
-  flex-shrink: 0;
-  margin-right: 16rpx;
 }
 
 .location-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
 }
 
 .location-text {
   font-size: 28rpx;
   color: #1A1A1A;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: block;
 }
 
 .location-tip {
   font-size: 22rpx;
-  color: #999999;
+  color: #AAAAAA;
+  display: block;
   margin-top: 4rpx;
 }
 </style>
