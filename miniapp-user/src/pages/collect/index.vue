@@ -998,4 +998,55 @@ async function onNext() {
   color: rgba(255,255,255,0.7);
   margin-top: 8rpx;
 }
+
+/* 顶部位置栏(跟 report 页一致) */
+.location-box {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  padding: 24rpx 32rpx;
+  margin: 24rpx 24rpx 0;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+}
+
+.location-icon-wrap {
+  width: 64rpx;
+  height: 64rpx;
+  background: #E8FDF8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.location-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.location-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.location-text {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.location-tip {
+  font-size: 22rpx;
+  color: #999999;
+  margin-top: 4rpx;
+}
 </style>
