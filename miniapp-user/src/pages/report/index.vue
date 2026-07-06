@@ -270,7 +270,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { apiUploadFile, apiReportEvent } from '@/services/api'
 import UnifiedReportForm from '@/components/unified-report-form/index.vue'
 
@@ -289,6 +289,17 @@ const linkedAnimalId = ref('')
 onLoad((query: any) => {
   if (query && query.animal_id) {
     linkedAnimalId.value = String(query.animal_id)
+  }
+})
+
+// BUG-018 (2026-07-06): tabBar 页面 switchTab 不支持 query,用 storage 透传 animal_id
+// animal-detail.onSighting 会 setStorageSync 写入 'pending_sighting_animal_id',
+// 此处 onShow 读出后立即 remove,避免下一次进入误带
+onShow(() => {
+  const pending = uni.getStorageSync('pending_sighting_animal_id')
+  if (pending) {
+    linkedAnimalId.value = String(pending)
+    uni.removeStorageSync('pending_sighting_animal_id')
   }
 })
 

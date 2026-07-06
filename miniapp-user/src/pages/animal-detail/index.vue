@@ -296,13 +296,16 @@ function onClaim() {
 }
 
 // 阶段 3 (2026-07-06): 用户上报又看到这只动物,带 animal_id 跳到 report 页
+// BUG-018 (2026-07-06): report 是 tabBar 页面, navigateTo 不可达,改用 setStorageSync + switchTab
+//  (report 的 onShow 会读取 'pending_sighting_animal_id' 并写回 linkedAnimalId)
 function onSighting() {
   const id = animal.value?.animal_id
   if (!id) {
     uni.showToast({ title: '档案信息缺失', icon: 'none' })
     return
   }
-  uni.navigateTo({ url: `/pages/report/index?animal_id=${id}` })
+  uni.setStorageSync('pending_sighting_animal_id', id)
+  uni.switchTab({ url: '/pages/report/index' })
 }
 
 // 阶段 3 (2026-07-06): 跳到独立时间轴页
