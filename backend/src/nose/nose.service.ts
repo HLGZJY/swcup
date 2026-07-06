@@ -161,8 +161,19 @@ export class NoseService {
   }
 
   async collect(dto: CollectNoseDto, user_id: string) {
+    // 阶段 1(2026-07-06):nose_photo 软化 — 缺失不抛错
+    // 适用场景 A:用户走失时没拍鼻纹,只上传全身照+GPS
+    // 返回 next_action='ask_user_confirm',前端按 intent 走"无鼻纹"分支
     if (!dto.nose_photo) {
-      throw new BadRequestException('缺少鼻纹照片');
+      return {
+        vector_id: null,
+        confidence_score: null,
+        liveness_passed: false,
+        is_duplicate: false,
+        matched_animal_id: null,
+        similarity: null,
+        next_action: 'ask_user_confirm',
+      };
     }
 
     // 校验位置坐标有效性（禁止 0,0）

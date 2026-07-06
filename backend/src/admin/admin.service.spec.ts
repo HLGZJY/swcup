@@ -7,6 +7,7 @@ import { RescueEvent, EventType, EventStatus } from '../events/entities/event.en
 import { Claim, ClaimStatus } from '../claims/entities/claim.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { EventsService } from '../events/events.service';
 
 function makeRepo() {
   const qb: any = {
@@ -41,6 +42,12 @@ function makeDataSource() {
       };
       return cb(manager);
     }),
+  };
+}
+
+function makeEventsService() {
+  return {
+    createAnimalFromEvent: jest.fn(),
   };
 }
 
@@ -167,6 +174,7 @@ describe('AdminService', () => {
   let animalRepo: ReturnType<typeof makeRepo>;
   let userRepo: ReturnType<typeof makeRepo>;
   let dataSource: ReturnType<typeof makeDataSource>;
+  let eventsService: ReturnType<typeof makeEventsService>;
 
   beforeEach(async () => {
     eventRepo = makeRepo();
@@ -174,6 +182,7 @@ describe('AdminService', () => {
     animalRepo = makeRepo();
     userRepo = makeRepo();
     dataSource = makeDataSource();
+    eventsService = makeEventsService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -183,6 +192,7 @@ describe('AdminService', () => {
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: DataSource, useValue: dataSource },
+        { provide: EventsService, useValue: eventsService },
       ],
     }).compile();
 
@@ -564,6 +574,120 @@ describe('AdminService', () => {
         { nickname: 'NewName' },
       );
       expect(result.phone).toBe('138****1234');
+    });
+  });
+
+  // ========== 阶段 2 (2026-07-06): admin 端动作闭合 (dispatchEventAction) ==========
+  describe('dispatchEventAction (阶段 2: 闭合 reject/confirm/merge/create_new)', () => {
+    it('action="create_new" → 应委派给 eventsService.createAnimalFromEvent', async () => {
+      // 场景: admin 拿到 candidates=空 或 fusion<阈值 的事件 → 决定"创建新动物"
+      // 期望: dispatchEventAction 直接调 eventsService.createAnimalFromEvent(event_id)
+      //       不走 confirmEvent(那会拿 animal_id=null 自动建档, 旧路径)
+      eventsService.createAnimalFromEvent.mockResolvedValue({
+        animal_id: 'new-animal',
+        event_id: 'event-1',
+      });
+
+      const result = await service.dispatchEventAction('event-1', 'create_new');
+
+      expect(eventsService.createAnimalFromEvent).toHaveBeenCalledWith('event-1');
+      expect(eventsService.createAnimalFromEvent).toHaveBeenCalledTimes(1);
+      // 不走 reject
+      expect(eventRepo.update).not.toHaveBeenCalled();
+      expect(result).toEqual(expect.objectContaining({ action: 'create_new', animal_id: 'new-animal' }));
+    });
+
+    it('action="create_new" 缺 animal_id 时不报"缺少 animal_id" 错', async () => {
+      // 行为约束: create_new 路径不应要求 animal_id (语义是"新建一个",不是"合并到一个")
+      eventsService.createAnimalFromEvent.mockResolvedValue({
+        animal_id: 'new-animal',
+        event_id: 'event-1',
+      });
+
+      // 不传 animal_id, 不应该报 BadRequest
+      const result = await service.dispatchEventAction('event-1', 'create_new');
+      expect(result.action).toBe('create_new');
+    });
+
+    it('action="confirm" + 传 animal_id → 应走 confirmEvent(旧路径,绑现 animal)', async () => {
+      // 场景: admin 选中某 candidates 中的 animal, 确认"这是同一只"
+      // 期望: 走 confirmEvent, 不走 createAnimalFromEvent
+      // 注意: event 必须有 animal_id 才能跳过 confirmEvent 内置的 auto-create 分支
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makeEvent({
+            event_id: 'event-1',
+            event_type: EventType.REPORT,
+            animal_id: 'existing-animal-id',
+          }))
+          .mockResolvedValueOnce(makeAnimal({ animal_id: 'existing-animal-id' })),
+        save: jest.fn(),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      const result = await service.dispatchEventAction('event-1', 'confirm', 'existing-animal-id');
+
+      expect(eventsService.createAnimalFromEvent).not.toHaveBeenCalled();
+      expect(manager.update).toHaveBeenCalledWith(
+        RescueEvent,
+        { event_id: 'event-1' },
+        expect.objectContaining({
+          animal_id: 'existing-animal-id',
+          status: 'duplicated',
+          is_duplicate: true,
+        }),
+      );
+      expect(result.action).toBe('confirm');
+    });
+
+    it('action="merge" 是 "confirm" 的别名 — 同样走 confirmEvent 路径', async () => {
+      // 阶段 2 文档: action in ['confirm', 'merge'] 行为相同, 二者只是 UI 语义不同
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makeEvent({
+            event_id: 'event-1',
+            event_type: EventType.COLLECT,
+            animal_id: 'merge-target-id',
+          }))
+          .mockResolvedValueOnce(makeAnimal({ animal_id: 'merge-target-id' })),
+        save: jest.fn(),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      const result = await service.dispatchEventAction('event-1', 'merge', 'merge-target-id');
+
+      expect(eventsService.createAnimalFromEvent).not.toHaveBeenCalled();
+      expect(manager.update).toHaveBeenCalledWith(
+        RescueEvent,
+        { event_id: 'event-1' },
+        expect.objectContaining({ animal_id: 'merge-target-id', status: 'duplicated' }),
+      );
+      expect(result.action).toBe('merge');
+    });
+
+    it('action="reject" → 应调 rejectEvent(status=rejected)', async () => {
+      // 简单路径, 不该走 confirmEvent 或 createAnimalFromEvent
+      await service.dispatchEventAction('event-1', 'reject');
+      expect(eventRepo.update).toHaveBeenCalledWith(
+        { event_id: 'event-1' },
+        { status: 'rejected' },
+      );
+      expect(eventsService.createAnimalFromEvent).not.toHaveBeenCalled();
+    });
+
+    it('action="confirm" 缺 animal_id 应抛 BadRequestException', async () => {
+      // 语义: confirm = "确认是同一只动物", 必须有 animal_id 指向现 animal
+      await expect(service.dispatchEventAction('event-1', 'confirm')).rejects.toThrow(BadRequestException);
+      await expect(service.dispatchEventAction('event-1', 'merge')).rejects.toThrow(BadRequestException);
+    });
+
+    it('action 是未知值应抛 BadRequestException', async () => {
+      await expect(service.dispatchEventAction('event-1', 'invalid_action' as any))
+        .rejects.toThrow(BadRequestException);
+      await expect(service.dispatchEventAction('event-1', 'delete' as any))
+        .rejects.toThrow(BadRequestException);
     });
   });
 });

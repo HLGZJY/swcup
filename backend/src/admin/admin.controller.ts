@@ -50,6 +50,25 @@ export class AdminController {
     return this.adminService.rejectEvent(id);
   }
 
+  // 阶段 2 (2026-07-06): admin 端动作闭合端点 — 单一入口接管 4 个动作
+  // PUT /admin/events/:event_id/action  body={ action, animal_id? }
+  //   action='reject'     → rejectEvent
+  //   action='confirm'    → confirmEvent (alias 'merge' 行为相同)
+  //   action='merge'      → confirmEvent (语义: 合并事件)
+  //   action='create_new' → eventsService.createAnimalFromEvent (建新 Animal + status=confirmed)
+  // 兼容: 旧的 PUT /admin/events/:event_id/confirm / reject 端点保留,旧 admin UI 不破坏
+  @Put('events/:event_id/action')
+  @ApiOperation({
+    summary: 'admin 事件动作派发（阶段 2）',
+    description: 'action: reject=驳回; confirm=确认合并到现 animal(需 animal_id); merge=同 confirm,UI 语义别名; create_new=从 event 字段建 Animal + 关联 event(status=confirmed)',
+  })
+  dispatchAction(
+    @Param('event_id') id: string,
+    @Body() body: { action: 'reject' | 'confirm' | 'merge' | 'create_new'; animal_id?: string },
+  ) {
+    return this.adminService.dispatchEventAction(id, body.action, body.animal_id);
+  }
+
   @Post('events/:event_id/process')
   @ApiOperation({ summary: '处理事件（AI识别）' })
   processEvent(@Param('event_id') id: string) {

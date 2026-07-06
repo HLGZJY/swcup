@@ -128,9 +128,24 @@ describe('NoseService', () => {
 
   // ========== collect ==========
   describe('collect', () => {
-    it('无 nose_photo 应抛 BadRequestException', async () => {
-      await expect(service.collect({ nose_photo: undefined } as any, 'user-1'))
-        .rejects.toThrow(BadRequestException);
+    it('【阶段 1】无 nose_photo 不抛错,而是返回 ask_user_confirm(场景 A:无鼻纹走失上报)', async () => {
+      // 注意:这是行为变更。doc §6.1 规定 nose_photo 软化,
+      // 缺失时跳过向量化,返回 next_action='ask_user_confirm',让前端决定怎么处理。
+      const result = await service.collect({
+        nose_photo: undefined,
+        location_lat: 39.9,
+        location_lng: 116.4,
+        species: 'dog',
+      } as any, 'user-1');
+
+      // 不抛错,返回 next_action 供前端路由
+      expect(result.next_action).toBe('ask_user_confirm');
+      expect(result.vector_id).toBeNull();
+      expect(result.is_duplicate).toBe(false);
+      // 没向量化 → axios.extract 不该被调
+      expect(mockedAxios.post).not.toHaveBeenCalled();
+      // 鼻纹也不该入库
+      expect(noseRepo.save).not.toHaveBeenCalled();
     });
 
     it('GPS=0 应抛 BadRequestException', async () => {

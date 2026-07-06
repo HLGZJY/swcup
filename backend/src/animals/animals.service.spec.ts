@@ -263,6 +263,54 @@ describe('AnimalsService', () => {
       await service.create({ species: 'dog' } as any);
       expect(noseRepo.update).not.toHaveBeenCalled();
     });
+
+    // ========== 阶段 1 (2026-07-06): intent 字段决定 status ==========
+    it('【阶段 1】dto.intent="found" 应建档 status=found(场景 P4 捡到)', async () => {
+      animalRepo.save.mockImplementation(async (e) => e);
+
+      await service.create({
+        species: 'dog',
+        intent: 'found',
+      } as any);
+
+      const saved = animalRepo.save.mock.calls[0][0];
+      expect(saved.status).toBe(AnimalStatus.FOUND);
+    });
+
+    it('【阶段 1】dto.intent="lost" 应建档 status=lost(场景 A:走失)', async () => {
+      animalRepo.save.mockImplementation(async (e) => e);
+
+      await service.create({
+        species: 'dog',
+        intent: 'lost',
+      } as any);
+
+      const saved = animalRepo.save.mock.calls[0][0];
+      expect(saved.status).toBe(AnimalStatus.LOST);
+    });
+
+    it('【阶段 1】dto.intent 缺省时应建档 status=lost(向后兼容,不破坏老调用)', async () => {
+      animalRepo.save.mockImplementation(async (e) => e);
+
+      await service.create({
+        species: 'dog',
+      } as any);
+
+      const saved = animalRepo.save.mock.calls[0][0];
+      expect(saved.status).toBe(AnimalStatus.LOST);
+    });
+
+    it('【阶段 1】dto.intent="unknown" 应建档 status=lost(防御:非枚举值不崩)', async () => {
+      animalRepo.save.mockImplementation(async (e) => e);
+
+      await service.create({
+        species: 'dog',
+        intent: 'unknown',
+      } as any);
+
+      const saved = animalRepo.save.mock.calls[0][0];
+      expect(saved.status).toBe(AnimalStatus.LOST);
+    });
   });
 
   // ========== update ==========

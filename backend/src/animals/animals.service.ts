@@ -100,7 +100,10 @@ export class AnimalsService {
         //   WHERE a.primary_nose_id IS NOT NULL
         // 会把所有 Animal 过滤掉, 同图二次采集永远查不到重复
         primary_nose_id: dto.primary_nose_id,
-        status: AnimalStatus.LOST,
+        // 阶段 1 (2026-07-06): status 由 dto.intent 决定
+        //   intent='found' → AnimalStatus.FOUND (捡到)
+        //   intent='lost' | undefined | 'unknown' → AnimalStatus.LOST (默认走失, 向后兼容)
+        status: dto.intent === 'found' ? AnimalStatus.FOUND : AnimalStatus.LOST,
       } as Partial<Animal>);
       const saved = await this.animalRepo.save(animal);
 

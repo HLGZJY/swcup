@@ -6,6 +6,10 @@ import { RescueEvent } from '../events/entities/event.entity';
 import { Claim } from '../claims/entities/claim.entity';
 import { Animal } from '../animals/entities/animal.entity';
 import { User } from '../users/entities/user.entity';
+import { EventsService } from '../events/events.service';
+
+// 阶段 2 (2026-07-06): admin 端动作集 — 闭合 4 个合法动作
+export type AdminEventAction = 'reject' | 'confirm' | 'merge' | 'create_new';
 
 @Injectable()
 export class AdminService {
@@ -15,6 +19,8 @@ export class AdminService {
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly dataSource: DataSource,
+    // 阶段 2: 注入 EventsService 用于 action='create_new' 派发
+    private readonly eventsService: EventsService,
   ) {}
 
   async stats() {
@@ -166,6 +172,56 @@ export class AdminService {
 
   async rejectEvent(event_id: string) {
     await this.eventRepo.update({ event_id }, { status: 'rejected' as any });
+  }
+
+  /**
+   * 阶段 2 (2026-07-06): admin 端动作派发器 — 闭合 4 个动作
+   *
+   * 映射:
+   *   'reject'     → rejectEvent(event_id): status=rejected
+   *   'confirm'    → confirmEvent(event_id, animal_id): status=duplicated + is_duplicate=true
+   *   'merge'      → confirmEvent(event_id, animal_id): 别名,与 confirm 行为相同(UI 语义不同)
+   *   'create_new' → eventsService.createAnimalFromEvent(event_id): 建 Animal + status=confirmed
+   *
+   * 参数校验:
+   *   - 'confirm'/'merge' 必须传 animal_id (要绑的是哪只动物)
+   *   - 'create_new' 不需要 animal_id (语义是新建,不是绑定)
+   *   - 'reject' 可选 animal_id (忽略)
+   *
+   * 错误:
+   *   - 未知 action → BadRequestException
+   *   - confirm/merge 缺 animal_id → BadRequestException
+   */
+  async dispatchEventAction(
+    event_id: string,
+    action: AdminEventAction,
+    animal_id?: string,
+  ): Promise<{ action: AdminEventAction; event_id: string; animal_id?: string | null }> {
+    switch (action) {
+      case 'create_new': {
+        // 不要求 animal_id (语义是"建新动物",不是"绑现动物")
+        const created = await this.eventsService.createAnimalFromEvent(event_id);
+        return { action: 'create_new', event_id, animal_id: created.animal_id };
+      }
+      case 'confirm':
+      case 'merge': {
+        if (!animal_id) {
+          throw new BadRequestException(
+            `action="${action}" 必须传 animal_id (要绑定的目标动物)`,
+          );
+        }
+        const updated = await this.confirmEvent(event_id, animal_id);
+        return { action, event_id, animal_id: updated?.animal_id || animal_id };
+      }
+      case 'reject': {
+        await this.rejectEvent(event_id);
+        return { action: 'reject', event_id, animal_id: animal_id ?? null };
+      }
+      default:
+        throw new BadRequestException(
+          `未知 action "${action}",合法值为: reject | confirm | merge | create_new`,
+        );
+    }
   }
 
   async getClaims(query: { status?: string; page?: number; limit?: number }) {

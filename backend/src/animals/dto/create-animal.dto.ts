@@ -28,6 +28,16 @@ export class CreateAnimalDto {
   @IsOptional()
   status?: string;
 
+  // 阶段 1 (2026-07-06): intent 决定 Animal.status (lost/found),不持久化
+  // 写入逻辑: events.service.create 用 intent=found 自动建档,status=found
+  @ApiPropertyOptional({
+    enum: ['lost', 'found', 'unknown'],
+    description: '阶段 1: intent=found → Animal.status=found,否则 lost (默认向后兼容)',
+  })
+  @IsString()
+  @IsOptional()
+  intent?: string;
+
   @ApiProperty({ enum: ['cat', 'dog', 'other'] })
   @IsString()
   @IsNotEmpty()

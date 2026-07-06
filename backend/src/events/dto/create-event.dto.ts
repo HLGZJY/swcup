@@ -28,6 +28,14 @@ export class CreateEventDto {
   @IsEnum(EventType, { message: `event_type 必须是 ${Object.values(EventType).join(', ')} 之一` })
   event_type: EventType;
 
+  @ApiPropertyOptional({
+    enum: ['lost', 'found', 'stray_sighting', 'profile_build', 'unknown'],
+    description: '阶段 1 (2026-07-06) 事件意图; intent=lost|found + 无 animal_id 自动建档',
+  })
+  @IsString()
+  @IsOptional()
+  intent?: string;
+
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()

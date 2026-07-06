@@ -1,4 +1,4 @@
-﻿import { Inject, Injectable, Logger } from '@nestjs/common';
+﻿import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,6 +6,7 @@ import { RescueEvent, EventType, EventStatus } from './entities/event.entity';
 import { CreateEventDto } from './dto/create-event.dto';
 import { NoseService } from '../nose/nose.service';
 import { MatchingService, ReportCandidate } from '../matching/matching.service';
+import { AnimalsService } from '../animals/animals.service';
 import { Animal } from '../animals/entities/animal.entity';
 
 // 兜底坐标（北京天安门，用于"无任何 GPS 来源"场景；后续用真实坐标覆盖）
@@ -25,6 +26,8 @@ export class EventsService {
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     private readonly noseService: NoseService,
     private readonly matchingService: MatchingService,
+    // 阶段 1 (2026-07-06): 注入 AnimalsService 用于 intent='lost'/'found' 时自动建档
+    private readonly animalsService: AnimalsService,
   ) {}
 
   private async resolveCoords(dto: CreateEventDto): Promise<{ lat: number; lng: number; source: 'request' | 'animal' | 'fallback' }> {
@@ -45,6 +48,24 @@ export class EventsService {
   async create(dto: CreateEventDto, user_id: string) {
     const event_id = uuidv4();
     const { lat, lng } = await this.resolveCoords(dto);
+
+    // 阶段 1 (2026-07-06): intent='lost'/'found' + animal_id 缺失 → 自动建档
+    // 场景 A/B: 用户上报走失/捡到的动物但还没建过档案 → 自动建一个 Animal 档,事件直接关联
+    //   intent='stray_sighting' 不自动建档 (可能多只动物,SightingEvent 不专属一只)
+    //   intent='profile_build' 不自动建档 (一般是给已有动物补资料)
+    //   animal_id 已传 → 不自动建档 (沿用现有 Animal)
+    let resolvedAnimalId = dto.animal_id || undefined;
+    if (!resolvedAnimalId && (dto.intent === 'lost' || dto.intent === 'found')) {
+      const autoAnimal = await this.animalsService.create({
+        ...dto,
+        intent: dto.intent,
+      } as any);
+      resolvedAnimalId = autoAnimal?.animal_id || undefined;
+      this.logger.log(
+        `[EventsService.create] intent="${dto.intent}" 自动建档 → animal_id=${resolvedAnimalId}`,
+      );
+    }
+
     const event = this.eventRepo.create({
       event_id,
       reporter_id: user_id,
@@ -56,7 +77,9 @@ export class EventsService {
       photos: dto.photos || undefined,
       occurred_at: new Date(),
       status: EventStatus.PENDING,
-      animal_id: dto.animal_id || undefined,
+      animal_id: resolvedAnimalId,
+      // 注: RescueEvent 实体当前无 intent 列 (schema 升级是阶段 1 后的扩展项)
+      // 这里只用 dto.intent 驱动自动建档判断,不入库
       nose_vector_id: dto.nose_vector_id || undefined,
       nose_photo_url: dto.nose_photo_url || undefined,
       species: dto.species,
@@ -72,11 +95,97 @@ export class EventsService {
       gender: dto.gender,
     } as Partial<RescueEvent>);
     await this.eventRepo.save(event);
+
+    // BUG-002 修复: 创建事件后异步触发 AI 融合评分 + 自动入候选池
+    // 不阻塞 POST /events 响应,500ms 内 processEvent 跑完
+    // 失败仅 logger.error,不抛 500 (admin 仍可手动 processEvent 重试)
+    // 幂等: processEvent 内 fusion_score 非空时跳过,防 setImmediate + admin 重复触发双重跑
+    setImmediate(() => {
+      this.processEventSafe(event_id).catch(() => undefined);
+    });
+
     return { event_id, is_duplicate: false, fusion_score: null, status: 'pending' };
+  }
+
+  /**
+   * BUG-002 修复: processEvent 的安全包装,异步触发时吞掉错误
+   * - log error 而非抛错,保证 setImmediate 不会触发 unhandledRejection
+   * - admin 仍可通过管理端手动调 processEvent(event_id) 兜底
+   */
+  private async processEventSafe(event_id: string): Promise<void> {
+    try {
+      await this.processEvent(event_id);
+    } catch (err: any) {
+      this.logger.error(`[EventsService.processEventSafe] ${event_id} 异步失败: ${err.message}`, err.stack);
+    }
   }
 
   async findByReporter(reporter_id: string) {
     return this.eventRepo.find({ where: { reporter_id }, order: { created_at: 'DESC' } });
+  }
+
+  /**
+   * 阶段 2 (2026-07-06): admin 端 create_new 动作 — 从事件字段直接创建动物档
+   * 触发场景: admin 拿到 candidates=空 或 fusion<阈值 的事件 → 决定"创建新动物"
+   *
+   * 字段映射 (event → animal):
+   *   species / breed / color / gender → 直接透传
+   *   location_lat / location_lng / address → 透传(也可从 dto 再覆盖)
+   *   photos → 透传 (event.photos 是 [] 或 string[])
+   *   description → notes (Animal 字段名不同)
+   *   nose_vector_id → primary_nose_id (走 Stage 1 Bug6 兜底: 自动回填孤儿 NoseFeature)
+   *   occurred_at → first_seen_at + last_seen_at
+   *   event_id 缺失 → 抛 NotFoundException
+   *
+   * 副作用:
+   *   - event.animal_id ← 新建的 animal.animal_id
+   *   - event.status ← EventStatus.CONFIRMED
+   *
+   * 注意:
+   *   - 不传 intent → AnimalsService.create 内部默认 status=LOST (向后兼容, 详见 animal.service.create)
+   *   - admin 仍可在 CREATE 之后再用 PUT /admin/animals/:id 调整 status
+   *   - 不动 nose_vector_id 本身,只把它作为 primary_nose_id 关联
+   */
+  async createAnimalFromEvent(event_id: string): Promise<{ animal_id: string; event_id: string }> {
+    const event = await this.eventRepo.findOne({ where: { event_id } });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    this.logger.log(`[EventsService.createAnimalFromEvent] event=${event_id} → 建档`);
+    const newAnimal = await this.animalsService.create({
+      species: event.species,
+      breed: event.breed ?? undefined,
+      color: event.color ?? undefined,
+      gender: event.gender ?? undefined,
+      location_lat: event.location_lat,
+      location_lng: event.location_lng,
+      address: event.address ?? undefined,
+      photos: event.photos ?? undefined,
+      body_colors: event.body_colors ?? undefined,
+      // event.description → Animal.notes
+      notes: event.description ?? undefined,
+      // event.nose_vector_id → Animal.primary_nose_id
+      primary_nose_id: event.nose_vector_id ?? undefined,
+      // event.occurred_at → first_seen_at + last_seen_at
+      first_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
+      last_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
+    } as any);
+
+    // 关键副作用: event.animal_id 指向新动物, status=confirmed (与 confirmEvent 区分)
+    // confirmEvent status=duplicated + is_duplicate=true; create_new status=confirmed
+    await this.eventRepo.update(
+      { event_id },
+      {
+        animal_id: newAnimal.animal_id,
+        status: EventStatus.CONFIRMED,
+      },
+    );
+
+    this.logger.log(
+      `[EventsService.createAnimalFromEvent] event=${event_id} → animal_id=${newAnimal.animal_id}`,
+    );
+    return { animal_id: newAnimal.animal_id, event_id };
   }
 
   async findAll(query: { status?: string; page?: number; limit?: number }) {
@@ -99,6 +208,22 @@ export class EventsService {
     try {
       const event = await this.eventRepo.findOne({ where: { event_id } });
       if (!event) throw new Error('Event not found');
+
+      // BUG-002 修复: 幂等保护 — fusion_score 已写入说明已 process 过
+      // 触发场景: (a) create() setImmediate 自动触发后 admin 又手动点 process
+      //          (b) admin 重复点按钮
+      // 跳过能避免: 重复跑 AI 推理、重复生成 candidates、eventRepo.update 把 fusion_score 覆写成旧值
+      if (event.fusion_score !== null && event.fusion_score !== undefined) {
+        this.logger.log(`[EventsService.processEvent] 事件 ${event_id} 已处理过(fusion=${event.fusion_score}),跳过`);
+        return {
+          event_id,
+          status: event.status,
+          fusion_score: Number(event.fusion_score),
+          candidates_count: 0,
+          matching_mode: event.nose_vector_id ? 'nose' : 'report',
+          message: '已处理,跳过',
+        };
+      }
 
       // 分支: collect(有鼻纹) vs report(无鼻纹) 走完全不同的 AI 匹配管道
       // 原因: 鼻纹向量是 128-dim 特征, 只有采集过的动物才有; report 事件根本没采过鼻纹
@@ -140,7 +265,8 @@ export class EventsService {
           is_recommended: r.is_recommended || false,
         }));
         scores = {
-          vector: candidates[0]?.vector_similarity ?? null,
+          // BUG-006 修复: vector_similarity 字段在 candidate.scores 下,不在 candidate 顶层
+          vector: candidates[0]?.scores?.vector_similarity ?? null,
           gps: candidates[0]?.scores?.gps_similarity ?? null,
           text: candidates[0]?.scores?.text_match_rate ?? null,
           image: null,
@@ -178,18 +304,46 @@ export class EventsService {
         };
       }
 
-      const topFusion = scores.fusion;
+      let topFusion = scores.fusion;
 
       // ========== Bug6 修复: 候选池方案 ==========
       // 当 fusion_score >= 0.8 且 top candidate 有 animal_id,
       //   自动设置 is_duplicate/duplicate_of/animal_id 入候选池,
       //   status 保持 PENDING(等 admin 在事件合并页二次确认后调 confirmEvent 转 duplicated)
       const CANDIDATE_POOL_THRESHOLD = 0.8;
-      const topCandidate = candidates[0];
+      let topCandidate = candidates[0];
+
+      // ========== BUG-005/007 修复: 排除 self-merge ==========
+      // collect 流程里,事件关联的 animal_id 是刚刚 INSERT 的新动物,
+      // candidates 池里包含该新动物(向量相同),fusion=1.0,duplicate_of 会被写为自身。
+      // 这里把 "候选 animal_id == 事件自身 animal_id" 的项剔除,再取 top1。
+      // 同时更新 topFusion 到新的 top candidate,否则 fusion_score 会保留 self 的 1.0。
+      if (event.animal_id) {
+        const filtered = candidates.filter(
+          (c: any) => c.animal_id && c.animal_id !== event.animal_id,
+        );
+        if (filtered.length > 0) {
+          topCandidate = filtered[0];
+          topFusion = topCandidate?.fusion_score ?? null;
+          this.logger.log(
+            `[EventsService.processEvent] 事件 ${event_id} 剔除 self-merge 候选 ` +
+            `(原 top1=${candidates[0]?.animal_id}),实际 top1=${topCandidate.animal_id}, fusion=${topFusion}`,
+          );
+        } else {
+          // 全部候选都是自身(数据库里只有自己这一只动物)
+          topCandidate = null;
+          topFusion = null;
+          this.logger.log(
+            `[EventsService.processEvent] 事件 ${event_id} 候选池仅含自身,跳过 auto-merge`,
+          );
+        }
+      }
+
       const isMergeCandidate =
         topFusion != null &&
         topFusion >= CANDIDATE_POOL_THRESHOLD &&
-        topCandidate?.animal_id;
+        topCandidate?.animal_id &&
+        topCandidate.animal_id !== event.animal_id;  // 二次保护
 
       const updatePayload: any = {
         status: EventStatus.PENDING,
