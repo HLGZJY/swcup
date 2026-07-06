@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Request, Param } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -17,6 +17,16 @@ export class EventsController {
   @ApiOperation({ summary: '上报救助事件' })
   create(@Body() dto: CreateEventDto, @Request() req: any) {
     return this.eventsService.create(dto, req.user.user_id);
+  }
+
+  @Post(':event_id/link')
+  @ApiOperation({ summary: '用户自助关联事件到动物' })
+  linkEventToAnimal(
+    @Param('event_id') id: string,
+    @Body() body: { animal_id: string },
+    @Request() req: any,
+  ) {
+    return this.eventsService.linkToAnimal(id, body.animal_id, req.user.user_id);
   }
 
   @Get('my')
