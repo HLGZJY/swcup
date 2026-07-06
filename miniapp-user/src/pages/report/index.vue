@@ -222,15 +222,13 @@
         </view>
       </view>
 
-      <!-- 阶段 3 (2026-07-06): 复用共享表单组件,负责 intent 透传 + 追加观察提示 + 提交按钮 -->
-      <UnifiedReportForm
-        mode="report"
-        :animalId="linkedAnimalId"
-        @submit="handleReportSubmit"
-      />
+      <!-- BUG-019 (2026-07-06): 提交按钮已移到底部 bottom-bar,section 内只剩追加观察提示 -->
+      <view v-if="linkedAnimalId" class="sighting-hint">
+        <text>你正在为该动物追加一条观察记录</text>
+      </view>
     </view>
 
-    <!-- 底部按钮 (步骤 0-3: 上一步/下一步; 步骤 4: 上一步,提交由组件接管) -->
+    <!-- 底部按钮: 步骤 0-3 → 上一步/下一步 (1:2); 步骤 4 → 上一步/提交上报 (1:1) -->
     <view class="bottom-bar">
       <view class="btn-back" v-if="currentStep > 0" @click="onBack">
         <text>上一步</text>
@@ -241,6 +239,13 @@
         @click="onNext"
       >
         <text>下一步</text>
+      </view>
+      <view
+        v-else
+        class="btn-submit"
+        @click="handleReportSubmit"
+      >
+        <text>提交上报</text>
       </view>
     </view>
 
@@ -272,7 +277,6 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { apiUploadFile, apiReportEvent } from '@/services/api'
-import UnifiedReportForm from '@/components/unified-report-form/index.vue'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
@@ -1068,6 +1072,27 @@ getLocation()
 .btn-next.disabled {
   background: #CCCCCC;
   box-shadow: none;
+}
+
+/* BUG-019 (2026-07-06): 步骤 4 的"提交上报"按钮,与"上一步"50/50 对半排 */
+.btn-submit {
+  flex: 1;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+}
+
+/* BUG-019 (2026-07-06): 追加观察提示 (从 animal-detail 跳过来时) */
+.sighting-hint {
+  margin: 16rpx 0;
+  color: #0FBF9F;
+  font-size: 26rpx;
+  text-align: center;
 }
 
 .success-modal {
