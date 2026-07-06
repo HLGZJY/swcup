@@ -31,6 +31,13 @@ export class AnimalsController {
     return this.animalsService.findOne(id);
   }
 
+  @Version('1')
+  @Get(':animal_id/timeline')
+  @ApiOperation({ summary: '获取动物时间轴（任意登录用户）' })
+  getTimeline(@Param('animal_id') id: string) {
+    return this.animalsService.getTimeline(id);
+  }
+
   // === Plan B: 管理端创建动物档案（admin 角色）===
   @Version('1')
   @UseGuards(RolesGuard)
