@@ -228,6 +228,25 @@ export function apiCreateAnimal(params) {
 }
 
 /**
+ * 阶段 3: 获取动物时间轴
+ * GET /v1/animals/:id/timeline
+ */
+export function apiGetAnimalTimeline(animalId) {
+  return request(`/v1/animals/${animalId}/timeline`, { method: 'GET' })
+}
+
+/**
+ * 阶段 3: 用户自助关联事件到动物
+ * POST /v1/events/:id/link  body { animal_id }
+ */
+export function apiLinkEventToAnimal(eventId, animalId) {
+  return request(`/v1/events/${eventId}/link`, {
+    method: 'POST',
+    body: { animal_id: animalId },
+  })
+}
+
+/**
  * 上传文件
  * POST /v1/upload
  * 用于采集流程中上传全身照和鼻纹照
