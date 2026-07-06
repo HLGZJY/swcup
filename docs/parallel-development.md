@@ -14,7 +14,7 @@
 1. 不修改共享文件: 阶段三改的文件(animal-detail/index.vue, my-reports/index.vue, report/index.vue, collect/index.vue)只准在自己分支改,合并时 git rerere + 手工
 2. 新功能只增不删: 评论功能只准 + 不准 - main 已存的行
 3. 接口先于代码: openapi spec 先合 main 才能写实现
-4. migrations 单列: 数字版本号递增, fix 分支禁止触数据库
+4. migrations 单列: 命名 `backend/scripts/migrate-YYYY-MM-DD-<topic>.sql`,内容对齐 MySQL 8 方言, fix 分支禁止触数据库
 5. 端到端冒烟: 每个 PR 合 dev 后必须能跑 miniapp-user + backend + ai-service 三端起来,curl 走通 happy path
 
 ## 共享 schema 协议
