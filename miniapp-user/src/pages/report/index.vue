@@ -221,18 +221,26 @@
           <text class="confirm-value">{{ description || '未填写' }}</text>
         </view>
       </view>
+
+      <!-- 阶段 3 (2026-07-06): 复用共享表单组件,负责 intent 透传 + 追加观察提示 + 提交按钮 -->
+      <UnifiedReportForm
+        mode="report"
+        :animalId="linkedAnimalId"
+        @submit="handleReportSubmit"
+      />
     </view>
 
-    <!-- 底部按钮 -->
+    <!-- 底部按钮 (步骤 0-3: 上一步/下一步; 步骤 4: 上一步,提交由组件接管) -->
     <view class="bottom-bar">
       <view class="btn-back" v-if="currentStep > 0" @click="onBack">
         <text>上一步</text>
       </view>
       <view
+        v-if="currentStep < 4"
         :class="['btn-next', { disabled: !canNext }]"
         @click="onNext"
       >
-        <text>{{ currentStep < 4 ? '下一步' : '确认上报' }}</text>
+        <text>下一步</text>
       </view>
     </view>
 
@@ -262,7 +270,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { apiUploadFile, apiReportEvent } from '@/services/api'
+import UnifiedReportForm from '@/components/unified-report-form/index.vue'
 
 const currentStep = ref(0)
 const selectedSpecies = ref('dog')
@@ -273,6 +283,14 @@ const locationText = ref('定位中...')
 const locationLat = ref<number | null>(null)
 const locationLng = ref<number | null>(null)
 const showSuccess = ref(false)
+// 阶段 3 (2026-07-06): 从 animal-detail 跳过来时携带,代表"为该动物追加观察"
+const linkedAnimalId = ref('')
+
+onLoad((query: any) => {
+  if (query && query.animal_id) {
+    linkedAnimalId.value = String(query.animal_id)
+  }
+})
 
 // 结构化字段 (提高文本匹配分数)
 const breed = ref('')
@@ -439,14 +457,18 @@ async function onNext() {
     currentStep.value++
     return
   }
+}
 
-  // 提交上报
+// 阶段 3 (2026-07-06): UnifiedReportForm 提交处理,透传 intent + animal_id
+async function handleReportSubmit(_payload: Record<string, any>) {
   uni.showLoading({ title: '提交中...' })
 
   try {
     // 2026-07-01: 颜色由用户自由文本描述, 直接发 color 字段; 不再携带 body_colors
+    // 阶段 3 (2026-07-06): 透传 intent + animal_id (从 animal-detail 跳过来时存在)
     await apiReportEvent({
       event_type: 'report',
+      intent: 'stray_sighting',
       species: selectedSpecies.value,
       breed: breed.value || undefined,
       color: color.value || undefined,
@@ -455,7 +477,8 @@ async function onNext() {
       location_lng: locationLng.value ?? 0,
       address: locationText.value,
       description: description.value,
-      photos: photoUrls.value
+      photos: photoUrls.value,
+      animal_id: linkedAnimalId.value || undefined,
     })
 
     uni.hideLoading()
