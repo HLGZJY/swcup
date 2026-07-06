@@ -20,6 +20,7 @@ function makeRepo() {
     getRawMany: jest.fn().mockResolvedValue([]),
     addSelect: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     from: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
@@ -389,6 +390,77 @@ describe('AnimalsService', () => {
       await service.remove('animal-1');
 
       expect(animalRepo.delete).toHaveBeenCalledWith({ animal_id: 'animal-1' });
+    });
+  });
+
+  // ========== 阶段 3 (2026-07-06): getTimeline ==========
+  describe('getTimeline', () => {
+    it('animal 不存在时应抛 NotFoundException', async () => {
+      animalRepo.findOne.mockResolvedValue(null);
+      await expect(service.getTimeline('missing')).rejects.toThrow(NotFoundException);
+      // 不应继续查事件
+      expect(eventRepo._qb.getMany).not.toHaveBeenCalled();
+    });
+
+    it('正常返回时应按 occurred_at DESC 且映射 reporter/intent/status', async () => {
+      animalRepo.findOne.mockResolvedValue(makeAnimal({ animal_id: 'a-1' }));
+      eventRepo._qb.getMany.mockResolvedValue([
+        {
+          event_id: 'e-2',
+          event_type: 'report',
+          reporter: { user_id: 'u-9', nickname: '小明', phone: '138' },
+          occurred_at: new Date('2026-07-05'),
+          address: 'Beijing',
+          location_lat: 39.9,
+          location_lng: 116.4,
+          photos: ['/p/1.jpg'],
+          description: '看到了',
+          status: 'pending',
+        },
+        {
+          event_id: 'e-1',
+          event_type: 'collect',
+          reporter: null,
+          occurred_at: new Date('2026-07-01'),
+          address: null,
+          location_lat: null,
+          location_lng: null,
+          photos: null,
+          description: null,
+          status: 'confirmed',
+        },
+      ]);
+
+      const result = await service.getTimeline('a-1');
+
+      expect(result.animal_id).toBe('a-1');
+      expect(result.total).toBe(2);
+      // 排序断言交给 qb.orderBy 调用
+      expect(eventRepo._qb.orderBy).toHaveBeenCalledWith('e.occurred_at', 'DESC');
+      expect(eventRepo._qb.where).toHaveBeenCalledWith('e.animal_id = :animal_id', { animal_id: 'a-1' });
+      // report → stray_sighting, reporter 只暴露 nickname (不含 user_id/phone)
+      expect(result.events[0].intent).toBe('stray_sighting');
+      expect(result.events[0].reporter).toEqual({ nickname: '小明' });
+      expect(result.events[0].photos).toEqual(['/p/1.jpg']);
+      // collect → profile_build, reporter=null, photos 兜底空数组
+      expect(result.events[1].intent).toBe('profile_build');
+      expect(result.events[1].reporter).toBeNull();
+      expect(result.events[1].photos).toEqual([]);
+    });
+
+    it('animal 存在但无事件时返回空数组', async () => {
+      animalRepo.findOne.mockResolvedValue(makeAnimal({ animal_id: 'a-2' }));
+      eventRepo._qb.getMany.mockResolvedValue([]);
+      const result = await service.getTimeline('a-2');
+      expect(result.total).toBe(0);
+      expect(result.events).toEqual([]);
+    });
+
+    it('应限制最多 100 条 (take 100)', async () => {
+      animalRepo.findOne.mockResolvedValue(makeAnimal({ animal_id: 'a-3' }));
+      eventRepo._qb.getMany.mockResolvedValue([]);
+      await service.getTimeline('a-3');
+      expect(eventRepo._qb.take).toHaveBeenCalledWith(100);
     });
   });
 });

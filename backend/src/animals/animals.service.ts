@@ -4,7 +4,7 @@ import { Repository, IsNull } from 'typeorm';
 import { Animal, AnimalStatus, Species } from './entities/animal.entity';
 import { CreateAnimalDto, UpdateAnimalDto } from './dto/create-animal.dto';
 import { NoseFeature } from '../nose/entities/nose-feature.entity';
-import { RescueEvent } from '../events/entities/event.entity';
+import { RescueEvent, EventType } from '../events/entities/event.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -169,6 +169,53 @@ export class AnimalsService {
   async remove(id: string) {
     await this.findOne(id);
     await this.animalRepo.delete({ animal_id: id });
+  }
+
+  /**
+   * 阶段 3 (2026-07-06): 动物时间轴
+   * - 不增表: 直接查 rescue_events.animal_id = :id, occurred_at DESC, LIMIT 100
+   * - reporter 只暴露 nickname (User 无 avatar 列; 且隐私要求不泄露 user_id)
+   * - intent 由 event_type 派生 (阶段 4 才持久化 intent 列)
+   * - 任意登录用户可看 (controller 级 JwtAuthGuard, 无 @Public)
+   */
+  async getTimeline(animal_id: string) {
+    const animal = await this.animalRepo.findOne({ where: { animal_id } });
+    if (!animal) throw new NotFoundException('动物不存在');
+
+    const events = await this.eventRepo
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.reporter', 'u')
+      .where('e.animal_id = :animal_id', { animal_id })
+      .orderBy('e.occurred_at', 'DESC')
+      .take(100)
+      .getMany();
+
+    return {
+      animal_id,
+      total: events.length,
+      events: events.map((e) => ({
+        event_id: e.event_id,
+        reporter: e.reporter ? { nickname: e.reporter.nickname } : null,
+        occurred_at: e.occurred_at,
+        address: e.address ?? null,
+        location_lat: e.location_lat ?? null,
+        location_lng: e.location_lng ?? null,
+        photos: e.photos || [],
+        description: e.description ?? null,
+        intent: this.deriveIntent(e),
+        status: e.status,
+      })),
+    };
+  }
+
+  /**
+   * intent 派生规则 (阶段 4 加 intent 列后需同步更新此处)
+   * TODO(阶段 4): 若 event.intent 已持久化, 优先返回 event.intent
+   */
+  private deriveIntent(event: RescueEvent): string {
+    if (event.event_type === EventType.COLLECT) return 'profile_build';
+    if (event.event_type === EventType.REPORT) return 'stray_sighting';
+    return 'unknown';
   }
 }
 
