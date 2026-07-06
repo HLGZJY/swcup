@@ -89,6 +89,14 @@
       }
     },
     {
+      "path": "pages/animal-detail/timeline",
+      "style": {
+        "navigationBarTitleText": "时间轴",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/claim/index",
       "style": {
         "navigationBarTitleText": "认领申请",
