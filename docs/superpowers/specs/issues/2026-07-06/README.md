@@ -28,7 +28,7 @@
 | [BUG-014](BUG-014-admin-no-create-new.md) | 审核端缺"创建新动物"选项 | 后端 |
 | [BUG-015](BUG-015-cannot-auto-found.md) | 采集流程无法自动标 found | BUG-013 子 |
 
-## 🟡 P2 — 体验问题(5)
+## 🟡 P2 — 体验问题(6)
 
 | Issue | 标题 | 关联 |
 |---|---|---|
@@ -36,9 +36,10 @@
 | [BUG-010](BUG-010-gps-distance-wrong.md) | GPS distance 689970m(应 ~16km) | 后端 |
 | [BUG-011](BUG-011-form-default-overrides.md) | 默认值覆盖用户选择 | 前端+后端 |
 | [BUG-012](BUG-012-location-no-hongkou.md) | 位置表单无"虹口"选项 | 前端 |
+| [BUG-016](BUG-016-candidates-self-display.md) | 候选池仍把自己列为 top match (UI 残留) | BUG-005 修复回归 |
 | (合并到 BUG-013) | — | — |
 
-> 注:B 区原本列了 BUG-006/007/008/009/010 共 5 个,其中 006/007/008 升 P0,009/010 留 P2。统计上是 5+5+2+3=15 bug + 1 OPT = 16。
+> 注:B 区原本列了 BUG-006/007/008/009/010 共 5 个,其中 006/007/008 升 P0,009/010 留 P2;第 1 轮复测后新增 BUG-016。统计上是 5+5+2+3+1=16 bug + 1 OPT = 17。
 
 ## ⚪ P3 — 优化(1)
 

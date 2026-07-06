@@ -440,7 +440,6 @@ TRUNCATE TABLE nose_features;
 TRUNCATE TABLE claims;
 TRUNCATE TABLE rescue_events;
 TRUNCATE TABLE animals;
-TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS=1;"
 
 # 然后回去重走第 1 步注册, 后续完全按本文档
