@@ -54,6 +54,15 @@
           </view>
         </view>
 
+        <!-- 阶段 3 (2026-07-06): 待审核且未关联时,允许用户自助关联到动物 -->
+        <view
+          v-if="item.status === 'pending' && !item.animal_id"
+          class="report-link-action"
+          @click.stop="openAnimalPicker(item.event_id)"
+        >
+          <text>关联到动物 ›</text>
+        </view>
+
         <view class="report-event-id">
           事件 #{{ shortEventId(item.event_id) }}
         </view>
@@ -76,12 +85,39 @@
     <view class="loading" v-if="loading">
       <text>加载中...</text>
     </view>
+
+    <!-- 阶段 3 (2026-07-06): 动物选择器弹层 -->
+    <view v-if="pickerVisible" class="picker-mask" @click="closePicker">
+      <view class="picker-panel" @click.stop>
+        <text class="picker-title">选择要关联的动物</text>
+        <view v-if="pickerLoading" class="picker-loading">
+          <text>加载中…</text>
+        </view>
+        <scroll-view v-else scroll-y class="picker-list">
+          <view
+            v-for="a in pickerAnimals"
+            :key="a.animal_id"
+            class="picker-item"
+            @click="confirmLink(a.animal_id)"
+          >
+            <text class="picker-item-title">{{ a.breed || '未命名' }} #{{ (a.animal_id || '').slice(-6) }}</text>
+            <text class="picker-item-sub">{{ a.address || '未知地点' }}</text>
+          </view>
+          <view v-if="!pickerLoading && pickerAnimals.length === 0" class="picker-empty">
+            <text>暂无可关联的动物</text>
+          </view>
+        </scroll-view>
+        <view class="picker-cancel" @click="closePicker">
+          <text>取消</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetMyEvents } from '@/services/api'
+import { apiGetMyEvents, apiGetAnimals, apiLinkEventToAnimal } from '@/services/api'
 import { resolveImageUrl } from '@/services/api'
 
 const reports = ref<any[]>([])
@@ -172,6 +208,49 @@ function goToAnimal(animalId: string) {
   uni.navigateTo({
     url: `/pages/animal-detail/index?animal_id=${animalId}`
   })
+}
+
+// 阶段 3 (2026-07-06): 动物选择器状态
+const pickerVisible = ref(false)
+const pickerAnimals = ref<any[]>([])
+const linkingEventId = ref('')
+const pickerLoading = ref(false)
+
+async function openAnimalPicker(eventId: string) {
+  linkingEventId.value = eventId
+  pickerVisible.value = true
+  pickerAnimals.value = []
+  pickerLoading.value = true
+  try {
+    const res: any = await apiGetAnimals({ page: 1, limit: 20 })
+    pickerAnimals.value = res?.data?.list || res?.list || []
+  } catch (e) {
+    uni.showToast({ title: '加载动物列表失败', icon: 'none' })
+  } finally {
+    pickerLoading.value = false
+  }
+}
+
+async function confirmLink(animalId: string) {
+  if (!linkingEventId.value || !animalId) return
+  try {
+    await apiLinkEventToAnimal(linkingEventId.value, animalId)
+    uni.showToast({ title: '已关联,等待管理员确认', icon: 'none' })
+    pickerVisible.value = false
+    // 刷新列表
+    loading.value = true
+    const res: any = await apiGetMyEvents()
+    reports.value = res.data || []
+  } catch (e: any) {
+    const msg = e?.data?.message || '关联失败'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
+function closePicker() {
+  pickerVisible.value = false
 }
 </script>
 
@@ -424,5 +503,75 @@ function goToAnimal(animalId: string) {
   padding: 24rpx;
   color: #999999;
   font-size: 24rpx;
+}
+
+/* 阶段 3 (2026-07-06): 待关联入口 */
+.report-link-action {
+  margin-top: 12rpx;
+  padding: 12rpx 20rpx;
+  background: #E8FDF8;
+  color: #0FBF9F;
+  font-size: 24rpx;
+  border-radius: 8rpx;
+  align-self: flex-start;
+}
+
+/* 阶段 3 (2026-07-06): 动物选择器弹层 */
+.picker-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+.picker-panel {
+  width: 100%;
+  max-height: 70vh;
+  background: #FFFFFF;
+  border-top-left-radius: 20rpx;
+  border-top-right-radius: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+.picker-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 16rpx;
+  text-align: center;
+}
+.picker-loading, .picker-empty {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999999;
+  font-size: 26rpx;
+}
+.picker-list {
+  max-height: 50vh;
+}
+.picker-item {
+  padding: 20rpx 16rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+.picker-item-title {
+  display: block;
+  font-size: 28rpx;
+  color: #333333;
+}
+.picker-item-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 6rpx;
+}
+.picker-cancel {
+  margin-top: 16rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  color: #666666;
+  font-size: 28rpx;
 }
 </style>
