@@ -933,4 +933,45 @@ describe('EventsService', () => {
       expect(eventRepo.update).toHaveBeenCalled();
     });
   });
+
+  // ========== 阶段 3 (2026-07-06): linkToAnimal 用户自助关联 ==========
+  describe('linkToAnimal', () => {
+    it('事件不存在应抛 NotFoundException', async () => {
+      eventRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.linkToAnimal('missing', 'animal-1', 'user-1'),
+      ).rejects.toThrow('Event not found');
+      expect(eventRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('调用者不是 reporter 应抛 ForbiddenException', async () => {
+      eventRepo.findOne.mockResolvedValue(makeEvent({ reporter_id: 'owner-1' }));
+      await expect(
+        service.linkToAnimal('event-1', 'animal-1', 'attacker-2'),
+      ).rejects.toThrow('只能关联自己上报的事件');
+      expect(eventRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('目标动物不存在应抛 NotFoundException', async () => {
+      eventRepo.findOne.mockResolvedValue(makeEvent({ reporter_id: 'user-1' }));
+      animalRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.linkToAnimal('event-1', 'ghost-animal', 'user-1'),
+      ).rejects.toThrow('Animal not found');
+      expect(eventRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('reporter 本人 + 动物存在 → status 保持 pending 并写 animal_id', async () => {
+      eventRepo.findOne.mockResolvedValue(makeEvent({ reporter_id: 'user-1', animal_id: null }));
+      animalRepo.findOne.mockResolvedValue(makeAnimal({ animal_id: 'target-animal' }));
+
+      const result = await service.linkToAnimal('event-1', 'target-animal', 'user-1');
+
+      expect(eventRepo.update).toHaveBeenCalledWith(
+        { event_id: 'event-1' },
+        { animal_id: 'target-animal', status: EventStatus.PENDING },
+      );
+      expect(result).toEqual({ event_id: 'event-1', animal_id: 'target-animal', status: 'pending' });
+    });
+  });
 });

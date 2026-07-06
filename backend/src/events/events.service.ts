@@ -1,4 +1,4 @@
-﻿import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+﻿import { Inject, Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -186,6 +186,30 @@ export class EventsService {
       `[EventsService.createAnimalFromEvent] event=${event_id} → animal_id=${newAnimal.animal_id}`,
     );
     return { animal_id: newAnimal.animal_id, event_id };
+  }
+
+  /**
+   * 阶段 3 (2026-07-06): 用户自助关联事件到动物
+   * - 权限: 仅事件 reporter 本人可关联 (与 admin dispatchEventAction 隔离)
+   * - 行为: event.animal_id ← 传入 animal_id; status 保持 PENDING
+   *   (self-service 入口, 不直接 confirmed; 走 admin 二次确认)
+   * - 校验: 事件存在 + reporter 匹配 + 目标动物存在
+   */
+  async linkToAnimal(event_id: string, animal_id: string, user_id: string) {
+    const event = await this.eventRepo.findOne({ where: { event_id } });
+    if (!event) throw new NotFoundException('Event not found');
+    if (event.reporter_id !== user_id) {
+      throw new ForbiddenException('只能关联自己上报的事件');
+    }
+    const animal = await this.animalRepo.findOne({ where: { animal_id } });
+    if (!animal) throw new NotFoundException('Animal not found');
+
+    await this.eventRepo.update(
+      { event_id },
+      { animal_id, status: EventStatus.PENDING },
+    );
+    this.logger.log(`[EventsService.linkToAnimal] event=${event_id} → animal=${animal_id} (self-service, pending)`);
+    return { event_id, animal_id, status: 'pending' };
   }
 
   async findAll(query: { status?: string; page?: number; limit?: number }) {
