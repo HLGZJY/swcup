@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity,
   PrimaryColumn,
   Column,
@@ -41,16 +41,41 @@ export enum HealthStatus {
   UNKNOWN = 'unknown',
 }
 
+export enum BodySize {
+  SMALL = 'small',
+  MEDIUM = 'medium',
+  LARGE = 'large',
+}
+
+export enum CoatLength {
+  SHORT = 'short',
+  MEDIUM = 'medium',
+  LONG = 'long',
+}
+
+export enum EarType {
+  ERECT = 'erect',
+  FLOPPY = 'floppy',
+}
+
+export enum TailType {
+  LONG = 'long',
+  SHORT = 'short',
+  CURLED = 'curled',
+}
+
+export interface BodyColorEntry {
+  part: string;
+  hex: string;
+  label: string;
+}
+
 @Entity('animals')
 export class Animal {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'animal_id' })
   animal_id: string;
 
-  @Column({
-    type: 'enum',
-    enum: AnimalStatus,
-    default: AnimalStatus.LOST,
-  })
+  @Column({ type: 'enum', enum: AnimalStatus, default: AnimalStatus.LOST })
   status: AnimalStatus;
 
   @Column({ type: 'enum', enum: Species })
@@ -62,22 +87,32 @@ export class Animal {
   @Column({ type: 'varchar', length: 50, nullable: true })
   color: string;
 
+  @Column({ type: 'json', nullable: true, name: 'body_colors' })
+  body_colors: BodyColorEntry[] | null;
+
   @Column({ type: 'enum', enum: Gender, default: Gender.UNKNOWN })
   gender: Gender;
 
   @Column({ type: 'enum', enum: AgeEstimate, nullable: true, name: 'age_estimate' })
   age_estimate: AgeEstimate;
 
-  @Column({
-    type: 'enum',
-    enum: HealthStatus,
-    default: HealthStatus.UNKNOWN,
-    name: 'health_status',
-  })
+  @Column({ type: 'enum', enum: HealthStatus, default: HealthStatus.UNKNOWN, name: 'health_status' })
   health_status: HealthStatus;
 
   @Column({ type: 'boolean', default: false })
   sterilized: boolean;
+
+  @Column({ type: 'enum', enum: BodySize, nullable: true })
+  size: BodySize;
+
+  @Column({ type: 'enum', enum: CoatLength, nullable: true, name: 'coat_length' })
+  coat_length: CoatLength;
+
+  @Column({ type: 'enum', enum: EarType, nullable: true, name: 'ear_type' })
+  ear_type: EarType;
+
+  @Column({ type: 'enum', enum: TailType, nullable: true, name: 'tail_type' })
+  tail_type: TailType;
 
   @Column({ type: 'datetime', name: 'first_seen_at' })
   first_seen_at: Date;

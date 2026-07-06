@@ -1,0 +1,1890 @@
+<template>
+  <view class="page">
+    <!-- 顶部占位（关掉系统胶囊后，需要 88rpx 让内容不顶到状态栏） -->
+    <view class="navbar-placeholder" />
+
+    <!-- 顶部品牌区（与采集页同款：logo + 副标题） -->
+    <view class="guide-header">
+      <view class="guide-brand">
+        <view class="guide-logo">
+          <image class="logo-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" @error="onImageError" />
+        </view>
+        <text class="title-sub">提供线索，帮助它们回家</text>
+      </view>
+    </view>
+
+    <!-- 步骤指示（与采集页同款：进度条 + 当前步骤名） -->
+    <view class="steps-indicator">
+      <view class="steps-progress">
+        <template v-for="(s, i) in steps" :key="i">
+          <view
+            :class="['steps-dot', { done: i < currentStep, active: i === currentStep }]"
+          />
+          <view
+            v-if="i < steps.length - 1"
+            :class="['steps-line', { done: i < currentStep }]"
+          />
+        </template>
+      </view>
+      <view class="steps-info">
+        <text class="steps-counter">步骤 {{ currentStep + 1 }} / {{ steps.length }}</text>
+        <text class="steps-name">{{ steps[currentStep] }}</text>
+      </view>
+    </view>
+
+    <!-- Step 0: 选择物种 -->
+    <view class="section" v-if="currentStep === 0">
+      <text class="section-title">选择物种</text>
+      <view class="species-grid">
+        <view
+          v-for="spec in speciesList"
+          :key="spec.value"
+          :class="['species-card', { selected: selectedSpecies === spec.value }]"
+          @click="onSelectSpecies(spec.value)"
+        >
+          <image class="species-icon" :src="spec.icon" mode="aspectFit" />
+          <text class="species-name">{{ spec.label }}</text>
+          <view v-if="selectedSpecies === spec.value" class="species-paw-mark">
+            <image src="/static/icons/icon-paw-white.svg" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+      <view class="step-hint">
+        <text>选择后点击底部"下一步"继续</text>
+      </view>
+    </view>
+
+    <!-- Step 1: 拍摄照片 -->
+    <view class="section" v-if="currentStep === 1">
+      <text class="section-title">拍摄照片</text>
+      <text class="section-hint">请上传 1-3 张照片</text>
+
+      <view class="photo-grid">
+        <view
+          v-for="(photo, index) in photos"
+          :key="index"
+          class="photo-item"
+        >
+          <image class="photo-img" :src="photo" mode="aspectFill" />
+          <view class="photo-remove" @click="onRemovePhoto(index)">
+            <text class="remove-icon">×</text>
+          </view>
+        </view>
+        <view
+          v-if="photos.length < 3"
+          class="photo-add"
+          @click="onAddPhoto"
+        >
+          <text class="add-icon">+</text>
+          <text class="add-text">添加照片</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Step 2: 获取 GPS 位置 -->
+    <view class="section" v-if="currentStep === 2">
+      <text class="section-title">获取位置</text>
+      <text class="section-hint">请提供发现流浪动物的位置</text>
+
+      <view class="location-box" @click="onManualSelect">
+        <view class="location-icon-wrap">
+          <image class="location-icon" src="/static/mock/location-icon.png" mode="aspectFit" @error="onLocationIconError" />
+        </view>
+        <view class="location-info">
+          <text class="location-text">{{ locationText }}</text>
+          <text class="location-tip">点击重新选择位置</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Step 3: 填写信息 (结构化字段 + 文字描述) -->
+    <view class="section" v-if="currentStep === 3">
+      <text class="section-title">填写信息</text>
+      <text class="section-hint">补充结构化信息可显著提高匹配准确度（选填）</text>
+
+      <view class="form-item">
+        <text class="form-label">品种</text>
+        <input
+          class="form-input"
+          v-model="breed"
+          placeholder="例如:柴犬/金毛/中华田园犬"
+          placeholder-class="input-placeholder"
+        />
+        <view class="quick-tags">
+          <view
+            v-for="t in breedPresets"
+            :key="t"
+            class="quick-tag"
+            @click="breed = t"
+          >
+            <text>{{ t }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">颜色</text>
+        <view class="color-row">
+          <view class="color-pick-btn-full" @click="onOpenColorPicker">
+            <view class="color-pick-icon">
+              <image src="/static/icons/icon-paw-filled.svg" mode="aspectFit" />
+            </view>
+            <view class="color-pick-info">
+              <text class="color-pick-title">{{ color || '点击从照片取色' }}</text>
+              <text class="color-pick-sub">{{ color ? '已选择颜色' : '推荐：上传清晰纯色区域' }}</text>
+            </view>
+          </view>
+        </view>
+        <view class="color-swatches">
+          <view
+            v-for="c in colorPresets"
+            :key="c.label"
+            :class="['color-swatch', { selected: color === c.label }]"
+            :style="{ background: c.hex }"
+            @click="onPickColor(c.label)"
+          >
+            <view v-if="color === c.label" class="swatch-check">✓</view>
+          </view>
+        </view>
+        <view class="color-swatch-labels">
+          <text
+            v-for="c in colorPresets"
+            :key="c.label + '_l'"
+            class="swatch-label"
+          >
+            {{ c.label }}
+          </text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">性别</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in genderOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: gender === opt.value }]"
+            @click="gender = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">补充描述</text>
+        <textarea
+          class="description-input"
+          v-model="description"
+          placeholder="例如:左耳有伤,右后腿行动不便..."
+          placeholder-class="textarea-placeholder"
+          maxlength="500"
+        />
+        <view class="feature-tags">
+          <view
+            v-for="f in featurePresets"
+            :key="f"
+            class="feature-tag"
+            @click="onAddFeature(f)"
+          >
+            <text>+ {{ f }}</text>
+          </view>
+        </view>
+        <text class="char-count">{{ description.length }}/500</text>
+      </view>
+    </view>
+
+    <!-- Step 4: 确认提交 -->
+    <view class="section" v-if="currentStep === 4">
+      <text class="section-title">确认提交</text>
+
+      <view class="confirm-card">
+        <view class="confirm-item">
+          <text class="confirm-label">物种</text>
+          <text class="confirm-value">{{ speciesLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">照片</text>
+          <view class="confirm-photos">
+            <image
+              v-for="(photo, index) in photos"
+              :key="index"
+              class="confirm-photo-thumb"
+              :src="photo"
+              mode="aspectFill"
+            />
+          </view>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">位置</text>
+          <text class="confirm-value">{{ locationText }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">品种</text>
+          <text class="confirm-value">{{ breed || '未填写' }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">颜色</text>
+          <text class="confirm-value">{{ color || '未填写' }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">性别</text>
+          <text class="confirm-value">{{ genderLabel }}</text>
+        </view>
+        <view class="confirm-item">
+          <text class="confirm-label">补充描述</text>
+          <text class="confirm-value">{{ description || '未填写' }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部按钮 -->
+    <view class="bottom-bar">
+      <view class="btn-back" v-if="currentStep > 0" @click="onBack">
+        <text>上一步</text>
+      </view>
+      <view
+        :class="['btn-next', { disabled: !canNext }]"
+        @click="onNext"
+      >
+        <text>{{ currentStep < 4 ? '下一步' : '确认上报' }}</text>
+      </view>
+    </view>
+
+    <!-- 成功弹窗 -->
+    <view class="success-modal" v-if="showSuccess" @click="showSuccess = false">
+      <view class="success-content" @click.stop>
+        <view class="success-icon-wrap">
+          <text class="success-icon">✓</text>
+        </view>
+        <text class="success-title">上报成功</text>
+        <text class="success-subtitle">感谢您提供线索，我们将尽快处理</text>
+        <view class="success-btns">
+          <view class="btn-view-reports" @click="goToMyReports">
+            <text>查看我的上报</text>
+          </view>
+          <view class="btn-go-home" @click="goHome">
+            <text>返回首页</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 颜色取色器（全屏弹窗：点照片任意位置取色） -->
+    <view class="color-picker-modal" v-if="showColorPicker" @click="onCloseColorPicker">
+      <view class="color-picker-content" @click.stop>
+        <view class="color-picker-header">
+          <text class="color-picker-title">从照片取色</text>
+          <view class="color-picker-close" @click="onCloseColorPicker">
+            <text>✕</text>
+          </view>
+        </view>
+
+        <view class="color-picker-photo-wrap" @tap="onPickerPhotoTap">
+          <image
+            v-if="pickerPhotoUrl"
+            class="color-picker-photo"
+            :src="pickerPhotoUrl"
+            mode="aspectFit"
+            @load="onPickerImageLoad"
+            @error="onPickerImageError"
+          />
+          <view v-else class="color-picker-empty">
+            <text>请先选择照片</text>
+          </view>
+
+          <!-- 十字光标 -->
+          <view
+            v-if="pickerPhotoUrl && pickerCursor.x > 0"
+            class="color-picker-cursor"
+            :style="{ left: pickerCursor.x + 'px', top: pickerCursor.y + 'px' }"
+          >
+            <view class="cursor-h" />
+            <view class="cursor-v" />
+            <view class="cursor-ring" />
+          </view>
+        </view>
+
+        <view class="color-picker-controls">
+          <view class="color-picker-source">
+            <view
+              v-if="photos.length > 0"
+              class="color-picker-photos"
+            >
+              <image
+                v-for="(p, i) in photos"
+                :key="i"
+                :class="['photo-thumb', { active: pickerPhotoUrl === p }]"
+                :src="p"
+                mode="aspectFill"
+                @click="onSelectPickerPhoto(p)"
+              />
+            </view>
+            <view v-else class="color-picker-tip">
+              <text>第 2 步还没有照片，请先返回上传</text>
+            </view>
+          </view>
+
+          <view class="color-picker-info">
+            <view class="picker-color-preview" :style="{ background: pickerHex }">
+              <view v-if="!pickerHex" class="picker-color-placeholder">
+                <text>?</text>
+              </view>
+            </view>
+            <view class="picker-color-meta">
+              <text class="picker-hex">{{ pickerHex || '#------' }}</text>
+              <text class="picker-label">{{ pickerMatchedLabel || '点击照片选位置' }}</text>
+            </view>
+          </view>
+
+          <view class="picker-samples" v-if="pickerSamples.length > 0">
+            <text class="samples-title">采样点（{{ pickerSamples.length }}/5）</text>
+            <view class="samples-row">
+              <view
+                v-for="(s, i) in pickerSamples"
+                :key="i"
+                class="sample-dot"
+                :style="{ background: s }"
+              />
+            </view>
+          </view>
+
+          <view class="color-picker-actions">
+            <view class="btn-cancel" @click="onCloseColorPicker">
+              <text>取消</text>
+            </view>
+            <view class="btn-confirm" :class="{ disabled: !pickerHex }" @click="onConfirmColor">
+              <text>使用此颜色</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 自定义 tabBar -->
+    <custom-tabbar />
+
+    <!-- 取色用 canvas（隐藏，但 surface 够大以容纳原图） -->
+    <canvas
+      id="colorCanvas"
+      type="2d"
+      style="position: fixed; top: -9999rpx; left: -9999rpx; width: 750rpx; height: 750rpx;"
+    ></canvas>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { apiUploadFile, apiReportEvent } from '@/services/api'
+
+const currentStep = ref(0)
+const selectedSpecies = ref('dog')
+const photos = ref<string[]>([])
+const photoUrls = ref<string[]>([])
+const description = ref('')
+const locationText = ref('定位中...')
+const locationLat = ref<number | null>(null)
+const locationLng = ref<number | null>(null)
+const showSuccess = ref(false)
+
+// 颜色取色器状态
+const showColorPicker = ref(false)
+const pickerPhotoUrl = ref('')
+const pickerCursor = ref({ x: 0, y: 0 })
+const pickerImageInfo = ref({ width: 0, height: 0 })
+const pickerDisplaySize = ref({ width: 0, height: 0 })
+const pickerImageOffset = ref({ x: 0, y: 0 })
+const pickerHex = ref('')
+const pickerMatchedLabel = ref('')
+const pickerSamples = ref<string[]>([])
+
+// 结构化字段 (提高文本匹配分数)
+const breed = ref('')
+const color = ref('')
+const gender = ref('unknown')
+const genderOptions = [
+  { value: 'unknown', label: '未知' },
+  { value: 'male', label: '公' },
+  { value: 'female', label: '母' },
+]
+const genderLabel = computed(() => {
+  return genderOptions.find(g => g.value === gender.value)?.label || '未知'
+})
+
+// 快捷品种（按当前 species 切换）
+const breedPresets = computed(() => {
+  if (selectedSpecies.value === 'cat') {
+    return ['中华田园猫', '橘猫', '三花', '英短', '美短', '狸花猫', '布偶', '其他']
+  }
+  return ['中华田园犬', '柴犬', '金毛', '拉布拉多', '柯基', '泰迪', '哈士奇', '其他']
+})
+
+// 常用颜色预设（按你说的"前提得是纯色"做单色 + 双拼）
+const colorPresets = [
+  { label: '纯黑', hex: '#1A1A1A' },
+  { label: '纯白', hex: '#FFFFFF' },
+  { label: '棕色', hex: '#8B5A3C' },
+  { label: '黄色', hex: '#D4A857' },
+  { label: '灰色', hex: '#9CA3AF' },
+  { label: '橘色', hex: '#FF8C42' },
+  { label: '黑白', hex: 'linear-gradient(90deg, #1A1A1A 50%, #FFFFFF 50%)' },
+  { label: '黄白', hex: 'linear-gradient(90deg, #D4A857 50%, #FFFFFF 50%)' },
+]
+
+// 常见特征标签（点一下追加到描述，避免手打）
+const featurePresets = [
+  '亲人', '怕人', '受伤', '怀孕/哺乳', '有项圈',
+  '幼年', '老年', '行动不便', '左耳缺', '右耳缺'
+]
+
+function onPickColor(label: string) {
+  color.value = label
+}
+
+function onAddFeature(feature: string) {
+  if (description.value.length >= 500) return
+  if (description.value.length === 0) {
+    description.value = feature
+  } else if (!description.value.includes(feature)) {
+    description.value = description.value + '，' + feature
+  }
+  uni.showToast({ title: `已添加：${feature}`, icon: 'none', duration: 800 })
+}
+
+// 打开取色器
+function onOpenColorPicker() {
+  if (photos.value.length === 0) {
+    uni.showToast({ title: '请先在第 2 步上传照片', icon: 'none' })
+    return
+  }
+  pickerPhotoUrl.value = photos.value[0]
+  pickerHex.value = ''
+  pickerMatchedLabel.value = ''
+  pickerSamples.value = []
+  pickerCursor.value = { x: 0, y: 0 }
+  showColorPicker.value = true
+}
+
+function onCloseColorPicker() {
+  showColorPicker.value = false
+}
+
+function onSelectPickerPhoto(url: string) {
+  pickerPhotoUrl.value = url
+  pickerHex.value = ''
+  pickerMatchedLabel.value = ''
+  pickerSamples.value = []
+  pickerCursor.value = { x: 0, y: 0 }
+}
+
+// 照片加载完成：获取原图原始像素尺寸 + 实际显示尺寸
+function onPickerImageLoad(e: any) {
+  // e.detail.width 是 image 元素渲染宽度（display size），不是原图尺寸
+  // 需要用 uni.getImageInfo 拿真实原图尺寸
+  uni.getImageInfo({
+    src: pickerPhotoUrl.value,
+    success: (imgInfo) => {
+      pickerImageInfo.value = { width: imgInfo.width, height: imgInfo.height }
+      measurePickerDisplaySize()
+    },
+    fail: () => {
+      // 兜底：用 image 元素的 width 作为原图尺寸
+      pickerImageInfo.value = { width: e.detail.width, height: e.detail.height }
+      measurePickerDisplaySize()
+    }
+  })
+}
+
+function measurePickerDisplaySize() {
+  // 等一帧再查询（DOM 更新未完成）
+  setTimeout(() => {
+    const query = uni.createSelectorQuery()
+    query.select('.color-picker-photo').boundingClientRect()
+    query.select('.color-picker-photo-wrap').boundingClientRect()
+    query.exec((res) => {
+      if (!res || !res[0] || !res[1]) return
+      const wrap = res[1]
+      const img = res[0]
+      pickerDisplaySize.value = { width: img.width, height: img.height }
+      pickerImageOffset.value = { x: img.left - wrap.left, y: img.top - wrap.top }
+    })
+  }, 100)
+}
+
+function onPickerImageError() {
+  uni.showToast({ title: '图片加载失败', icon: 'none' })
+}
+
+// 点击照片 → 计算像素坐标 → 取色
+function onPickerPhotoTap(e: any) {
+  console.log('[取色] 事件对象:', JSON.stringify(e))
+
+  // 兼容多种事件源的坐标：tap.detail / touches / changedTouches
+  let x: number | undefined, y: number | undefined
+
+  if (e.detail && typeof e.detail.x === 'number') {
+    // 微信小程序 tap 事件：e.detail.x / y 是相对触发元素的坐标
+    x = e.detail.x
+    y = e.detail.y
+    console.log('[取色] 来源: e.detail (tap)', x, y)
+  } else if (e.touches && e.touches[0]) {
+    x = e.touches[0].x
+    y = e.touches[0].y
+    console.log('[取色] 来源: e.touches', x, y)
+  } else if (e.changedTouches && e.changedTouches[0]) {
+    x = e.changedTouches[0].x
+    y = e.changedTouches[0].y
+    console.log('[取色] 来源: e.changedTouches', x, y)
+  }
+
+  if (typeof x !== 'number' || typeof y !== 'number') {
+    uni.showToast({ title: '无法获取触摸坐标', icon: 'none' })
+    return
+  }
+
+  pickColorAt(x, y)
+}
+
+async function pickColorAt(touchX: number, touchY: number) {
+  const off = pickerImageOffset.value
+  const disp = pickerDisplaySize.value
+  const img = pickerImageInfo.value
+
+  // 触摸坐标相对 wrap，需要减去 wrap 内 image 的偏移
+  const xInImage = touchX - off.x
+  const yInImage = touchY - off.y
+
+  // 超出图片区域
+  if (xInImage < 0 || yInImage < 0 || xInImage > disp.width || yInImage > disp.height) {
+    return
+  }
+
+  // 显示光标（相对 wrap 坐标系，与 touch 一致）
+  pickerCursor.value = { x: touchX, y: touchY }
+
+  // 把显示坐标换算回原图坐标（强制整数）
+  const ratioX = img.width / disp.width
+  const ratioY = img.height / disp.height
+  const centerSrcX = Math.floor(xInImage * ratioX)
+  const centerSrcY = Math.floor(yInImage * ratioY)
+
+  // 多点取样：在用户点击点周围生成 5 个采样点（中心 + 上下左右各偏移 8 像素）
+  const offsets = [
+    { dx: 0, dy: 0 },     // 中心
+    { dx: -8, dy: 0 },    // 左
+    { dx: 8, dy: 0 },     // 右
+    { dx: 0, dy: -8 },    // 上
+    { dx: 0, dy: 8 },     // 下
+  ]
+  const samplePoints = offsets.map(o => ({
+    x: centerSrcX + o.dx,
+    y: centerSrcY + o.dy
+  }))
+
+  await readColorFromPhoto(pickerPhotoUrl.value, samplePoints)
+}
+
+async function readColorFromPhoto(src: string, samplePoints: Array<{ x: number, y: number }>) {
+  const query = uni.createSelectorQuery()
+  query.select('#colorCanvas').fields({ node: true }).exec((canvasRes) => {
+    if (!canvasRes || !canvasRes[0]) {
+      uni.showToast({ title: '取色功能不可用', icon: 'none' })
+      return
+    }
+    const canvas: any = canvasRes[0].node
+    const ctx = canvas.getContext('2d')
+    const img = canvas.createImage()
+    img.onload = () => {
+      try {
+        // 强制整数（关键修复：避免 getImageData 报 "Value is not of type 'long'"）
+        const imgW = Math.max(1, Math.floor(Number(img.width) || 0))
+        const imgH = Math.max(1, Math.floor(Number(img.height) || 0))
+
+        // canvas surface 设为原图尺寸（强制整数）
+        canvas.width = imgW
+        canvas.height = imgH
+        ctx.clearRect(0, 0, imgW, imgH)
+        ctx.drawImage(img, 0, 0)
+
+        console.log('[取色] 原图尺寸:', imgW, 'x', imgH, '采样点:', JSON.stringify(samplePoints))
+
+        // 每个采样点取 3×3 像素区域，再求多点平均
+        const region = 3
+        const allR: number[] = []
+        const allG: number[] = []
+        const allB: number[] = []
+        const samples: Array<{ hex: string, ratio: number }> = []
+
+        for (const pt of samplePoints) {
+          // 强制整数 + 边界保护
+          const cx = Math.max(0, Math.min(Math.floor(pt.x), imgW - 1))
+          const cy = Math.max(0, Math.min(Math.floor(pt.y), imgH - 1))
+          const sx = Math.max(0, Math.min(cx - Math.floor(region / 2), imgW - region))
+          const sy = Math.max(0, Math.min(cy - Math.floor(region / 2), imgH - region))
+
+          let data: Uint8ClampedArray
+          try {
+            data = ctx.getImageData(sx, sy, region, region).data
+          } catch (e: any) {
+            console.error('[取色] getImageData 失败', sx, sy, region, e?.message)
+            continue
+          }
+
+          let r = 0, g = 0, b = 0
+          const pixels = data.length / 4
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i]
+            g += data[i + 1]
+            b += data[i + 2]
+          }
+          r = Math.round(r / pixels)
+          g = Math.round(g / pixels)
+          b = Math.round(b / pixels)
+          allR.push(r); allG.push(g); allB.push(b)
+
+          const hex = `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+          samples.push({ hex, ratio: pixels })
+        }
+
+        if (allR.length === 0) {
+          uni.showToast({ title: '取色失败：采样点全失败', icon: 'none' })
+          return
+        }
+
+        // 多点平均
+        let avgR = 0, avgG = 0, avgB = 0
+        for (let i = 0; i < allR.length; i++) {
+          avgR += allR[i]
+          avgG += allG[i]
+          avgB += allB[i]
+        }
+        avgR = Math.round(avgR / allR.length)
+        avgG = Math.round(avgG / allG.length)
+        avgB = Math.round(avgB / allB.length)
+
+        const hex = `#${[avgR, avgG, avgB].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+        console.log('[取色] 成功采样点:', samples.length, '/5 平均 HEX:', hex)
+
+        pickerHex.value = hex
+        pickerMatchedLabel.value = matchNearestColor(hex)
+
+        // 保存多点采样数据（用于 UI 显示每个采样点颜色）
+        pickerSamples.value = samples.map(s => s.hex)
+      } catch (e: any) {
+        console.error('[取色] 异常:', e)
+        uni.showToast({ title: `取色失败：${e?.message || '未知'}`, icon: 'none' })
+      }
+    }
+    img.onerror = (e: any) => {
+      console.error('[取色] 图片解码失败', e)
+      uni.showToast({ title: '图片解码失败', icon: 'none' })
+    }
+    img.src = src
+  })
+}
+
+function onConfirmColor() {
+  if (!pickerHex.value) return
+  color.value = pickerMatchedLabel.value || pickerHex.value
+  showColorPicker.value = false
+  uni.showToast({ title: `已选择：${color.value}`, icon: 'success' })
+}
+
+function matchNearestColor(hex: string): string {
+  // 简化：从预设里挑视觉最近的标签；非纯色 → 兜底"其他"
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const diff = max - min
+  // 饱和度极低 → 黑白
+  if (diff < 25) {
+    if (max > 220) return '纯白'
+    if (max < 50) return '纯黑'
+    return '灰色'
+  }
+  // 红黄区域
+  if (r > 180 && g > 100 && g < 200 && b < 100) return '黄色'
+  if (r > 200 && g > 100 && g < 160 && b < 80) return '橘色'
+  if (r > 100 && r < 180 && g > 60 && g < 130 && b > 30 && b < 100) return '棕色'
+  return '其他'
+}
+
+function showManualColorFallback() {
+  uni.showToast({ title: '请用下方色卡选择', icon: 'none' })
+}
+
+const steps = ['选择物种', '拍摄照片', '获取位置', '填写信息', '确认提交']
+
+const speciesList = [
+  { value: 'dog', label: '狗狗', icon: '/static/mock/dog-icon.svg' },
+  { value: 'cat', label: '猫咪', icon: '/static/mock/cat-icon.svg' },
+  { value: 'other', label: '其他', icon: '/static/mock/other-icon.svg' }
+]
+
+const speciesLabel = computed(() => {
+  return speciesList.find(s => s.value === selectedSpecies.value)?.label || ''
+})
+
+const canNext = computed(() => {
+  if (currentStep.value === 0) return true
+  if (currentStep.value === 1) return photos.value.length > 0
+  if (currentStep.value === 2) {
+    return locationLat.value !== null && locationLng.value !== null
+      && locationLat.value !== 0 && locationLng.value !== 0
+  }
+  if (currentStep.value === 3) return true
+  return true
+})
+
+function getLocation() {
+  uni.getLocation({
+    type: 'gcj02',
+    success: (res) => {
+      locationLat.value = res.latitude
+      locationLng.value = res.longitude
+      locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+    },
+    fail: () => {
+      locationText.value = '定位失败，请手动选择位置'
+      uni.showToast({ title: '定位失败，请手动选择位置', icon: 'none' })
+    }
+  })
+}
+
+function onManualSelect() {
+  uni.chooseLocation({
+    success: (res) => {
+      locationLat.value = res.latitude
+      locationLng.value = res.longitude
+      locationText.value = res.address || `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+    },
+    fail: () => {
+      uni.showToast({ title: '请允许位置权限', icon: 'none' })
+    }
+  })
+}
+
+function onLocationIconError() {
+  // 占位图标加载失败时隐藏
+}
+
+function onImageError(e: any) {
+  // 顶部 logo 加载失败时静默处理
+}
+
+function onSelectSpecies(value: string) {
+  selectedSpecies.value = value
+}
+
+async function onAddPhoto() {
+  const remaining = 3 - photos.value.length
+  if (remaining <= 0) return
+
+  uni.chooseImage({
+    count: remaining,
+    sourceType: ['camera', 'album'],
+    success: async (res) => {
+      for (const filePath of res.tempFilePaths) {
+        try {
+          const uploadedUrl = await apiUploadFile(filePath)
+          photos.value = [...photos.value, filePath]
+          photoUrls.value = [...photoUrls.value, uploadedUrl]
+        } catch (e) {
+          uni.showToast({ title: '图片上传失败', icon: 'none' })
+        }
+      }
+    },
+    fail: () => {
+      uni.showToast({ title: '请允许相机/相册权限', icon: 'none' })
+    }
+  })
+}
+
+function onRemovePhoto(index: number) {
+  photos.value = photos.value.filter((_, i) => i !== index)
+  photoUrls.value = photoUrls.value.filter((_, i) => i !== index)
+}
+
+function onBack() {
+  if (currentStep.value > 0) {
+    currentStep.value--
+  }
+}
+
+async function onNext() {
+  if (!canNext.value) {
+    if (currentStep.value === 1) {
+      uni.showToast({ title: '请至少上传一张照片', icon: 'none' })
+    } else if (currentStep.value === 2) {
+      uni.showToast({ title: '请先获取位置', icon: 'none' })
+    }
+    return
+  }
+
+  if (currentStep.value < 4) {
+    currentStep.value++
+    return
+  }
+
+  // 提交上报
+  uni.showLoading({ title: '提交中...' })
+
+  try {
+    await apiReportEvent({
+      event_type: 'report',
+      species: selectedSpecies.value,
+      breed: breed.value || undefined,
+      color: color.value || undefined,
+      gender: gender.value,
+      location_lat: locationLat.value ?? 0,
+      location_lng: locationLng.value ?? 0,
+      address: locationText.value,
+      description: description.value,
+      photos: photoUrls.value
+    })
+
+    uni.hideLoading()
+    showSuccess.value = true
+  } catch (e: any) {
+    uni.hideLoading()
+    if (!e.code) {
+      uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+    }
+  }
+}
+
+function goToMyReports() {
+  uni.reLaunch({ url: '/pages/my-reports/index' })
+}
+
+function goHome() {
+  uni.switchTab({ url: '/pages/index/index' })
+}
+
+// 初始化定位
+getLocation()
+</script>
+
+<style scoped lang="scss">
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding-bottom: 240rpx;
+}
+
+/* 顶部占位（关掉系统胶囊后，留 88rpx 让内容不顶到状态栏） */
+.navbar-placeholder {
+  height: 88rpx;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  flex-shrink: 0;
+}
+
+.guide-header {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  padding: 24rpx 32rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.guide-header::before {
+  content: '';
+  position: absolute;
+  top: -60rpx;
+  right: -40rpx;
+  width: 240rpx;
+  height: 240rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.guide-brand {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.guide-logo {
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.title-sub {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
+  letter-spacing: 1rpx;
+}
+
+.steps-indicator {
+  padding: 32rpx 32rpx 24rpx;
+  background: #FFFFFF;
+}
+
+/* 进度条：Dribbble 风（5 圆点 + 连线，当前步骤实心+发光） */
+.steps-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding: 0 8rpx;
+}
+
+.steps-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #E5E7EB;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.steps-dot.done {
+  background: #0FBF9F;
+}
+
+.steps-dot.active {
+  width: 20rpx;
+  height: 20rpx;
+  background: #FFFFFF;
+  border: 4rpx solid #0FBF9F;
+  box-shadow: 0 0 0 6rpx rgba(15, 191, 159, 0.15);
+}
+
+.steps-line {
+  flex: 1;
+  height: 4rpx;
+  background: #E5E7EB;
+  margin: 0 -2rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.steps-line.done {
+  background: linear-gradient(90deg, #0FBF9F, #07C160);
+}
+
+.steps-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.steps-counter {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.steps-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.section {
+  margin: 16rpx 24rpx 24rpx;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 28rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.section-hint {
+  font-size: 24rpx;
+  color: #999999;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.species-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24rpx;
+}
+
+.species-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx;
+  background: #F5F5F5;
+  border-radius: 16rpx;
+  border: 4rpx solid transparent;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.species-card.selected {
+  border-color: #0FBF9F;
+  background: linear-gradient(135deg, #E8FDF8 0%, #F5FBFA 100%);
+  box-shadow: 0 6rpx 20rpx rgba(15, 191, 159, 0.2);
+  transform: translateY(-2rpx);
+}
+
+.species-icon {
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
+  background: #E8FDF8;
+  border-radius: 50%;
+}
+
+.species-card.selected .species-icon {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
+}
+
+.species-name {
+  font-size: 26rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+}
+
+.species-paw-mark {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background: #0FBF9F;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(15, 191, 159, 0.4);
+}
+
+.species-paw-mark image {
+  width: 22rpx;
+  height: 22rpx;
+}
+
+.step-hint {
+  margin-top: 24rpx;
+  padding: 16rpx 24rpx;
+  background: rgba(15, 191, 159, 0.06);
+  border-left: 6rpx solid #0FBF9F;
+  border-radius: 8rpx;
+}
+
+.step-hint text {
+  font-size: 22rpx;
+  color: #6B7280;
+  line-height: 1.6;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+}
+
+.photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.photo-img {
+  width: 100%;
+  height: 100%;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background: rgba(0,0,0,0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-icon {
+  color: #FFFFFF;
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.photo-add {
+  aspect-ratio: 1;
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  border: 4rpx dashed #CCCCCC;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-icon {
+  font-size: 48rpx;
+  color: #CCCCCC;
+  line-height: 1;
+}
+
+.add-text {
+  font-size: 22rpx;
+  color: #AAAAAA;
+  margin-top: 8rpx;
+}
+
+.location-box {
+  display: flex;
+  align-items: center;
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 24rpx;
+}
+
+.location-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  background: #E8FDF8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.location-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.location-info {
+  flex: 1;
+}
+
+.location-text {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+  display: block;
+}
+
+.location-tip {
+  font-size: 22rpx;
+  color: #AAAAAA;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.description-input {
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  min-height: 160rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-item {
+  margin-bottom: 24rpx;
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  font-size: 26rpx;
+  color: #666666;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.form-input {
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 24rpx 28rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96rpx;
+  line-height: 1.5;
+}
+
+.input-placeholder {
+  color: #AAAAAA;
+}
+
+.gender-options {
+  display: flex;
+  gap: 16rpx;
+}
+
+.gender-btn {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx;
+  background: #F5F5F5;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  border: 4rpx solid transparent;
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.gender-btn.selected {
+  background: #E8FDF8;
+  border-color: #0FBF9F;
+  color: #0FBF9F;
+  font-weight: 600;
+}
+
+.textarea-placeholder {
+  color: #AAAAAA;
+}
+
+.char-count {
+  font-size: 22rpx;
+  color: #AAAAAA;
+  text-align: right;
+  display: block;
+  margin-top: 8rpx;
+}
+
+/* 快捷品种标签 */
+.quick-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.quick-tag {
+  padding: 10rpx 20rpx;
+  background: rgba(15, 191, 159, 0.08);
+  border: 2rpx solid rgba(15, 191, 159, 0.2);
+  border-radius: 24rpx;
+  transition: all 0.15s;
+}
+
+.quick-tag:active {
+  background: rgba(15, 191, 159, 0.2);
+  transform: scale(0.95);
+}
+
+.quick-tag text {
+  font-size: 24rpx;
+  color: #0FBF9F;
+  font-weight: 500;
+}
+
+/* 颜色行：取色按钮（全宽） */
+.color-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.color-pick-btn-full {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+  background: linear-gradient(135deg, rgba(15, 191, 159, 0.06) 0%, rgba(7, 193, 96, 0.08) 100%);
+  border: 2rpx dashed rgba(15, 191, 159, 0.4);
+  border-radius: 16rpx;
+  transition: all 0.15s;
+}
+
+.color-pick-btn-full:active {
+  background: rgba(15, 191, 159, 0.15);
+  transform: scale(0.98);
+}
+
+.color-pick-icon {
+  width: 64rpx;
+  height: 64rpx;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
+}
+
+.color-pick-icon image {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.color-pick-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  overflow: hidden;
+}
+
+.color-pick-title {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-pick-sub {
+  font-size: 22rpx;
+  color: #6B7280;
+}
+
+/* 颜色色卡 */
+.color-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12rpx;
+  border: 2rpx solid transparent;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  box-shadow: inset 0 0 0 2rpx #FFFFFF, 0 2rpx 4rpx rgba(0,0,0,0.1);
+}
+
+.color-swatch.selected {
+  border-color: #0FBF9F;
+  box-shadow: inset 0 0 0 2rpx #FFFFFF, 0 0 0 4rpx rgba(15, 191, 159, 0.3);
+  transform: scale(1.05);
+}
+
+.color-swatch:active {
+  transform: scale(0.9);
+}
+
+.swatch-check {
+  width: 32rpx;
+  height: 32rpx;
+  background: #FFFFFF;
+  border-radius: 50%;
+  color: #0FBF9F;
+  font-size: 22rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.2);
+}
+
+.color-swatch-labels {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12rpx;
+}
+
+.swatch-label {
+  font-size: 18rpx;
+  color: #6B7280;
+  text-align: center;
+}
+
+/* 颜色取色器全屏弹窗 */
+.color-picker-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.color-picker-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 40rpx 32rpx 32rpx;
+}
+
+.color-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.color-picker-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 1rpx;
+}
+
+.color-picker-close {
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.color-picker-close:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.color-picker-photo-wrap {
+  flex: 1;
+  position: relative;
+  background: #1A1A1A;
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+  min-height: 400rpx;
+}
+
+.color-picker-photo {
+  width: 100%;
+  height: 100%;
+}
+
+.color-picker-empty {
+  color: #999999;
+  font-size: 26rpx;
+}
+
+.color-picker-cursor {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 10;
+  transform: translate(-50%, -50%);
+}
+
+.cursor-h {
+  position: absolute;
+  width: 48rpx;
+  height: 4rpx;
+  background: #FFFFFF;
+  left: -24rpx;
+  top: -2rpx;
+  box-shadow: 0 0 4rpx rgba(0,0,0,0.6);
+}
+
+.cursor-v {
+  position: absolute;
+  width: 4rpx;
+  height: 48rpx;
+  background: #FFFFFF;
+  left: -2rpx;
+  top: -24rpx;
+  box-shadow: 0 0 4rpx rgba(0,0,0,0.6);
+}
+
+.cursor-ring {
+  position: absolute;
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid #FFFFFF;
+  border-radius: 50%;
+  left: -16rpx;
+  top: -16rpx;
+  box-shadow: 0 0 8rpx rgba(0,0,0,0.4);
+}
+
+.color-picker-controls {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.color-picker-source {
+  margin-bottom: 16rpx;
+}
+
+.color-picker-photos {
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+}
+
+.photo-thumb {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 12rpx;
+  border: 4rpx solid transparent;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.photo-thumb.active {
+  border-color: #0FBF9F;
+  transform: scale(1.05);
+}
+
+.color-picker-tip {
+  font-size: 24rpx;
+  color: #999999;
+  text-align: center;
+  padding: 16rpx 0;
+}
+
+.color-picker-info {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx;
+  background: #F5F8F7;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.picker-color-preview {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #E5E7EB;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 2rpx #FFFFFF;
+}
+
+.picker-color-placeholder {
+  font-size: 36rpx;
+  color: #999999;
+  font-weight: 700;
+}
+
+.picker-color-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.picker-hex {
+  font-size: 26rpx;
+  color: #1A1A1A;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.picker-label {
+  font-size: 22rpx;
+  color: #6B7280;
+}
+
+.picker-samples {
+  margin-bottom: 16rpx;
+  padding: 16rpx 20rpx;
+  background: #F5F8F7;
+  border-radius: 12rpx;
+}
+
+.samples-title {
+  font-size: 22rpx;
+  color: #6B7280;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.samples-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.sample-dot {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 2rpx solid #FFFFFF;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.15);
+  transition: transform 0.15s;
+}
+
+.sample-dot:active {
+  transform: scale(0.9);
+}
+
+.color-picker-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.btn-cancel {
+  background: #F5F5F5;
+  color: #666666;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
+}
+
+.btn-confirm.disabled {
+  background: #CCCCCC;
+  box-shadow: none;
+}
+
+.btn-cancel:active,
+.btn-confirm:not(.disabled):active {
+  transform: scale(0.96);
+}
+
+/* 特征标签 */
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.feature-tag {
+  padding: 10rpx 18rpx;
+  background: #FFFFFF;
+  border: 2rpx solid #E5E7EB;
+  border-radius: 24rpx;
+  transition: all 0.15s;
+}
+
+.feature-tag:active {
+  background: rgba(15, 191, 159, 0.08);
+  border-color: #0FBF9F;
+  transform: scale(0.95);
+}
+
+.feature-tag text {
+  font-size: 24rpx;
+  color: #4B5563;
+}
+
+.confirm-card {
+  background: #FAFAFA;
+  border-radius: 12rpx;
+  padding: 24rpx;
+}
+
+.confirm-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.confirm-item:last-child {
+  border-bottom: none;
+}
+
+.confirm-label {
+  font-size: 26rpx;
+  color: #666666;
+  flex-shrink: 0;
+}
+
+.confirm-value {
+  font-size: 26rpx;
+  color: #1A1A1A;
+  font-weight: 600;
+  margin-left: 16rpx;
+  text-align: right;
+  flex: 1;
+}
+
+.confirm-photos {
+  display: flex;
+  gap: 8rpx;
+  margin-left: 16rpx;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.confirm-photo-thumb {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 8rpx;
+}
+
+.bottom-bar {
+  position: fixed;
+  bottom: 120rpx;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 24rpx;
+  padding: 24rpx 32rpx;
+  background: #FFFFFF;
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  z-index: 998;
+}
+
+.btn-back {
+  flex: 1;
+  background: #F5F5F5;
+  color: #666666;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn-next {
+  flex: 2;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+}
+
+.btn-next.disabled {
+  background: #CCCCCC;
+  box-shadow: none;
+}
+
+.success-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.success-content {
+  width: 600rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 48rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.success-icon-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+}
+
+.success-icon {
+  font-size: 60rpx;
+  color: #FFFFFF;
+}
+
+.success-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1A1A1A;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.success-subtitle {
+  font-size: 26rpx;
+  color: #666666;
+  text-align: center;
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.success-btns {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.btn-view-reports {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.btn-go-home {
+  background: #F5F5F5;
+  color: #666666;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+</style>

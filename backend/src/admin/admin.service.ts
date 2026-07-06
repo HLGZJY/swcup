@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { RescueEvent } from '../events/entities/event.entity';
 import { Claim } from '../claims/entities/claim.entity';
 import { Animal } from '../animals/entities/animal.entity';
@@ -56,11 +57,17 @@ export class AdminService {
       fusion_score: event.fusion_score ?? null,
       vector_similarity: event.vector_similarity ?? null,
       gps_similarity: event.gps_similarity ?? null,
-      image_similarity: event.image_similarity ?? null,
+      image_similarity: event.image_similarity ?? null,  // 字段保留, 永远 null (2026-06-13 决定)
       text_match_rate: event.text_match_rate ?? null,
+      time_score: event.time_score ?? null,  // report 流字段
       reporter_id: event.reporter_id,
       created_at: event.created_at,
       animal_id: event.animal_id || null,
+      // report 流程的结构化字段 (提升文本匹配分数)
+      species: event.species || null,
+      breed: event.breed || null,
+      color: event.color || null,
+      gender: event.gender || null,
     };
 
     // 如果有 candidates 候选列表，进行精细化拼装
@@ -83,9 +90,18 @@ export class AdminService {
           address: animal?.address || c.address || '',
           fusion_score: c.fusion_score,
           scores: {
-            cosine_similarity: c.vector_similarity ?? null,
-            gps_score: c.gps_similarity ?? null,
-            text_match_rate: c.text_match_rate ?? null,
+            // 从 candidates[].scores 读取 (events.service 写在那里), 兼容老数据 (顶层)
+            // 采集流: vector_similarity 有值, time_score 为 null
+            // 上报流: vector_similarity 为 null, time_score 有值
+            vector_similarity: c.scores?.vector_similarity ?? c.vector_similarity ?? null,
+            gps_similarity: c.scores?.gps_similarity ?? c.gps_similarity ?? null,
+            text_match_rate: c.scores?.text_match_rate ?? c.text_match_rate ?? null,
+            time_score: c.scores?.time_score ?? c.time_score ?? null,
+            image_similarity: c.scores?.image_similarity ?? c.image_similarity ?? null,  // 永远 null (2026-06-13 决定)
+            // 兼容旧字段名 (admin 端使用)
+            cosine_similarity: c.scores?.vector_similarity ?? c.vector_similarity ?? null,
+            gps_score: c.scores?.gps_similarity ?? c.gps_similarity ?? null,
+            distance_m: c.scores?.distance_m ?? c.distance_m ?? null,
           },
           is_recommended: c.is_recommended || false,
         };
@@ -105,6 +121,7 @@ export class AdminService {
       if (event.event_type === 'report' && !event.animal_id) {
         const now = new Date();
         const animal = new Animal();
+        animal.animal_id = uuidv4();
         animal.species = (event.species as any) || 'other';
         animal.breed = event.breed || null;
         animal.color = event.color || null;
@@ -171,7 +188,22 @@ export class AdminService {
   }
 
   async approveClaim(claim_id: string, admin_id: string) {
-    await this.claimRepo.update({ claim_id }, { status: 'approved' as any, approved_by: admin_id, approved_at: new Date() });
+    return this.dataSource.transaction(async (manager) => {
+      const claim = await manager.findOne(Claim, { where: { claim_id } });
+      if (!claim) throw new NotFoundException('Claim not found');
+      // 状态机: 只允许从 pending 推进, 防止重复审批
+      if ((claim.status as string) !== 'pending') {
+        throw new BadRequestException(`claim 当前状态为 ${claim.status}, 不可重复审批`);
+      }
+      await manager.update(Claim, { claim_id }, {
+        status: 'approved' as any,
+        approved_by: admin_id,
+        approved_at: new Date(),
+      });
+      // 级联: 动物进入 claimed 状态, 与 admin.stats() 统计口径一致
+      await manager.update(Animal, { animal_id: claim.animal_id }, { status: 'claimed' as any });
+      return { claim_id, animal_id: claim.animal_id, status: 'approved' };
+    });
   }
 
   async rejectClaim(claim_id: string) {

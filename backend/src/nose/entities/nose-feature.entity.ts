@@ -29,6 +29,9 @@ export class NoseFeature {
   @Column({ type: 'varchar', length: 255, name: 'nose_photo_url' })
   nose_photo_url: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'body_photo_url' })
+  body_photo_url: string;
+
   @Column({ type: 'json', nullable: true, name: 'landmark_data' })
   landmark_data: any;
 

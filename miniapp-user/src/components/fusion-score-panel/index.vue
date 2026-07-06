@@ -56,7 +56,6 @@ interface ResultItem {
   fusion_score: number
   vector_similarity: number
   gps_distance_m: number
-  image_similarity: number
   text_match_rate: number
 }
 
@@ -113,7 +112,6 @@ const dimensions = computed(() => {
   return [
     { name: '鼻纹相似度', value: (r.vector_similarity * 100).toFixed(0) + '%', percent: r.vector_similarity * 100, desc: '128维特征向量余弦相似度', color: '#0FBF9F' },
     { name: 'GPS距离', value: r.gps_distance_m + 'm', percent: gpsScore * 100, desc: '≤500m满分，≥1500m得0分', color: '#FF9F00' },
-    { name: '图像相似度', value: (r.image_similarity * 100).toFixed(0) + '%', percent: r.image_similarity * 100, desc: 'pHash感知哈希相似度', color: '#07C160' },
     { name: '文本匹配度', value: (r.text_match_rate * 100).toFixed(0) + '%', percent: r.text_match_rate * 100, desc: '品种+颜色+性别关键词', color: '#5872E0' }
   ]
 })

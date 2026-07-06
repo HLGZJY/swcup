@@ -29,8 +29,14 @@
       <view class="page-header">
         <text class="page-title">{{ mode === 'edit' ? '编辑档案' : '档案详情' }}</text>
         <view v-if="mode === 'read'" class="header-actions">
-          <text class="action-link" @click="onEdit">编辑</text>
-          <text class="action-link action-danger" @click="onArchiveClick">归档</text>
+          <view class="action-chip action-chip--primary" @click="onEdit" aria-label="编辑档案">
+            <image class="chip-icon" src="/static/icons/icon-edit.svg" mode="aspectFit" />
+            <text class="chip-text">编辑</text>
+          </view>
+          <view class="action-chip action-chip--danger" @click="onArchiveClick" aria-label="归档档案">
+            <image class="chip-icon" src="/static/icons/icon-archive.svg" mode="aspectFit" />
+            <text class="chip-text">归档</text>
+          </view>
         </view>
       </view>
 
@@ -60,7 +66,7 @@
 
     <!-- 找不到档案 -->
     <view class="empty-state" v-else>
-      <image class="empty-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
+      <image class="empty-icon-img" src="/static/icons/icon-paw.svg" mode="aspectFit" />
       <text class="empty-text">未找到该动物档案</text>
     </view>
   </view>
@@ -192,21 +198,58 @@ function onArchiveClick() {
 </script>
 
 <style scoped lang="scss">
-.page { min-height: 100vh; background: #F5F5F5; padding-bottom: 40rpx; }
+.page {
+  min-height: 100vh;
+  background: #F5F7FA;
+  padding-bottom: 40rpx;
+  /* 状态栏安全区，避免内容与微信胶囊重叠 */
+  padding-top: env(safe-area-inset-top);
+}
 .loading-state { display: flex; justify-content: center; align-items: center; height: 60vh; font-size: 28rpx; color: #999; }
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
 .empty-icon { font-size: 80rpx; margin-bottom: 24rpx; }
-.empty-icon-img { width: 80rpx; height: 80rpx; margin-bottom: 24rpx; }
+.empty-icon-img { width: 80rpx; height: 80rpx; margin-bottom: 24rpx; color: #BBBBBB; }
 .empty-text { font-size: 28rpx; color: #999; }
-.photo-section { background: #000; }
-.main-photo { width: 100%; height: 500rpx; }
+.photo-section {
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+.main-photo {
+  width: 100%;
+  height: 500rpx;
+  display: block;
+}
 .info-card { background: #FFF; margin: 24rpx; border-radius: 16rpx; padding: 24rpx; }
 .info-header { display: flex; align-items: center; gap: 16rpx; margin-bottom: 20rpx; }
 .breed { font-size: 36rpx; font-weight: 700; color: #1A1A1A; }
-.status-tag { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 8rpx; color: #FFF; background: #FF6B6B; }
-.status-lost { background: #FF6B6B !important; }
-.status-found { background: #0FBF9F !important; }
-.status-claimed { background: #FF9F00 !important; }
+
+/* 状态 tag — 删 !important 让三色生效；增加圆点 */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 4rpx 16rpx 4rpx 12rpx;
+  border-radius: 10rpx;
+  color: #FF6B6B;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.status-tag::before {
+  content: '';
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-lost    { color: #FF6B6B; background: rgba(255, 107, 107, 0.1); }
+.status-found   { color: #0FBF9F; background: rgba(15, 191, 159, 0.1); }
+.status-claimed { color: #FF9F00; background: rgba(255, 159, 0, 0.1); }
+.status-archived{ color: #888888; background: rgba(187, 187, 187, 0.18); }
+
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; }
 .info-item { display: flex; flex-direction: column; }
 .label { font-size: 22rpx; color: #999; }
@@ -214,7 +257,7 @@ function onArchiveClick() {
 .section-title { font-size: 28rpx; font-weight: 600; color: #1A1A1A; display: block; margin-bottom: 16rpx; }
 .address { font-size: 26rpx; color: #666; display: block; margin-bottom: 16rpx; }
 .address-wrap { display: flex; align-items: center; }
-.address-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; }
+.address-icon { width: 22rpx; height: 22rpx; margin-right: 6rpx; flex-shrink: 0; color: #999; }
 .map-preview {
   height: 320rpx;
   background: linear-gradient(135deg, #E8FDF8 0%, #D0F0E8 100%);
@@ -254,18 +297,82 @@ function onArchiveClick() {
 .tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .tag { background: #E8FDF8; color: #0FBF9F; font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 8rpx; }
 .nose-id { font-size: 24rpx; color: #666; font-family: monospace; }
+
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 24rpx 32rpx;
-  background: #FFF;
-  border-bottom: 1rpx solid #F5F5F5;
+  padding-top: calc(24rpx + env(safe-area-inset-top));
+  background: #FFFFFF;
+  border-bottom: 1rpx solid #F0F0F0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .page-title { font-size: 32rpx; font-weight: 700; color: #1A1A1A; }
-.header-actions { display: flex; gap: 24rpx; }
+
+/* ====== 顶部"编辑/归档"chip 按钮（替代裸文字链接）====== */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  height: 56rpx;
+  padding: 0 18rpx;
+  border-radius: 28rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  transition: transform 0.1s, opacity 0.2s, background 0.2s;
+  min-width: 100rpx;          /* 触摸目标 ≥ 44px */
+  justify-content: center;
+}
+
+.action-chip:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+.chip-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.chip-text {
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+/* 主色 chip：编辑（绿） */
+.action-chip--primary {
+  background: rgba(15, 191, 159, 0.1);
+  color: #0FBF9F;
+}
+.action-chip--primary .chip-icon { color: #0FBF9F; }
+.action-chip--primary:active {
+  background: rgba(15, 191, 159, 0.2);
+}
+
+/* 危险 chip：归档（红） */
+.action-chip--danger {
+  background: rgba(255, 107, 107, 0.1);
+  color: #FF6B6B;
+}
+.action-chip--danger .chip-icon { color: #FF6B6B; }
+.action-chip--danger:active {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+/* 保留原 .action-link 类但不再使用（兼容已编辑态可能保留的引用） */
 .action-link { font-size: 26rpx; color: #0FBF9F; padding: 8rpx 12rpx; }
 .action-danger { color: #FF6B6B; }
+
 .action-bar {
   position: fixed;
   bottom: 0;
@@ -274,8 +381,10 @@ function onArchiveClick() {
   display: flex;
   gap: 16rpx;
   padding: 24rpx 32rpx;
-  background: #FFF;
-  border-top: 1rpx solid #F5F5F5;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1rpx solid #F0F0F0;
+  box-shadow: 0 -2rpx 12rpx rgba(0,0,0,0.04);
   z-index: 10;
 }
 .btn-primary, .btn-secondary {
@@ -288,9 +397,15 @@ function onArchiveClick() {
   align-items: center;
   justify-content: center;
   border: none;
+  transition: transform 0.1s, opacity 0.2s;
 }
-.btn-primary { background: #0FBF9F; color: #FFF; }
-.btn-primary[disabled] { background: #BFE9DF; color: #FFF; }
+
+.btn-primary:active, .btn-secondary:active {
+  transform: scale(0.99);
+}
+
+.btn-primary { background: #0FBF9F; color: #FFF; box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3); }
+.btn-primary[disabled] { background: #BFE9DF; color: #FFF; box-shadow: none; opacity: 0.7; }
 .btn-secondary { background: #F5F5F5; color: #666; }
 .btn-secondary[disabled] { opacity: 0.5; color: #999; }
 </style>

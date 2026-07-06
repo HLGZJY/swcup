@@ -1,0 +1,115 @@
+<h2>多部位颜色取色器 v2</h2>
+<p class="subtitle">点击照片 → 自动写入当前部位 → PartTabs 立刻显示色卡</p>
+
+<!-- 模拟手机屏幕 -->
+<div class="mockup">
+  <div class="mockup-header">预览：Picker 弹窗（已采 2/7）</div>
+  <div class="mockup-body" style="padding: 0; background: #1A1A1A;">
+
+    <!-- 弹窗容器 -->
+    <div style="background: #1A1A1A; min-height: 720px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+      <!-- 顶部：标题 + 关闭 -->
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: white; font-size: 18px; font-weight: 700;">从照片取色</span>
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px;">✕</div>
+      </div>
+
+      <!-- PartTabs：7 个部位横滑标签 -->
+      <div style="display: flex; gap: 8px; overflow-x: auto; padding: 8px 0;">
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid #0FBF9F; border-radius: 20px; background: rgba(15,191,159,0.15); color: #0FBF9F; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; position: relative;">
+          <span>背脊</span>
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: #8B5A3C; border: 1.5px solid white;"></div>
+          <div style="position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; background: #0FBF9F; border-radius: 50%; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center;">✓</div>
+        </div>
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid #0FBF9F; border-radius: 20px; background: rgba(15,191,159,0.15); color: #0FBF9F; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; position: relative;">
+          <span>腹部</span>
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: #F5E6D3; border: 1.5px solid white;"></div>
+          <div style="position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; background: #0FBF9F; border-radius: 50%; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center;">✓</div>
+        </div>
+        <!-- 当前 active（无 ✓ 但高亮） -->
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid #0FBF9F; border-radius: 20px; background: #0FBF9F; color: white; font-size: 14px; font-weight: 700;">
+          <span>头部</span>
+        </div>
+        <!-- 未采 -->
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; color: rgba(255,255,255,0.5); font-size: 14px;">
+          <span>胸部</span>
+        </div>
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; color: rgba(255,255,255,0.5); font-size: 14px;">
+          <span>尾巴</span>
+        </div>
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; color: rgba(255,255,255,0.5); font-size: 14px;">
+          <span>四肢</span>
+        </div>
+        <div style="flex-shrink: 0; padding: 8px 16px; border: 2px solid rgba(255,255,255,0.2); border-radius: 20px; color: rgba(255,255,255,0.5); font-size: 14px;">
+          <span>面部</span>
+        </div>
+      </div>
+
+      <!-- 进度提示：已采 2/7 -->
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+        <span style="color: rgba(255,255,255,0.6); font-size: 12px;">已采部位：</span>
+        <span style="color: #0FBF9F; font-size: 14px; font-weight: 700;">2 / 7</span>
+        <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(还需 3 个)</span>
+      </div>
+
+      <!-- 照片区：模拟狗狗照片 + 十字光标 -->
+      <div style="position: relative; flex: 1; background: #2A2A2A; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 240px;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #8B5A3C 0%, #D4A857 50%, #5C3A1F 100%); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 14px;">[狗狗照片 300×256]</div>
+        <!-- 十字光标 -->
+        <div style="position: absolute; left: 60%; top: 45%; pointer-events: none;">
+          <div style="position: absolute; left: -10px; top: -1px; width: 20px; height: 2px; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.8);"></div>
+          <div style="position: absolute; left: -1px; top: -10px; width: 2px; height: 20px; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.8);"></div>
+          <div style="position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.8);"></div>
+        </div>
+      </div>
+
+      <!-- 照片缩略图行（可切换照片） -->
+      <div style="display: flex; gap: 8px; overflow-x: auto;">
+        <div style="width: 48px; height: 48px; border-radius: 6px; border: 2px solid #0FBF9F; background: linear-gradient(135deg, #8B5A3C, #D4A857);"></div>
+        <div style="width: 48px; height: 48px; border-radius: 6px; border: 2px solid transparent; background: linear-gradient(135deg, #5C3A1F, #F5E6D3);"></div>
+        <div style="width: 48px; height: 48px; border-radius: 6px; border: 2px solid transparent; background: linear-gradient(135deg, #1A1A1A, #8B5A3C);"></div>
+      </div>
+
+      <!-- SamplePreview：当前 activePart 的预览 -->
+      <div style="background: #F9FAFB; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+        <div style="width: 48px; height: 48px; border-radius: 8px; background: #E5E7EB; display: flex; align-items: center; justify-content: center; color: #999; font-size: 18px;">?</div>
+        <div style="flex: 1;">
+          <div style="font-size: 14px; font-weight: 700; color: #1A1A1A; font-family: monospace;">#------</div>
+          <div style="font-size: 12px; color: #6B7280; margin-top: 2px;">点击照片选位置（采 头部 色）</div>
+        </div>
+      </div>
+
+      <!-- 采样点预览：用户点击后才显示 -->
+      <div style="opacity: 0.4; padding: 8px 12px;">
+        <div style="font-size: 11px; color: #6B7280; margin-bottom: 4px;">采样点 (0/5)</div>
+        <div style="display: flex; gap: 4px;">
+          <div style="width: 24px; height: 24px; border-radius: 4px; background: #F3F4F6;"></div>
+          <div style="width: 24px; height: 24px; border-radius: 4px; background: #F3F4F6;"></div>
+          <div style="width: 24px; height: 24px; border-radius: 4px; background: #F3F4F6;"></div>
+          <div style="width: 24px; height: 24px; border-radius: 4px; background: #F3F4F6;"></div>
+          <div style="width: 24px; height: 24px; border-radius: 4px; background: #F3F4F6;"></div>
+        </div>
+      </div>
+
+      <!-- 底部按钮 -->
+      <div style="display: flex; gap: 12px;">
+        <div style="flex: 1; height: 48px; background: #F3F4F6; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6B7280; font-size: 15px; font-weight: 600;">取消</div>
+        <div style="flex: 2; height: 48px; background: #CCCCCC; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 15px; font-weight: 600;">完成 (还需 3 个)</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 文案说明 -->
+<div style="margin-top: 24px; padding: 16px; background: rgba(15,191,159,0.06); border-left: 4px solid #0FBF9F; border-radius: 6px;">
+  <div style="font-size: 13px; color: #6B7280; line-height: 1.8;">
+    <strong style="color: #1A1A1A;">关键交互：</strong><br>
+    • 点 PartTabs 切部位（已采部位显示 ✓ + 色卡圆点）<br>
+    • 点照片任意位置 → 自动写入当前 activePart 的 partColors<br>
+    • 再次点已采部位 → 弹覆盖确认 modal<br>
+    • 切照片缩略图时，cursor 跨照片保留（PhotoCanvas 内部 cursorsByPhoto Map）<br>
+    • 完成按钮：≥ minParts 才激活；激活后变成绿色渐变
+  </div>
+</div>

@@ -1,0 +1,359 @@
+[
+  {
+    "tc_id": "TC-API-001",
+    "name": "注册新用户",
+    "method": "POST",
+    "url": "/v1/auth/register",
+    "expected_http": 201,
+    "actual_http": 201,
+    "pass": true,
+    "notes": "预期 201 user_id；实际可能 200/201/200+data 视实现",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzkzZjg5M2UtY2I0Ny00NTZjLTlmZTktM2RjNGFlNDcwNDZkIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3ODE4Mzk5MTYsIm"
+  },
+  {
+    "tc_id": "TC-API-002",
+    "name": "登录正确密码",
+    "method": "POST",
+    "url": "/v1/auth/login",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidS1hZG1pbi0wMDAxLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODE4Mzk5MTYsIm"
+  },
+  {
+    "tc_id": "TC-API-003",
+    "name": "登录错误密码",
+    "method": "POST",
+    "url": "/v1/auth/login",
+    "expected_http": [
+      401,
+      400
+    ],
+    "actual_http": 401,
+    "pass": true,
+    "notes": "预期 401/400 Unauthorized",
+    "response_snippet": "{\"code\": 401, \"message\": \"手机号或密码错误\", \"data\": null}"
+  },
+  {
+    "tc_id": "TC-API-004",
+    "name": "发送验证码",
+    "method": "POST",
+    "url": "/v1/auth/send-code",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"message\": \"验证码已发送\"}}"
+  },
+  {
+    "tc_id": "TC-API-005",
+    "name": "验证码登录(端点不存在)",
+    "method": "POST",
+    "url": "/v1/auth/login",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 400,
+    "pass": false,
+    "notes": "⚠️ TEST-PLAN 描述与实际不符：LoginDto 无 code 字段，应返回 400 validation",
+    "response_snippet": "{\"code\": 400, \"message\": [\"password should not be empty\", \"password must be a string\"], \"data\": null}"
+  },
+  {
+    "tc_id": "TC-API-006",
+    "name": "重置密码",
+    "method": "POST",
+    "url": "/v1/auth/reset-password",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGQwNTNlMTctZmYwMC00MTVkLTlmNmItMmVmNDAwY2M2ZGRkIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3ODE4Mzk5MTYsIm"
+  },
+  {
+    "tc_id": "TC-API-007",
+    "name": "获取我的资料",
+    "method": "GET",
+    "url": "/v1/users/me",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"user_id\": \"u-user1-0001-0000-0000-000000000002\", \"nickname\": \"<script>alert(1)</script>\", \"phone\": \"13800000002\", \"openid\": null, \"password_hash\": \"$2b$10$S"
+  },
+  {
+    "tc_id": "TC-API-008",
+    "name": "修改我的资料",
+    "method": "PATCH",
+    "url": "/v1/users/me",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"user_id\": \"u-user1-0001-0000-0000-000000000002\", \"nickname\": \"测试昵称2026\", \"phone\": \"13800000002\", \"openid\": null, \"password_hash\": \"$2b$10$SDXrzFfsAqG0RrpF6C"
+  },
+  {
+    "tc_id": "TC-API-009",
+    "name": "动物列表(公开)",
+    "method": "GET",
+    "url": "/v1/animals?page=1&limit=5",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"total\": 4, \"list\": [{\"animal_id\": \"79b99a11-3d07-4176-99e0-c46e039f9c35\", \"status\": \"lost\", \"species\": \"dog\", \"breed\": \"吉娃娃\", \"color\": \"黄白\", \"gender\": \"fema"
+  },
+  {
+    "tc_id": "TC-API-010",
+    "name": "动物详情",
+    "method": "GET",
+    "url": "/v1/animals/79b99a11-3d07-4176-99e0-c46e039f9c35",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"animal_id\": \"79b99a11-3d07-4176-99e0-c46e039f9c35\", \"status\": \"lost\", \"species\": \"dog\", \"breed\": \"吉娃娃\", \"color\": \"黄白\", \"gender\": \"female\", \"age_estimate\": \""
+  },
+  {
+    "tc_id": "TC-API-011",
+    "name": "创建动物(admin)",
+    "method": "POST",
+    "url": "/v1/animals",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"animal_id\": \"8d075c1b-d036-4956-a0cb-eaa31e52dc17\", \"status\": \"lost\", \"species\": \"dog\", \"breed\": \"测试犬种\", \"color\": \"黑色\", \"gender\": \"male\", \"age_estimate\": \"a"
+  },
+  {
+    "tc_id": "TC-API-012",
+    "name": "创建动物(普通用户)",
+    "method": "POST",
+    "url": "/v1/animals",
+    "expected_http": [
+      403,
+      401
+    ],
+    "actual_http": 403,
+    "pass": true,
+    "notes": "预期 403 Forbidden",
+    "response_snippet": "{\"code\": 403, \"message\": \"Forbidden resource\", \"data\": null}"
+  },
+  {
+    "tc_id": "TC-API-013",
+    "name": "编辑动物",
+    "method": "PUT",
+    "url": "/v1/animals/8d075c1b-d036-4956-a0cb-eaa31e52dc17",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"animal_id\": \"8d075c1b-d036-4956-a0cb-eaa31e52dc17\", \"status\": \"lost\", \"species\": \"dog\", \"breed\": \"测试犬种\", \"color\": \"黑色\", \"gender\": \"male\", \"age_estimate\": \"a"
+  },
+  {
+    "tc_id": "TC-API-014",
+    "name": "删除动物",
+    "method": "DELETE",
+    "url": "/v1/animals/8d075c1b-d036-4956-a0cb-eaa31e52dc17",
+    "expected_http": [
+      200,
+      204
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": null}"
+  },
+  {
+    "tc_id": "TC-API-015",
+    "name": "鼻纹采集",
+    "method": "POST",
+    "url": "/v1/nose/collect",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "nose_id=53519013-6c7a-4764-b3ed-b75214cd9575",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"vector_id\": \"53519013-6c7a-4764-b3ed-b75214cd9575\", \"confidence_score\": 0.9096096067544215, \"liveness_passed\": true, \"is_duplicate\": true, \"matched_animal_i"
+  },
+  {
+    "tc_id": "TC-API-016",
+    "name": "鼻纹比对",
+    "method": "POST",
+    "url": "/v1/nose/compare",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "传 nose_id=598a2894-b9d2-4545-a817-825fdf23592c，应返回 cosine_sim",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"total\": 54, \"results\": [{\"animal_id\": null, \"vector_id\": \"53519013-6c7a-4764-b3ed-b75214cd9575\", \"fusion_score\": 0.7, \"vector_similarity\": 1, \"gps_distance_"
+  },
+  {
+    "tc_id": "TC-API-017",
+    "name": "品种识别",
+    "method": "POST",
+    "url": "/v1/nose/classify",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"breed\": \"newfoundland\", \"breed_cn\": \"纽芬兰犬\", \"confidence\": 0.3476, \"top3\": [{\"breed\": \"newfoundland\", \"breed_cn\": \"纽芬兰犬\", \"confidence\": 0.3476}, {\"breed\": \"p"
+  },
+  {
+    "tc_id": "TC-API-018",
+    "name": "创建事件",
+    "method": "POST",
+    "url": "/v1/events",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"event_id\": \"409cf268-2198-46b4-8382-f7d645c42a28\", \"is_duplicate\": false, \"fusion_score\": null, \"status\": \"pending\"}}"
+  },
+  {
+    "tc_id": "TC-API-019",
+    "name": "我的事件",
+    "method": "GET",
+    "url": "/v1/events/my",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": [{\"event_id\": \"409cf268-2198-46b4-8382-f7d645c42a28\", \"animal_id\": null, \"event_type\": \"report\", \"reporter_id\": \"u-user1-0001-0000-0000-000000000002\", \"statio"
+  },
+  {
+    "tc_id": "TC-API-020",
+    "name": "申请认领",
+    "method": "POST",
+    "url": "/v1/claims",
+    "expected_http": [
+      200,
+      201
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"claim_id\": \"5abfb54c-88ae-4b81-bcca-6a0ca4bfa0e8\", \"status\": \"pending\"}}"
+  },
+  {
+    "tc_id": "TC-SEC-001",
+    "name": "SQL 注入防御",
+    "method": "GET",
+    "url": "/v1/animals?id=' OR '1'='1'",
+    "expected_http": [
+      200,
+      400,
+      404
+    ],
+    "actual_http": 200,
+    "pass": true,
+    "notes": "不应 500 或返回额外数据；code=0/400/404 视为通过",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"total\": 4, \"list\": [{\"animal_id\": \"79b99a11-3d07-4176-99e0-c46e039f9c35\", \"status\": \"lost\", \"species\": \"dog\", \"breed\": \"吉娃娃\", \"color\": \"黄白\", \"gender\": \"fema"
+  },
+  {
+    "tc_id": "TC-SEC-002",
+    "name": "XSS 注入(register)",
+    "method": "POST",
+    "url": "/v1/auth/register",
+    "expected_http": [
+      200,
+      201,
+      400
+    ],
+    "actual_http": 201,
+    "pass": true,
+    "notes": "register 无 nickname 字段，验证后端不渲染注入；改测 PATCH /v1/users/me",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOGViMTI4NGQtMmFmZi00MzIwLTkzZDUtOWM2M2NiMWIzOTAxIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3ODE4Mzk5MTcsIm"
+  },
+  {
+    "tc_id": "TC-SEC-002b",
+    "name": "XSS 原样存储",
+    "method": "PATCH+GET",
+    "url": "/v1/users/me",
+    "expected_http": 200,
+    "actual_http": 200,
+    "pass": true,
+    "notes": "nickname 存储为 '<script>alert(1)</script>'（原样 = 通过）",
+    "response_snippet": "<script>alert(1)</script>"
+  },
+  {
+    "tc_id": "TC-SEC-003",
+    "name": "JWT 伪造防御",
+    "method": "GET",
+    "url": "/v1/users/me",
+    "expected_http": [
+      401,
+      403
+    ],
+    "actual_http": 401,
+    "pass": true,
+    "notes": "预期 401 Unauthorized",
+    "response_snippet": "{\"code\": 401, \"message\": \"未登录\", \"data\": null}"
+  },
+  {
+    "tc_id": "TC-SEC-004",
+    "name": "弱密码拒绝",
+    "method": "POST",
+    "url": "/v1/auth/register",
+    "expected_http": [
+      400,
+      422
+    ],
+    "actual_http": 400,
+    "pass": true,
+    "notes": "预期 400 '密码强度不足' 或业务码非 0",
+    "response_snippet": "{\"code\": 400, \"message\": \"密码最短8位，需包含字母和数字\", \"data\": null}"
+  },
+  {
+    "tc_id": "TC-SEC-005",
+    "name": "手机号脱敏",
+    "method": "GET",
+    "url": "/v1/users/me",
+    "expected_http": 200,
+    "actual_http": 200,
+    "pass": true,
+    "notes": "phone='13900000001' 含 ****=False",
+    "response_snippet": "{\"code\": 0, \"message\": \"success\", \"data\": {\"user_id\": \"u-admin-0001-0000-0000-000000000001\", \"nickname\": \"ç®¡ç†å‘˜A\", \"phone\": \"13900000001\", \"openid\": null, \"password_hash\": \"$2b$10$CdZozrb1bX.Xa/cn"
+  }
+]

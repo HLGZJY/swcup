@@ -10,6 +10,7 @@ import { AnimalsModule } from './animals/animals.module';
 import { NoseModule } from './nose/nose.module';
 import { EventsModule } from './events/events.module';
 import { ClaimsModule } from './claims/claims.module';
+import { UploadModule } from './upload/upload.module';
 import { AdminModule } from './admin/admin.module';
 import { User } from './users/entities/user.entity';
 import { Animal } from './animals/entities/animal.entity';
@@ -51,6 +52,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     NoseModule,
     EventsModule,
     ClaimsModule,
+    UploadModule,
     AdminModule,
   ],
   providers: [

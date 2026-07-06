@@ -7,10 +7,10 @@
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Animal } from '../../animals/entities/animal.entity';
-import { Gender } from '../../animals/entities/animal.entity';
+import { Animal, Gender } from '../../animals/entities/animal.entity';
 
 export enum EventType {
+  COLLECT = 'collect',
   REPORT = 'report',
   RESCUE = 'rescue',
   MEDICAL = 'medical',
@@ -102,6 +102,9 @@ export class RescueEvent {
   @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true, name: 'text_match_rate' })
   text_match_rate: number;
 
+  @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true, name: 'time_score' })
+  time_score: number;
+
   @Column({ type: 'enum', enum: EventStatus, default: EventStatus.PENDING })
   status: EventStatus;
 
@@ -116,6 +119,9 @@ export class RescueEvent {
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'color' })
   color: string;
+
+  @Column({ type: 'json', nullable: true, name: 'body_colors' })
+  body_colors: any[] | null;
 
   @Column({ type: 'enum', enum: Gender, nullable: true, name: 'gender' })
   gender: Gender;

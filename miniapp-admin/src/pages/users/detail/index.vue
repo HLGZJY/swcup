@@ -1,38 +1,40 @@
 <template>
   <view class="page">
-    <!-- 顶部导航 -->
-    <view class="nav-bar">
-      <view class="nav-back" @tap="goBack">
-        <text class="back-arrow">←</text>
-      </view>
-      <text class="nav-title">用户详情</text>
-      <view class="nav-placeholder"></view>
-    </view>
-
     <!-- 加载中 -->
     <view class="loading-state" v-if="loading">
-      <text>加载中...</text>
+      <view class="loading-spinner"></view>
+      <text class="loading-text">加载中...</text>
     </view>
 
     <!-- 空状态 -->
     <view class="empty-state" v-else-if="!userInfo">
-      <image class="empty-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
-      <text class="empty-text">未找到该用户</text>
+      <view class="empty-icon-bg">
+        <image class="empty-icon-img" src="/static/icons/icon-user.svg" mode="aspectFit" />
+      </view>
+      <text class="empty-title">未找到该用户</text>
+      <text class="empty-sub">可能已被删除或链接失效</text>
     </view>
 
     <template v-else>
       <!-- 用户基本信息卡片 -->
-      <view class="info-card user-card">
+      <view class="info-card user-card" :class="'card-accent-' + userInfo.role">
         <view class="user-header">
           <view class="user-base">
             <view class="name-row">
               <text class="nickname">{{ userInfo.nickname }}</text>
-              <view :class="['role-tag', 'role-' + userInfo.role]">{{ roleMap[userInfo.role] }}</view>
+              <view :class="['role-tag', 'role-' + userInfo.role]">
+                <view class="role-dot"></view>
+                <text>{{ roleMap[userInfo.role] }}</text>
+              </view>
             </view>
-            <text class="phone">{{ maskPhone(userInfo.phone) }}</text>
+            <view class="phone-row">
+              <image class="phone-icon" src="/static/icons/icon-phone.svg" mode="aspectFit" />
+              <text class="phone">{{ maskPhone(userInfo.phone) }}</text>
+            </view>
           </view>
         </view>
         <view class="info-row">
+          <image class="info-row-icon" src="/static/icons/icon-calendar.svg" mode="aspectFit" />
           <text class="label">注册时间</text>
           <text class="value">{{ formatDate(userInfo.created_at) }}</text>
         </view>
@@ -41,9 +43,11 @@
       <!-- 操作按钮 -->
       <view class="action-bar">
         <view class="btn-edit" @tap="openEditModal">
+          <image class="btn-icon" src="/static/icons/icon-edit.svg" mode="aspectFit" />
           <text>编辑信息</text>
         </view>
         <view :class="['btn-block', { 'btn-unblock': userInfo.role === 'blocked' }]" @tap="toggleBlock">
+          <image class="btn-icon" :src="userInfo.role === 'blocked' ? '/static/icons/icon-check.svg' : '/static/icons/icon-x.svg'" mode="aspectFit" />
           <text>{{ userInfo.role === 'blocked' ? '启用用户' : '禁用用户' }}</text>
         </view>
       </view>
@@ -56,6 +60,11 @@
           :class="['tab-item', { active: currentTab === tab.key }]"
           @tap="switchTab(tab.key)"
         >
+          <image
+            class="tab-icon"
+            :src="tab.icon"
+            mode="aspectFit"
+          />
           <text>{{ tab.label }}</text>
         </view>
       </view>
@@ -65,69 +74,106 @@
         <!-- 上报事件 -->
         <template v-if="currentTab === 'events'">
           <view class="empty-list" v-if="events.length === 0 && !loadingMore">
-            <text>暂无上报事件</text>
+            <view class="empty-list-icon-bg">
+              <image class="empty-list-icon" src="/static/icons/icon-event.svg" mode="aspectFit" />
+            </view>
+            <text class="empty-list-text">暂无上报事件</text>
           </view>
           <view
             v-for="ev in events"
             :key="ev.event_id"
             class="list-card"
+            :class="'list-card-accent-' + ev.status"
             @tap="goToEvent(ev.event_id)"
           >
-            <view class="card-header">
-              <text class="card-title">{{ ev.title || '事件 #' + ev.event_id }}</text>
-              <view :class="['status-badge', 'status-' + ev.status]">{{ ev.status }}</view>
+            <view class="list-card-accent"></view>
+            <view class="list-card-content">
+              <view class="card-header">
+                <text class="card-title">{{ ev.title || '事件 #' + ev.event_id }}</text>
+                <view :class="['status-badge', 'status-' + ev.status]">
+                  <view class="status-dot"></view>
+                  <text>{{ ev.status }}</text>
+                </view>
+              </view>
+              <text class="card-desc">{{ ev.description || '' }}</text>
+              <view class="card-time-row">
+                <image class="card-time-icon" src="/static/icons/icon-clock.svg" mode="aspectFit" />
+                <text class="card-time">{{ formatDateTime(ev.created_at) }}</text>
+              </view>
             </view>
-            <text class="card-desc">{{ ev.description || '' }}</text>
-            <text class="card-time">{{ formatDateTime(ev.created_at) }}</text>
           </view>
         </template>
 
         <!-- 认领记录 -->
         <template v-if="currentTab === 'claims'">
           <view class="empty-list" v-if="claims.length === 0 && !loadingMore">
-            <text>暂无认领记录</text>
+            <view class="empty-list-icon-bg">
+              <image class="empty-list-icon" src="/static/icons/icon-shield.svg" mode="aspectFit" />
+            </view>
+            <text class="empty-list-text">暂无认领记录</text>
           </view>
           <view
             v-for="cl in claims"
             :key="cl.claim_id"
             class="list-card"
+            :class="'list-card-accent-' + cl.status"
           >
-            <view class="card-header">
-              <text class="card-title">认领 #{{ cl.claim_id }}</text>
-              <view :class="['status-badge', 'status-' + cl.status]">{{ statusMap[cl.status] }}</view>
+            <view class="list-card-accent"></view>
+            <view class="list-card-content">
+              <view class="card-header">
+                <text class="card-title">认领 #{{ cl.claim_id }}</text>
+                <view :class="['status-badge', 'status-' + cl.status]">
+                  <view class="status-dot"></view>
+                  <text>{{ statusMap[cl.status] || cl.status }}</text>
+                </view>
+              </view>
+              <text class="card-desc">{{ cl.notes || '' }}</text>
+              <view class="card-time-row">
+                <image class="card-time-icon" src="/static/icons/icon-clock.svg" mode="aspectFit" />
+                <text class="card-time">{{ formatDateTime(cl.created_at) }}</text>
+              </view>
             </view>
-            <text class="card-desc">{{ cl.notes || '' }}</text>
-            <text class="card-time">{{ formatDateTime(cl.created_at) }}</text>
           </view>
         </template>
 
         <!-- 关联动物 -->
         <template v-if="currentTab === 'animals'">
           <view class="empty-list" v-if="animals.length === 0 && !loadingMore">
-            <text>暂无关联动物</text>
+            <view class="empty-list-icon-bg">
+              <image class="empty-list-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" />
+            </view>
+            <text class="empty-list-text">暂无关联动物</text>
           </view>
           <view
             v-for="an in animals"
             :key="an.animal_id"
             class="list-card"
+            :class="'list-card-accent-' + an.status"
             @tap="goToAnimal(an.animal_id)"
           >
-            <view class="card-header">
+            <view class="list-card-accent"></view>
+            <view class="list-card-content list-card-content--animal">
               <image class="animal-thumb" :src="resolveImageUrl(an.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
               <view class="animal-info">
                 <text class="card-title">{{ an.breed || '动物 #' + an.animal_id }}</text>
                 <text class="card-desc">{{ an.color || '' }} · {{ genderMap[an.gender] || '' }}</text>
               </view>
-              <view :class="['status-badge', 'status-' + an.status]">{{ an.status }}</view>
+              <view :class="['status-badge', 'status-' + an.status]">
+                <view class="status-dot"></view>
+                <text>{{ an.status }}</text>
+              </view>
             </view>
           </view>
         </template>
 
-        <view class="no-more" v-if="!hasMore && listData.length > 0">
-          <text>— 没有更多了 —</text>
-        </view>
         <view class="loading-more" v-if="loadingMore">
+          <view class="loading-spinner-small"></view>
           <text>加载中...</text>
+        </view>
+        <view class="no-more" v-if="!hasMore && listData.length > 0">
+          <view class="no-more-line"></view>
+          <text>— 没有更多了 —</text>
+          <view class="no-more-line"></view>
         </view>
       </scroll-view>
     </template>
@@ -135,7 +181,10 @@
     <!-- 编辑 Modal -->
     <view class="modal-mask" v-if="showEditModal" @tap="closeEditModal">
       <view class="modal-content" @tap.stop>
-        <text class="modal-title">编辑用户信息</text>
+        <view class="modal-title-row">
+          <image class="modal-title-icon" src="/static/icons/icon-edit.svg" mode="aspectFit" />
+          <text class="modal-title">编辑用户信息</text>
+        </view>
         <view class="form-item">
           <text class="form-label">昵称</text>
           <input class="form-input" v-model="editForm.nickname" placeholder="请输入昵称" />
@@ -185,9 +234,9 @@ const showEditModal = ref(false)
 const editForm = ref({ nickname: '', phone: '', role: 'user' })
 
 const tabs = [
-  { key: 'events', label: '上报事件' },
-  { key: 'claims', label: '认领记录' },
-  { key: 'animals', label: '关联动物' }
+  { key: 'events',  label: '上报事件', icon: '/static/icons/icon-event.svg' },
+  { key: 'claims',  label: '认领记录', icon: '/static/icons/icon-shield.svg' },
+  { key: 'animals', label: '关联动物', icon: '/static/icons/icon-paw-filled.svg' }
 ]
 
 const roleMap: Record<string, string> = {
@@ -415,89 +464,627 @@ function goToAnimal(animalId: number) {
 </script>
 
 <style scoped lang="scss">
-.page { min-height: 100vh; background: #F5F5F5; display: flex; flex-direction: column; }
+.page {
+  min-height: 100vh;
+  background: #F5F7FA;
+  display: flex;
+  flex-direction: column;
+}
 
-/* 导航栏 */
-.nav-bar { display: flex; align-items: center; background: #FFFFFF; padding: 24rpx 24rpx; border-bottom: 1rpx solid #EEEEEE; }
-.nav-back { width: 60rpx; }
-.back-arrow { font-size: 36rpx; color: #1A1A1A; }
-.nav-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 600; color: #1A1A1A; }
-.nav-placeholder { width: 60rpx; }
+/* ============ 加载/空状态 ============ */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16rpx;
+}
 
-/* 加载/空状态 */
-.loading-state { display: flex; justify-content: center; align-items: center; height: 60vh; font-size: 28rpx; color: #999; }
-.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
-.empty-icon-img { width: 80rpx; height: 80rpx; margin-bottom: 24rpx; }
-.empty-text { font-size: 28rpx; color: #999; }
-.empty-list { display: flex; justify-content: center; align-items: center; padding: 60rpx 0; font-size: 26rpx; color: #999; }
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 4rpx solid #F0F0F0;
+  border-top-color: #0FBF9F;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
-/* 用户卡片 */
-.info-card { background: #FFF; margin: 24rpx; border-radius: 16rpx; padding: 24rpx; }
+.loading-text {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  padding: 0 32rpx;
+}
+
+.empty-icon-bg {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(15, 191, 159, 0.1) 0%, rgba(76, 144, 230, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+}
+
+.empty-icon-img {
+  width: 80rpx;
+  height: 80rpx;
+  color: #0FBF9F;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  margin-bottom: 8rpx;
+}
+
+.empty-sub {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* 用户卡片空列表（Tab 内容区）*/
+.empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+  gap: 16rpx;
+}
+
+.empty-list-icon-bg {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(15, 191, 159, 0.06) 0%, rgba(76, 144, 230, 0.06) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-list-icon {
+  width: 60rpx;
+  height: 60rpx;
+  color: #BBBBBB;
+}
+
+.empty-list-text {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+/* ============ 用户卡（带左侧色条）============ */
+.info-card {
+  position: relative;
+  background: #FFFFFF;
+  margin: 24rpx 24rpx 16rpx;
+  border-radius: 20rpx;
+  padding: 24rpx 24rpx 24rpx 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+.info-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background: #EEEEEE;
+}
+
+.info-card.card-accent-user    ::before { background: linear-gradient(180deg, #0FBF9F 0%, #07C160 100%); }
+.info-card.card-accent-admin   ::before { background: linear-gradient(180deg, #FF6B6B 0%, #E53A3A 100%); }
+.info-card.card-accent-org     ::before { background: linear-gradient(180deg, #FFB84D 0%, #FF9F00 100%); }
+.info-card.card-accent-blocked ::before { background: linear-gradient(180deg, #BBBBBB 0%, #888888 100%); }
+
 .user-card { margin-bottom: 0; }
-.user-header { display: flex; align-items: center; margin-bottom: 20rpx; }
-.user-base { flex: 1; }
-.name-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
-.nickname { font-size: 32rpx; font-weight: 600; color: #1A1A1A; }
-.phone { font-size: 26rpx; color: #666; }
-.info-row { display: flex; justify-content: space-between; padding: 8rpx 0; border-top: 1rpx solid #F5F5F5; margin-top: 8rpx; }
-.label { font-size: 24rpx; color: #999; }
-.value { font-size: 24rpx; color: #1A1A1A; }
 
-/* 角色标签 */
-.role-tag { font-size: 18rpx; padding: 2rpx 10rpx; border-radius: 8rpx; color: #FFFFFF; }
-.role-user { background: #0FBF9F; }
-.role-admin { background: #FF6B6B; }
-.role-org { background: #FF9F00; }
-.role-blocked { background: #999999; }
+.user-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
 
-/* 操作按钮 */
-.action-bar { display: flex; gap: 16rpx; padding: 0 24rpx 24rpx; background: #FFF; }
-.btn-edit, .btn-block, .btn-unblock { flex: 1; height: 80rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 500; }
-.btn-edit { background: #0FBF9F; color: #FFFFFF; }
-.btn-block { background: #FF6B6B; color: #FFFFFF; }
-.btn-unblock { background: #0FBF9F; color: #FFFFFF; }
+.user-base { flex: 1; min-width: 0; }
 
-/* Tab栏 */
-.tab-bar { display: flex; background: #FFFFFF; border-bottom: 1rpx solid #EEEEEE; margin-top: 16rpx; }
-.tab-item { flex: 1; text-align: center; padding: 24rpx 0; font-size: 28rpx; color: #666; }
-.tab-item.active { color: #0FBF9F; font-weight: 600; border-bottom: 4rpx solid #0FBF9F; }
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+  flex-wrap: wrap;
+}
 
-/* 列表区 */
-.list-area { flex: 1; padding: 24rpx; }
-.list-card { background: #FFFFFF; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx; }
-.card-header { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx; }
-.card-title { font-size: 28rpx; font-weight: 600; color: #1A1A1A; flex: 1; }
-.card-desc { font-size: 24rpx; color: #666; display: block; margin-bottom: 8rpx; }
-.card-time { font-size: 22rpx; color: #999; }
+.nickname {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1A1A1A;
+  letter-spacing: 1rpx;
+}
+
+.phone-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 14rpx;
+  background: #FAFBFC;
+  border-radius: 10rpx;
+  align-self: flex-start;
+}
+
+.phone-icon {
+  width: 24rpx;
+  height: 24rpx;
+  color: #BBBBBB;
+  flex-shrink: 0;
+}
+
+.phone {
+  font-size: 26rpx;
+  color: #666666;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 4rpx 0;
+}
+
+.info-row-icon {
+  width: 26rpx;
+  height: 26rpx;
+  color: #BBBBBB;
+  flex-shrink: 0;
+}
+
+.info-row .label {
+  font-size: 24rpx;
+  color: #999999;
+  min-width: 120rpx;
+}
+
+.info-row .value {
+  font-size: 26rpx;
+  color: #1A1A1A;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+  text-align: right;
+}
+
+/* ============ 角色 tag — 圆点+浅底 ============ */
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx 4rpx 10rpx;
+  border-radius: 10rpx;
+  background: rgba(15, 191, 159, 0.1);
+  color: #0FBF9F;
+}
+
+.role-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.role-user    { background: rgba(15, 191, 159, 0.1);  color: #0FBF9F; }
+.role-admin   { background: rgba(255, 107, 107, 0.1); color: #FF6B6B; }
+.role-org     { background: rgba(255, 159, 0, 0.1);   color: #FF9F00; }
+.role-blocked { background: rgba(187, 187, 187, 0.18); color: #888888; }
+
+/* ============ 操作按钮（带 SVG 图标 + 微动效）============ */
+.action-bar {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  background: #FFFFFF;
+}
+
+.btn-edit, .btn-block, .btn-unblock {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.btn-edit:active, .btn-block:active, .btn-unblock:active {
+  transform: scale(0.97);
+}
+
+.btn-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+}
+
+.btn-edit {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+}
+.btn-edit .btn-icon { filter: brightness(0) invert(1); }
+
+.btn-block {
+  background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(255, 107, 107, 0.3);
+}
+.btn-block .btn-icon { filter: brightness(0) invert(1); }
+
+.btn-unblock {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+}
+.btn-unblock .btn-icon { filter: brightness(0) invert(1); }
+
+/* ============ Tab 栏（带 SVG 图标）============ */
+.tab-bar {
+  display: flex;
+  background: #FFFFFF;
+  border-bottom: 1rpx solid #F0F0F0;
+  margin-top: 8rpx;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: #666666;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab-icon {
+  width: 32rpx;
+  height: 32rpx;
+  color: #999999;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: #0FBF9F;
+  font-weight: 600;
+}
+
+.tab-item.active .tab-icon { color: #0FBF9F; }
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background: #0FBF9F;
+  border-radius: 2rpx;
+}
+
+/* ============ 列表区 ============ */
+.list-area {
+  flex: 1;
+  padding: 24rpx;
+  box-sizing: border-box;
+  height: 0;
+}
+
+/* 列表卡（带左侧色条） */
+.list-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.list-card:active {
+  transform: scale(0.99);
+  background: #FAFBFC;
+}
+
+.list-card-accent {
+  width: 6rpx;
+  flex-shrink: 0;
+}
+
+.list-card-accent-pending   .list-card-accent { background: linear-gradient(180deg, #FFB84D 0%, #FF9F00 100%); }
+.list-card-accent-confirmed .list-card-accent { background: linear-gradient(180deg, #0FBF9F 0%, #07C160 100%); }
+.list-card-accent-resolved  .list-card-accent { background: linear-gradient(180deg, #4C90E6 0%, #0FBF9F 100%); }
+.list-card-accent-duplicated .list-card-accent { background: linear-gradient(180deg, #9B7BFF 0%, #8B5CF6 100%); }
+.list-card-accent-rejected  .list-card-accent { background: linear-gradient(180deg, #BBBBBB 0%, #888888 100%); }
+.list-card-accent-lost      .list-card-accent { background: linear-gradient(180deg, #FF6B6B 0%, #E53A3A 100%); }
+.list-card-accent-found     .list-card-accent { background: linear-gradient(180deg, #0FBF9F 0%, #07C160 100%); }
+.list-card-accent-claimed   .list-card-accent { background: linear-gradient(180deg, #FFB84D 0%, #FF9F00 100%); }
+.list-card-accent-approved  .list-card-accent { background: linear-gradient(180deg, #0FBF9F 0%, #07C160 100%); }
+.list-card-accent-archived  .list-card-accent { background: linear-gradient(180deg, #BBBBBB 0%, #888888 100%); }
+.list-card-accent-other     .list-card-accent { background: #EEEEEE; }
+
+.list-card-content {
+  flex: 1;
+  padding: 20rpx 20rpx 20rpx 16rpx;
+  min-width: 0;
+}
+
+.list-card-content--animal {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+  flex-wrap: wrap;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1A1A1A;
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.card-desc {
+  font-size: 26rpx;
+  color: #666666;
+  display: block;
+  margin-bottom: 10rpx;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.card-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.card-time-icon {
+  width: 22rpx;
+  height: 22rpx;
+  color: #BBBBBB;
+  flex-shrink: 0;
+}
+
+.card-time {
+  font-size: 22rpx;
+  color: #999999;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ 状态 badge（圆点+浅底）============ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx 4rpx 10rpx;
+  border-radius: 10rpx;
+  background: rgba(15, 191, 159, 0.1);
+  color: #0FBF9F;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.status-pending    { background: rgba(255, 159, 0, 0.1);   color: #FF9F00; }
+.status-approved   { background: rgba(15, 191, 159, 0.1);  color: #0FBF9F; }
+.status-rejected   { background: rgba(187, 187, 187, 0.18); color: #888888; }
+.status-lost       { background: rgba(255, 107, 107, 0.1); color: #FF6B6B; }
+.status-found      { background: rgba(15, 191, 159, 0.1);  color: #0FBF9F; }
+.status-claimed    { background: rgba(255, 159, 0, 0.1);   color: #FF9F00; }
 
 /* 动物卡片特有 */
-.animal-thumb { width: 80rpx; height: 80rpx; border-radius: 12rpx; background: #F5F5F5; flex-shrink: 0; }
-.animal-info { flex: 1; }
+.animal-thumb {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 14rpx;
+  background: #F5F5F5;
+  flex-shrink: 0;
+  border: 2rpx solid #FFFFFF;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
 
-/* 状态标签 */
-.status-badge { font-size: 18rpx; padding: 2rpx 10rpx; border-radius: 8rpx; color: #FFF; flex-shrink: 0; }
-.status-pending { background: #FF9F00; }
-.status-approved { background: #0FBF9F; }
-.status-rejected { background: #999999; }
-.status-lost { background: #FF6B6B; }
-.status-found { background: #0FBF9F; }
-.status-claimed { background: #FF9F00; }
+.animal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
 
-/* 分页加载 */
-.no-more { text-align: center; padding: 24rpx; font-size: 24rpx; color: #999; }
-.loading-more { text-align: center; padding: 24rpx; font-size: 24rpx; color: #0FBF9F; }
+/* ============ 分页加载 ============ */
+.no-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx 0;
+  font-size: 22rpx;
+  color: #BBBBBB;
+  gap: 16rpx;
+}
 
-/* Modal */
-.modal-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
-.modal-content { background: #FFFFFF; border-radius: 24rpx; padding: 40rpx; width: 600rpx; max-width: 90vw; }
-.modal-title { font-size: 32rpx; font-weight: 600; color: #1A1A1A; display: block; text-align: center; margin-bottom: 40rpx; }
+.no-more-line {
+  width: 60rpx;
+  height: 1rpx;
+  background: #DDDDDD;
+}
+
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx 0;
+  font-size: 24rpx;
+  color: #0FBF9F;
+  gap: 12rpx;
+}
+
+.loading-spinner-small {
+  width: 28rpx;
+  height: 28rpx;
+  border: 3rpx solid #F0F0F0;
+  border-top-color: #0FBF9F;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============ Modal ============ */
+.modal-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 32rpx;
+}
+
+.modal-content {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  width: 600rpx;
+  max-width: 90vw;
+  box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.15);
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  margin-bottom: 40rpx;
+}
+
+.modal-title-icon {
+  width: 36rpx;
+  height: 36rpx;
+  color: #0FBF9F;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1A1A1A;
+}
+
 .form-item { margin-bottom: 32rpx; }
-.form-label { font-size: 26rpx; color: #666; display: block; margin-bottom: 12rpx; }
-.form-input { background: #F5F5F5; border-radius: 12rpx; padding: 20rpx 24rpx; font-size: 28rpx; color: #1A1A1A; }
-.form-picker { background: #F5F5F5; border-radius: 12rpx; padding: 20rpx 24rpx; font-size: 28rpx; color: #1A1A1A; display: flex; justify-content: space-between; align-items: center; }
-.picker-arrow { font-size: 20rpx; color: #999; }
-.modal-actions { display: flex; gap: 16rpx; margin-top: 40rpx; }
-.btn-cancel, .btn-confirm { flex: 1; height: 88rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 500; }
+.form-label {
+  font-size: 26rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+.form-input {
+  background: #F5F7FA;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  border: 2rpx solid transparent;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: #0FBF9F;
+  background: #FFFFFF;
+}
+
+.form-picker {
+  background: #F5F7FA;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #1A1A1A;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.picker-arrow {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 40rpx;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.btn-cancel:active, .btn-confirm:active { transform: scale(0.97); }
+
 .btn-cancel { background: #F5F5F5; color: #666; }
-.btn-confirm { background: #0FBF9F; color: #FFFFFF; }
+.btn-confirm {
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(15, 191, 159, 0.3);
+}
 </style>

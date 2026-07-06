@@ -3,10 +3,9 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "鼻纹智救",
-        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationStyle": "custom",
         "navigationBarTextStyle": "black",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": false
       }
     },
     {
@@ -76,9 +75,9 @@
     {
       "path": "pages/report/index",
       "style": {
-        "navigationBarTitleText": "发现上报",
-        "navigationBarBackgroundColor": "#FFFFFF",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": false
       }
     },
     {
@@ -100,25 +99,19 @@
     {
       "path": "pages/user/index",
       "style": {
-        "navigationBarTitleText": "个人中心",
-        "navigationBarBackgroundColor": "#FFFFFF",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/my-reports/index",
       "style": {
-        "navigationBarTitleText": "我的上报",
-        "navigationBarBackgroundColor": "#FFFFFF",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/my-claims/index",
       "style": {
-        "navigationBarTitleText": "认领记录",
-        "navigationBarBackgroundColor": "#FFFFFF",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom"
       }
     }
   ],
@@ -132,30 +125,31 @@
     }
   },
   "tabBar": {
-    "color": "#999999",
+    "custom": true,
+    "color": "#B5BCC4",
     "selectedColor": "#0FBF9F",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "black",
+    "backgroundColor": "#FAFCFB",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页",
-        "iconPath": "static/tab-home.png",
-        "selectedIconPath": "static/tab-home-active.png"
+        "text": "首页"
       },
       {
         "pagePath": "pages/report/index",
-        "text": "发现",
-        "iconPath": "static/tab-find.png",
-        "selectedIconPath": "static/tab-find-active.png"
+        "text": "发现"
       },
       {
         "pagePath": "pages/user/index",
-        "text": "我的",
-        "iconPath": "static/tab-user.png",
-        "selectedIconPath": "static/tab-user-active.png"
+        "text": "我的"
       }
     ]
   },
-  "uniIdRouter": {}
+  "uniIdRouter": {},
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "custom-tabbar": "@/components/custom-tabbar/custom-tabbar.vue"
+    }
+  }
 }

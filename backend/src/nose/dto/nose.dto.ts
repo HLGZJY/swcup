@@ -34,6 +34,51 @@ export class CollectNoseDto {
   @IsString()
   @IsOptional()
   nose_photo_url?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  breed?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  color?: string;
+
+  @ApiPropertyOptional({ enum: ['male', 'female', 'unknown'] })
+  @IsString()
+  @IsOptional()
+  gender?: string;
+
+  @ApiPropertyOptional({ enum: ['small', 'medium', 'large'] })
+  @IsString()
+  @IsOptional()
+  size?: string;
+
+  @ApiPropertyOptional({ enum: ['short', 'medium', 'long'] })
+  @IsString()
+  @IsOptional()
+  coat_length?: string;
+
+  @ApiPropertyOptional({ enum: ['erect', 'floppy'] })
+  @IsString()
+  @IsOptional()
+  ear_type?: string;
+
+  @ApiPropertyOptional({ enum: ['long', 'short', 'curled'] })
+  @IsString()
+  @IsOptional()
+  tail_type?: string;
+
+  @ApiPropertyOptional({ description: '全身照 Base64' })
+  @IsString()
+  @IsOptional()
+  body_photo?: string;
+
+  @ApiPropertyOptional({ description: '全身照上传后的 URL' })
+  @IsString()
+  @IsOptional()
+  body_photo_url?: string;
 }
 
 export class CompareNoseDto {
@@ -94,4 +139,24 @@ export class CompareNoseDto {
   @IsString()
   @IsOptional()
   gender?: string;
+
+  @ApiPropertyOptional({ enum: ['small', 'medium', 'large'] })
+  @IsString()
+  @IsOptional()
+  size?: string;
+
+  @ApiPropertyOptional({ enum: ['short', 'medium', 'long'] })
+  @IsString()
+  @IsOptional()
+  coat_length?: string;
+
+  @ApiPropertyOptional({ enum: ['erect', 'floppy'] })
+  @IsString()
+  @IsOptional()
+  ear_type?: string;
+
+  @ApiPropertyOptional({ enum: ['long', 'short', 'curled'] })
+  @IsString()
+  @IsOptional()
+  tail_type?: string;
 }

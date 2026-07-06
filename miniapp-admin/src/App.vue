@@ -18,7 +18,7 @@ onLaunch(() => {
 
 page {
   background-color: #F5F5F5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans SC', 'Segoe UI', Roboto, sans-serif;
   --theme-color: #FF6B6B;
   --theme-light: #FFF0F0;
   --text-primary: #1A1A1A;

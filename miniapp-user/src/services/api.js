@@ -1,10 +1,10 @@
 /**
  * 鼻纹智救 - 用户端 API 服务
- * 后端地址：http://192.168.32.1:3000
+ * 后端地址：http://127.0.0.1:3000
  * 所有需认证接口自动携带 Authorization: Bearer <token>
  */
 
-const BASE_URL = 'http://192.168.32.1:3000'
+const BASE_URL = 'http://127.0.0.1:3000'
 
 /**
  * 解析图片完整 URL
@@ -234,7 +234,6 @@ export function apiCreateAnimal(params) {
  */
 export function apiUploadFile(tempFilePath) {
   return new Promise((resolve, reject) => {
-    const BASE_URL = 'http://127.0.0.1:3000'
     const token = uni.getStorageSync('token')
     const header = {}
     if (token) {

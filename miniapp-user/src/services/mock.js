@@ -374,7 +374,7 @@ export function mockGetCurrentUser() {
 
 /**
  * 模拟登录（微信登录流程：先 wx.login() 获取 code，再传 code 登录）
- * 真实请求：{ code, nickname, avatar_url }
+ * 真实请求：{ code, nickname }
  */
 export function mockLogin(params) {
   return new Promise((resolve) => {

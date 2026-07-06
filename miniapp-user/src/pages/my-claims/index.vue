@@ -1,7 +1,19 @@
 <template>
   <view class="page">
+    <!-- 自定义 navbar（custom 模式） -->
+    <view class="navbar">
+      <view class="navbar-statusbar" />
+      <view class="navbar-content">
+        <view class="navbar-back" @click="goBack">
+          <image class="navbar-back-icon" src="/static/icons/icon-chevron-left.svg" mode="aspectFit" />
+        </view>
+        <text class="navbar-title">认领记录</text>
+        <view class="navbar-spacer" />
+      </view>
+    </view>
+
     <view class="list-empty" v-if="claims.length === 0 && !loading">
-      <image class="empty-icon" src="/static/icons/icon-heart.png" mode="aspectFit" />
+      <image class="empty-icon" src="/static/icons/icon-heart.svg" mode="aspectFit" />
       <text class="empty-text">暂无认领记录</text>
       <text class="empty-hint">快去认领你心仪的动物吧</text>
     </view>
@@ -21,7 +33,7 @@
       <text class="claim-notes">{{ item.notes || '无备注' }}</text>
       <view class="claim-footer">
         <text class="claim-time">{{ formatTime(item.created_at) }}</text>
-        <image class="claim-arrow" src="/static/icons/icon-chevron-right.png" mode="aspectFit" />
+        <image class="claim-arrow" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
 
@@ -67,6 +79,10 @@ function formatTime(isoString: string) {
   return Math.floor(diff / 86400) + '天前'
 }
 
+function goBack() {
+  uni.navigateBack({ delta: 1 })
+}
+
 function goToAnimal(animalId: string) {
   if (!animalId) return
   uni.navigateTo({
@@ -80,6 +96,55 @@ function goToAnimal(animalId: string) {
   min-height: 100vh;
   background: #F5F5F5;
   padding: 24rpx;
+  padding-top: 0;
+}
+
+/* 自定义 navbar（custom 模式：子页面，纯白底 + 左侧返回 + 中间标题） */
+.navbar {
+  background: #FFFFFF;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.05);
+}
+
+.navbar-statusbar {
+  height: 48rpx;
+}
+
+.navbar-content {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+  position: relative;
+}
+
+.navbar-back {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -16rpx;
+}
+
+.navbar-back-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.navbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1A1A1A;
+  margin-right: 40rpx; /* 视觉居中补偿左侧返回按钮宽度 */
+}
+
+.navbar-spacer {
+  width: 0;
 }
 
 .list-empty {

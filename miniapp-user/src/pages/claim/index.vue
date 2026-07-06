@@ -2,7 +2,7 @@
   <view class="page">
     <!-- 动物信息卡片 -->
     <view class="animal-card" v-if="animal">
-      <image class="animal-photo" :src="animal.photos[0] || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+      <image class="animal-photo" :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
       <view class="animal-info">
         <text class="animal-breed">{{ animal.breed }}</text>
         <text class="animal-color">{{ animal.color }}</text>
@@ -13,7 +13,7 @@
     <!-- 认领说明 -->
     <view class="notice-box">
       <view class="notice-title">
-        <image class="notice-title-icon" src="/static/icons/icon-filetext.png" mode="aspectFit" />
+        <image class="notice-title-icon" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
         <text>认领须知</text>
       </view>
       <view class="notice-item" v-for="item in notices" :key="item">
@@ -58,7 +58,7 @@
         >
           <image class="upload-img" :src="img" mode="aspectFill" />
           <view class="upload-remove" @click="removePhoto(idx)">
-            <image class="remove-icon" src="/static/icons/icon-x.png" mode="aspectFit" />
+            <image class="remove-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
           </view>
         </view>
         <view class="upload-add" @click="chooseImage" v-if="form.proof_photos.length < 9">
@@ -71,7 +71,7 @@
     <!-- 协议确认 -->
     <view class="agreement-row" @click="form.agreed = !form.agreed">
       <view :class="['checkbox', { checked: form.agreed }]">
-        <image v-if="form.agreed" class="check-icon" src="/static/icons/icon-check-circle.png" mode="aspectFit" />
+        <image v-if="form.agreed" class="check-icon" src="/static/icons/icon-check-circle.svg" mode="aspectFit" />
       </view>
       <text class="agreement-text">
         我已阅读并同意<text class="link" @click.stop="showProtocol">《认领协议》</text>，承诺所填信息真实有效
@@ -89,7 +89,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiGetAnimalDetail, apiSubmitClaim } from '@/services/api'
+import { apiGetAnimalDetail, apiSubmitClaim, resolveImageUrl } from '@/services/api'
 
 const animal = ref<any>(null)
 const eventId = ref('')

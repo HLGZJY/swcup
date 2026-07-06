@@ -1,6 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, IsEnum, ValidateNested, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
 import { Type } from 'class-transformer';
+import { EventType } from '../entities/event.entity';
+import { BodyColorDto } from '../../animals/dto/create-animal.dto';
 
 export function IsValidCoordinate(validationOptions?: ValidationOptions) {
   return function (object: object, propertyName: string) {
@@ -22,10 +24,9 @@ export function IsValidCoordinate(validationOptions?: ValidationOptions) {
 }
 
 export class CreateEventDto {
-  @ApiProperty({ enum: ['report', 'rescue', 'medical', 'adopt', 'transfer', 'release'] })
-  @IsString()
-  @IsNotEmpty()
-  event_type: string;
+  @ApiProperty({ enum: EventType, description: 'collect=鼻纹采集流程; report=用户主动上报' })
+  @IsEnum(EventType, { message: `event_type 必须是 ${Object.values(EventType).join(', ')} 之一` })
+  event_type: EventType;
 
   @ApiPropertyOptional()
   @IsString()
@@ -52,10 +53,20 @@ export class CreateEventDto {
   @IsOptional()
   breed?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: '概览色 (旧版单值 / 新版多色时取最高频 label)' })
   @IsString()
   @IsOptional()
   color?: string;
+
+  @ApiPropertyOptional({
+    type: [BodyColorDto],
+    description: '多部位取色 (2026-06-26 升级): 3~7 个部位, 每部位 { part, hex, label }',
+  })
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => BodyColorDto)
+  body_colors?: BodyColorDto[] | null;
 
   @ApiPropertyOptional({ enum: ['male', 'female', 'unknown'] })
   @IsString()
@@ -72,19 +83,19 @@ export class CreateEventDto {
   @IsOptional()
   health_status?: string;
 
-  @ApiProperty({ description: '纬度，不能为0' })
+  @ApiPropertyOptional({ description: '纬度；缺省/0 时自动从 animal_id 反查' })
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   @IsValidCoordinate()
   @Type(() => Number)
-  location_lat: number;
+  location_lat?: number;
 
-  @ApiProperty({ description: '经度，不能为0' })
+  @ApiPropertyOptional({ description: '经度；缺省/0 时自动从 animal_id 反查' })
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   @IsValidCoordinate()
   @Type(() => Number)
-  location_lng: number;
+  location_lng?: number;
 
   @ApiPropertyOptional()
   @IsString()

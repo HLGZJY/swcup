@@ -4,7 +4,7 @@
     <view class="card-photo-wrap">
       <image
         class="card-photo"
-        :src="animal.photos?.[0] || '/static/mock/dog-placeholder.png'"
+        :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'"
         mode="aspectFill"
       />
       <view v-if="showStatus" :class="['status-tag', 'status-' + animal.status]">
@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { resolveImageUrl } from '@/services/api'
 
 interface Animal {
   animal_id: string

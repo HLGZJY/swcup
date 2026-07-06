@@ -1,7 +1,24 @@
 <template>
   <view class="page">
+    <!-- 自定义 navbar（custom 模式：tabBar 页无返回箭头，右侧设置图标） -->
+    <view class="navbar">
+      <view class="navbar-statusbar" />
+      <view class="navbar-content">
+        <view class="navbar-spacer" />
+        <view class="navbar-action" @click="onSettings">
+          <image class="navbar-action-icon" src="/static/icons/icon-settings.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
     <!-- 用户信息卡片 -->
     <view class="user-card">
+      <!-- 装饰背景（与首页 hero 风格一致） -->
+      <view class="hero-decor">
+        <view class="hero-blob hero-blob-1" />
+        <view class="hero-blob hero-blob-2" />
+      </view>
+
       <view class="user-info">
         <text class="user-name">{{ user.nickname }}</text>
         <text class="user-phone">{{ user.phone }}</text>
@@ -14,14 +31,15 @@
     <!-- 完善信息引导 Banner -->
     <view v-if="needsProfileComplete" class="profile-banner" @click="goToCompleteProfile">
       <view class="banner-left">
-        <text class="banner-icon">⚠️</text>
+        <image class="banner-icon-img" src="/static/icons/icon-clock-warning.svg" mode="aspectFit" />
         <text class="banner-text">完善您的昵称和角色信息</text>
       </view>
-      <text class="banner-arrow">›</text>
+      <image class="banner-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
     </view>
 
     <!-- 统计卡片 -->
     <view class="stats-grid">
+      <view class="stats-accent" />
       <view class="stat-item" @click="goToMyReports">
         <text class="stat-num">{{ stats.reportCount }}</text>
         <text class="stat-label">上报事件</text>
@@ -44,30 +62,30 @@
       <view class="menu-item" @click="goToMyReports">
         <image class="menu-icon-img" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
         <text class="menu-text">我的上报</text>
-        <text class="menu-arrow">›</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
 
       <!-- 认领记录 -->
       <view class="menu-item" @click="goToMyClaims">
         <image class="menu-icon-img" src="/static/icons/icon-heart.svg" mode="aspectFit" />
         <text class="menu-text">认领记录</text>
-        <text class="menu-arrow">›</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
 
       <!-- 绑定手机 -->
       <view class="menu-item" @click="goToBindPhone">
-        <text class="menu-icon">📱</text>
+        <image class="menu-icon-img" src="/static/icons/icon-phone.svg" mode="aspectFit" />
         <text class="menu-text">绑定手机</text>
-        <text class="menu-arrow">›</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
 
     <view class="menu-section">
       <!-- 帮助与反馈 -->
       <view class="menu-item" @click="goToHelp">
-        <text class="menu-icon">❓</text>
+        <image class="menu-icon-img" src="/static/icons/icon-help.svg" mode="aspectFit" />
         <text class="menu-text">帮助与反馈</text>
-        <text class="menu-arrow">›</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
 
       <!-- 关于我们 -->
@@ -75,25 +93,30 @@
         <image class="menu-icon-img" src="/static/icons/icon-info-gray.svg" mode="aspectFit" />
         <text class="menu-text">关于我们</text>
         <text class="menu-version">v1.0.0</text>
-        <text class="menu-arrow">›</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
 
     <!-- 退出登录 -->
     <view class="logout-btn" @click="onLogout">
+      <image class="logout-icon-img" src="/static/icons/icon-logout.svg" mode="aspectFit" />
       <text>退出登录</text>
     </view>
+
+    <!-- 自定义 tabBar -->
+    <custom-tabbar />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { apiGetCurrentUser, apiGetMyClaims } from '@/services/api'
+import { apiGetCurrentUser, apiGetMyClaims, apiGetMyEvents } from '@/services/api'
 
 async function refreshUserData() {
-  const [userRes, claimRes] = await Promise.all([
+  const [userRes, claimRes, eventRes] = await Promise.all([
     apiGetCurrentUser(),
-    apiGetMyClaims()
+    apiGetMyClaims(),
+    apiGetMyEvents()
   ])
 
   if (userRes.code === 0) {
@@ -103,6 +126,10 @@ async function refreshUserData() {
   if (claimRes.code === 0) {
     stats.value.claimCount = claimRes.data.length
     stats.value.approvedCount = claimRes.data.filter((c: any) => c.status === 'approved').length
+  }
+
+  if (eventRes.code === 0) {
+    stats.value.reportCount = (eventRes.data || []).length
   }
 }
 
@@ -165,6 +192,10 @@ function goToBindPhone() {
   uni.navigateTo({ url: '/pages/profile/bind/index' })
 }
 
+function onSettings() {
+  uni.navigateTo({ url: '/pages/profile/bind/index' })
+}
+
 function onLogout() {
   uni.showModal({
     title: '提示',
@@ -186,15 +217,84 @@ function onLogout() {
   padding-bottom: 48rpx;
 }
 
+/* 自定义 navbar（custom 模式：tabBar 页，渐变与 hero 同色） */
+.navbar {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+}
+
+.navbar-statusbar {
+  height: 48rpx;
+}
+
+.navbar-content {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+}
+
+.navbar-spacer {
+  flex: 1;
+}
+
+.navbar-action {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-action-icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.9;
+}
+
 .user-card {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
   padding: 48rpx 32rpx 32rpx;
   display: flex;
   align-items: center;
 }
 
+/* 装饰背景（与首页 hero 风格一致） */
+.hero-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.hero-blob-1 {
+  width: 240rpx;
+  height: 240rpx;
+  top: -80rpx;
+  right: -60rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%);
+}
+
+.hero-blob-2 {
+  width: 180rpx;
+  height: 180rpx;
+  bottom: -60rpx;
+  left: -40rpx;
+  background: radial-gradient(circle, rgba(7,193,96,0.4), transparent 70%);
+}
+
 .user-info {
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .user-name {
@@ -224,12 +324,25 @@ function onLogout() {
 }
 
 .stats-grid {
+  position: relative;
   background: #FFFFFF;
   display: flex;
   align-items: center;
   margin: 24rpx;
   border-radius: 16rpx;
-  padding: 32rpx;
+  padding: 32rpx 32rpx 32rpx 38rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 顶部色条（与首页动物卡片 accent 同源） */
+.stats-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6rpx;
+  height: 100%;
+  background: linear-gradient(180deg, #0FBF9F 0%, rgba(15,191,159,0) 100%);
+  border-radius: 16rpx 0 0 16rpx;
 }
 
 .stat-item {
@@ -242,6 +355,7 @@ function onLogout() {
   font-weight: 700;
   color: #0FBF9F;
   display: block;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
@@ -273,9 +387,11 @@ function onLogout() {
   align-items: center;
 }
 
-.banner-icon {
-  font-size: 28rpx;
+.banner-icon-img {
+  width: 32rpx;
+  height: 32rpx;
   margin-right: 12rpx;
+  flex-shrink: 0;
 }
 
 .banner-text {
@@ -283,9 +399,10 @@ function onLogout() {
   color: #E65100;
 }
 
-.banner-arrow {
-  font-size: 32rpx;
-  color: #FFB74D;
+.banner-arrow-img {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 .menu-section {
@@ -293,6 +410,7 @@ function onLogout() {
   margin: 24rpx 24rpx 24rpx;
   border-radius: 16rpx;
   overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
 .menu-item {
@@ -320,10 +438,10 @@ function onLogout() {
   flex: 1;
 }
 
-.menu-arrow {
-  font-size: 32rpx;
-  color: #CCCCCC;
-  margin-left: 8rpx;
+.menu-arrow-img {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 .menu-count {
@@ -333,7 +451,7 @@ function onLogout() {
 }
 
 .menu-badge {
-  background: #E53A3A;
+  background: #FF6B6B;
   color: #FFFFFF;
   font-size: 18rpx;
   padding: 2rpx 10rpx;
@@ -354,6 +472,17 @@ function onLogout() {
   padding: 28rpx;
   border-radius: 16rpx;
   font-size: 30rpx;
-  color: #E53A3A;
+  color: #FF6B6B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.logout-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
 }
 </style>

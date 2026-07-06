@@ -11,24 +11,24 @@
     <!-- 照片 -->
     <image
       class="match-photo"
-      :src="item.animal.photos[0] || '/static/mock/dog-placeholder.png'"
+      :src="resolveImageUrl(item.animal?.photos?.[0]) || '/static/mock/dog-placeholder.png'"
       mode="aspectFill"
     />
 
     <!-- 信息 -->
     <view class="match-info">
       <view class="match-header">
-        <text class="match-breed">{{ item.animal.breed }}</text>
+        <text class="match-breed">{{ item.animal?.breed }}</text>
         <view class="match-score" :class="scoreClass">
           {{ (item.fusion_score * 100).toFixed(0) }}%
         </view>
       </view>
-      <text class="match-color">{{ item.animal.color }}</text>
-      <text class="match-location">{{ item.animal.address }}</text>
+      <text class="match-color">{{ item.animal?.color }}</text>
+      <text class="match-location">{{ item.animal?.address }}</text>
       <view class="match-tags">
         <text class="match-tag">距 {{ item.gps_distance_m }}m</text>
-        <text class="match-tag status-badge" :class="'status-' + item.animal.status">
-          {{ statusMap[item.animal.status] }}
+        <text class="match-tag status-badge" :class="'status-' + (item.animal?.status || 'orphan')">
+          {{ statusMap[item.animal?.status || 'orphan'] || '未建档' }}
         </text>
       </view>
     </view>
@@ -40,10 +40,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { resolveImageUrl } from '@/services/api'
 
 interface Animal {
-  animal_id: string
-  status: 'lost' | 'found' | 'claimed' | 'archived'
+  animal_id: string | null
+  status: 'lost' | 'found' | 'claimed' | 'archived' | 'orphan'
   breed: string
   color?: string
   address?: string
@@ -51,13 +52,11 @@ interface Animal {
 }
 
 interface MatchItem {
-  animal_id: string
+  animal_id: string | null
   fusion_score: number
   gps_distance_m: number
-  vector_similarity: number
-  image_similarity: number
   text_match_rate: number
-  animal: Animal
+  animal: Animal | null
 }
 
 const props = defineProps<{
@@ -73,7 +72,8 @@ const statusMap: Record<string, string> = {
   lost: '走失中',
   found: '发现中',
   claimed: '待认领',
-  archived: '已归档'
+  archived: '已归档',
+  orphan: '未建档'
 }
 
 const scoreClass = computed(() => {

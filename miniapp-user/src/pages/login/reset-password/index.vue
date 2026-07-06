@@ -3,7 +3,7 @@
     <!-- 品牌区 -->
     <view class="brand-section">
       <view class="brand-logo">
-        <image class="logo-icon" src="/static/icons/icon-fingerprint.png" mode="aspectFit" />
+        <image class="logo-icon" src="/static/icons/icon-fingerprint.svg" mode="aspectFit" />
       </view>
       <text class="brand-name">鼻纹智救</text>
       <text class="brand-slogan">重置您的密码</text>

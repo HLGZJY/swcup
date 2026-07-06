@@ -1,0 +1,161 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "black",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/login/reset-password/index",
+      "style": {
+        "navigationBarTitleText": "重置密码",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/register/index",
+      "style": {
+        "navigationBarTitleText": "注册",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/privacy/index",
+      "style": {
+        "navigationBarTitleText": "隐私政策",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/complete/index",
+      "style": {
+        "navigationBarTitleText": "完善资料",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/bind/index",
+      "style": {
+        "navigationBarTitleText": "绑定手机",
+        "navigationBarBackgroundColor": "#E8FDF8",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/collect/index",
+      "style": {
+        "navigationBarTitleText": "鼻纹采集",
+        "navigationBarBackgroundColor": "#0FBF9F",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/collect/result",
+      "style": {
+        "navigationBarTitleText": "比对结果",
+        "navigationBarBackgroundColor": "#0FBF9F",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/report/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/animal-detail/index",
+      "style": {
+        "navigationBarTitleText": "动物详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/claim/index",
+      "style": {
+        "navigationBarTitleText": "认领申请",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/user/index",
+      "style": {
+        "navigationBarTitleText": "个人中心",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/my-reports/index",
+      "style": {
+        "navigationBarTitleText": "我的上报",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/my-claims/index",
+      "style": {
+        "navigationBarTitleText": "认领记录",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "鼻纹智救",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5",
+    "app-plus": {
+      "background": "#F5F5F5"
+    }
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#B5BCC4",
+    "selectedColor": "#0FBF9F",
+    "backgroundColor": "#FAFCFB",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/report/index",
+        "text": "发现"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "uniIdRouter": {},
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "custom-tabbar": "@/components/custom-tabbar/custom-tabbar.vue"
+    }
+  }
+}

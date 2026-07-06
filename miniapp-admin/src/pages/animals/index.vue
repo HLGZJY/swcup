@@ -3,7 +3,7 @@
     <!-- 搜索筛选 -->
     <view class="search-bar">
       <view class="search-input-wrap">
-        <image class="search-icon-img" src="/static/icons/icon-search.png" mode="aspectFit" />
+        <image class="search-icon-img" src="/static/icons/icon-search.svg" mode="aspectFit" />
         <input class="search-input" placeholder="搜索动物档案" v-model="keyword" @confirm="onSearch" />
       </view>
     </view>
@@ -29,8 +29,10 @@
     <!-- 动物列表 -->
     <scroll-view class="list-area" scroll-y @scrolltolower="onLoadMore">
       <view class="empty-state" v-if="animals.length === 0 && !loading">
-        <image class="empty-icon-img" src="/static/icons/icon-image.png" mode="aspectFit" />
-        <text class="empty-text">{{ showArchived ? '暂无归档档案' : '暂无动物档案' }}</text>
+        <view class="empty-icon-bg">
+          <image class="empty-icon-img" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" />
+        </view>
+        <text class="empty-title">{{ showArchived ? '暂无归档档案' : '暂无动物档案' }}</text>
       </view>
 
       <view
@@ -39,19 +41,22 @@
         class="animal-row"
         @click="showAnimalDetail(animal)"
       >
-        <image class="animal-photo" :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
-        <view class="animal-info">
-          <view class="info-header">
-            <text class="breed">{{ animal.breed }}</text>
-            <view :class="['status-tag', 'status-' + animal.status]">{{ statusMap[animal.status] }}</view>
+        <view class="card-accent" :class="'accent-' + animal.status"></view>
+        <view class="card-content">
+          <image class="animal-photo" :src="resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+          <view class="animal-info">
+            <view class="info-header">
+              <text class="breed">{{ animal.breed }}</text>
+              <view :class="['status-tag', 'status-' + animal.status]">{{ statusMap[animal.status] }}</view>
+            </view>
+            <text class="color">{{ animal.color }} · {{ animal.gender === 'male' ? '♂️' : '♀️' }}</text>
+            <view class="address-wrap">
+              <image class="address-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
+              <text class="address">{{ animal.address }}</text>
+            </view>
           </view>
-          <text class="color">{{ animal.color }} · {{ animal.gender === 'male' ? '♂️' : '♀️' }}</text>
-          <view class="address-wrap">
-            <image class="address-icon" src="/static/icons/icon-mappin.png" mode="aspectFit" />
-            <text class="address">{{ animal.address }}</text>
-          </view>
+          <image class="arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
         </view>
-        <text class="arrow">›</text>
       </view>
 
       <view class="no-more" v-if="!hasMore && animals.length > 0">
@@ -180,6 +185,13 @@ function onCreateNew() {
   background: #F5F5F5;
   border-radius: 40rpx;
   padding: 16rpx 24rpx;
+  border: 2rpx solid transparent;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.search-input-wrap:focus-within {
+  border-color: #0FBF9F;
+  background: #FFFFFF;
 }
 
 .search-icon-img {
@@ -187,6 +199,11 @@ function onCreateNew() {
   height: 28rpx;
   margin-right: 12rpx;
   flex-shrink: 0;
+  color: #999999;
+}
+
+.search-input-wrap:focus-within .search-icon-img {
+  color: #0FBF9F;
 }
 
 .search-icon {
@@ -209,14 +226,27 @@ function onCreateNew() {
 .filter-tab {
   flex: 1;
   text-align: center;
-  padding: 20rpx 0;
+  padding: 20rpx 8rpx;
   font-size: 26rpx;
   color: #666666;
+  position: relative;
 }
 
 .filter-tab.active {
   color: #FF6B6B;
   font-weight: 600;
+}
+
+.filter-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32rpx;
+  height: 4rpx;
+  background: #FF6B6B;
+  border-radius: 2rpx;
 }
 
 .list-area {
@@ -229,7 +259,9 @@ function onCreateNew() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 120rpx 0;
+  justify-content: center;
+  padding: 200rpx 0 120rpx;
+  min-height: 60vh;
 }
 
 .empty-icon {
@@ -238,9 +270,11 @@ function onCreateNew() {
 }
 
 .empty-icon-img {
-  width: 80rpx;
-  height: 80rpx;
-  margin-bottom: 16rpx;
+  width: 96rpx;
+  height: 96rpx;
+  margin-bottom: 24rpx;
+  color: #0FBF9F;
+  opacity: 0.85;
 }
 
 .empty-text {
@@ -250,31 +284,61 @@ function onCreateNew() {
 
 .animal-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   background: #FFFFFF;
-  border-radius: 16rpx;
-  padding: 28rpx;
+  border-radius: 20rpx;
   margin: 0 0 20rpx 0;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.animal-row:active {
+  transform: scale(0.99);
+  background: #FAFBFC;
+}
+
+/* 左侧 6rpx 状态色条 */
+.card-accent {
+  width: 6rpx;
+  flex-shrink: 0;
+}
+
+.accent-lost    { background: linear-gradient(180deg, #FF6B6B 0%, #E53A3A 100%); }
+.accent-found   { background: linear-gradient(180deg, #0FBF9F 0%, #07C160 100%); }
+.accent-claimed { background: linear-gradient(180deg, #FFB84D 0%, #FF9F00 100%); }
+.accent-archived{ background: linear-gradient(180deg, #BBBBBB 0%, #888888 100%); }
+.accent-other   { background: #EEEEEE; }
+
+.card-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 24rpx 24rpx 24rpx 20rpx;
+  min-width: 0;
 }
 
 .animal-photo {
   width: 120rpx;
   height: 120rpx;
-  border-radius: 12rpx;
+  border-radius: 14rpx;
   margin-right: 16rpx;
   background: #E8FDF8;
   flex-shrink: 0;
+  border: 2rpx solid #FFFFFF;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
 }
 
 .animal-info {
   flex: 1;
+  min-width: 0;
 }
 
 .info-header {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  margin-bottom: 4rpx;
+  margin-bottom: 6rpx;
 }
 
 .breed {
@@ -284,16 +348,29 @@ function onCreateNew() {
 }
 
 .status-tag {
-  font-size: 18rpx;
-  color: #FFFFFF;
-  background: #FF6B6B;
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 20rpx;
+  font-weight: 600;
   padding: 2rpx 10rpx;
-  border-radius: 8rpx;
+  border-radius: 10rpx;
+  color: #FF6B6B;
+  background: rgba(255, 107, 107, 0.1);
 }
 
-.status-lost { background: #FF6B6B !important; }
-.status-found { background: #0FBF9F !important; }
-.status-claimed { background: #FF9F00 !important; }
+.status-tag::before {
+  content: '';
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-lost    { color: #FF6B6B; background: rgba(255, 107, 107, 0.1); }
+.status-found   { color: #0FBF9F; background: rgba(15, 191, 159, 0.1); }
+.status-claimed { color: #FF9F00; background: rgba(255, 159, 0, 0.1); }
+.status-archived{ color: #888888; background: rgba(187, 187, 187, 0.18); }
 
 .color {
   font-size: 22rpx;
@@ -306,6 +383,10 @@ function onCreateNew() {
   color: #999999;
   display: block;
   margin-top: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320rpx;
 }
 
 .address-wrap {
@@ -319,19 +400,33 @@ function onCreateNew() {
   height: 18rpx;
   margin-right: 4rpx;
   flex-shrink: 0;
+  color: #BBBBBB;
 }
 
-.arrow {
-  font-size: 36rpx;
-  color: #CCCCCC;
+.arrow-img {
+  width: 32rpx;
+  height: 32rpx;
   margin-left: 12rpx;
+  color: #CCCCCC;
+  flex-shrink: 0;
 }
 
 .no-more {
-  text-align: center;
-  padding: 24rpx;
-  font-size: 24rpx;
-  color: #999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx 0;
+  font-size: 22rpx;
+  color: #BBBBBB;
+  gap: 16rpx;
+}
+
+.no-more::before,
+.no-more::after {
+  content: '';
+  width: 60rpx;
+  height: 1rpx;
+  background: #DDDDDD;
 }
 
 .filter-bar {
@@ -352,7 +447,7 @@ function onCreateNew() {
 .fab-add {
   position: fixed;
   right: 32rpx;
-  bottom: 48rpx;
+  bottom: 140rpx;
   width: 100rpx;
   height: 100rpx;
   border-radius: 50%;

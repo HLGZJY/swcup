@@ -82,18 +82,18 @@ print("\n=== 3. 创建动物档案 ===")
 
 animals_data = [
     # 走失狗
-    dict(name="豆豆",   species="dog", breed="金毛",      color="金色",   gender="male",   age="adult", health="healthy", sterilized=True,  status="lost",    lat=31.2304, lng=121.4737, addr="上海市静安区南京西路1788号",    notes="走失时佩戴蓝色项圈，尾巴尖有白毛，很亲人",    tags=["走失", "佩戴项圈", "亲人"], days_ago=5),
-    dict(name="旺财",   species="dog", breed="土狗",       color="棕色",   gender="female", age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2404, lng=121.4837, addr="上海市静安区北京西路100号",       notes="左耳有缺口，很温顺，旁边有狗粮",             tags=["走失", "温顺"], days_ago=3),
-    dict(name="小白",   species="dog", breed="萨摩耶",     color="白色",   gender="male",   age="young", health="healthy", sterilized=True,  status="lost",    lat=31.2504, lng=121.4937, addr="上海市静安区华山路88号",         notes="走失时穿红色背心，很干净，毛发洁白",          tags=["走失", "穿背心"], days_ago=2),
-    dict(name="大黄",   species="dog", breed="拉布拉多",   color="黄色",   gender="male",   age="adult", health="injured", sterilized=True,  status="lost",    lat=31.2604, lng=121.5037, addr="上海市浦东新区世纪大道200号",    notes="右后腿受伤，行走缓慢，急需救助",             tags=["走失", "受伤", "急需救助"], days_ago=1),
-    dict(name="黑妞",   species="dog", breed="柴犬",       color="黑色",   gender="female", age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2104, lng=121.4637, addr="上海市徐汇区淮海中路999号",       notes="棕色围脖，很警觉，不让人靠近",               tags=["走失", "警觉"], days_ago=4),
+    dict(name="豆豆",   species="dog", breed="金毛",      color="金色",   gender="male",   age="adult", health="healthy", sterilized=True,  status="lost",    lat=31.2304, lng=121.4737, addr="上海市静安区南京西路1788号",    notes="走失时佩戴蓝色项圈，尾巴尖有白毛，很亲人",    tags=["走失", "佩戴项圈", "亲人"], days_ago=5,    size="large",  coat_length="long",   ear_type="floppy", tail_type="long"),
+    dict(name="旺财",   species="dog", breed="土狗",       color="棕色",   gender="female", age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2404, lng=121.4837, addr="上海市静安区北京西路100号",       notes="左耳有缺口，很温顺，旁边有狗粮",             tags=["走失", "温顺"], days_ago=3,                size="medium", coat_length="short",  ear_type="erect",  tail_type="curled"),
+    dict(name="小白",   species="dog", breed="萨摩耶",     color="白色",   gender="male",   age="young", health="healthy", sterilized=True,  status="lost",    lat=31.2504, lng=121.4937, addr="上海市静安区华山路88号",         notes="走失时穿红色背心，很干净，毛发洁白",          tags=["走失", "穿背心"], days_ago=2,             size="medium", coat_length="long",   ear_type="erect",  tail_type="curled"),
+    dict(name="大黄",   species="dog", breed="拉布拉多",   color="黄色",   gender="male",   age="adult", health="injured", sterilized=True,  status="lost",    lat=31.2604, lng=121.5037, addr="上海市浦东新区世纪大道200号",    notes="右后腿受伤，行走缓慢，急需救助",             tags=["走失", "受伤", "急需救助"], days_ago=1,      size="large",  coat_length="short",  ear_type="floppy", tail_type="long"),
+    dict(name="黑妞",   species="dog", breed="柴犬",       color="黑色",   gender="female", age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2104, lng=121.4637, addr="上海市徐汇区淮海中路999号",       notes="棕色围脖，很警觉，不让人靠近",               tags=["走失", "警觉"], days_ago=4,                size="small",  coat_length="short",  ear_type="erect",  tail_type="curled"),
     # 已找到/已认领狗
-    dict(name="花花",   species="dog", breed="边牧",       color="黑白",   gender="female", age="adult", health="healthy", sterilized=True,  status="claimed", lat=31.2204, lng=121.4537, addr="上海市长宁区延安西路100号",       notes="被人捡到，已联系主人认领",                   tags=["捡到", "已认领"], days_ago=10),
-    dict(name="来福",   species="dog", breed="柯基",       color="黄白",   gender="male",   age="puppy", health="healthy", sterilized=False, status="found",   lat=31.2704, lng=121.5137, addr="上海市闵行区莘庄镇莘建路88号",    notes="走失小狗，在路边徘徊，疑似走失",             tags=["捡到", "待认领"], days_ago=6),
+    dict(name="花花",   species="dog", breed="边牧",       color="黑白",   gender="female", age="adult", health="healthy", sterilized=True,  status="claimed", lat=31.2204, lng=121.4537, addr="上海市长宁区延安西路100号",       notes="被人捡到，已联系主人认领",                   tags=["捡到", "已认领"], days_ago=10,            size="medium", coat_length="medium", ear_type="erect",  tail_type="long"),
+    dict(name="来福",   species="dog", breed="柯基",       color="黄白",   gender="male",   age="puppy", health="healthy", sterilized=False, status="found",   lat=31.2704, lng=121.5137, addr="上海市闵行区莘庄镇莘建路88号",    notes="走失小狗，在路边徘徊，疑似走失",             tags=["捡到", "待认领"], days_ago=6,             size="small",  coat_length="medium", ear_type="erect",  tail_type="short"),
     # 走失猫
-    dict(name="咪咪",   species="cat", breed="中华田园猫", color="橘色",   gender="male",   age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2304, lng=121.4637, addr="上海市静安区新闸路200号",         notes="橘色狸花，胖胖的，佩戴粉色项圈",             tags=["走失", "佩戴项圈"], days_ago=7),
-    dict(name="团子",   species="cat", breed="英短",       color="蓝灰色", gender="female", age="adult", health="ill",    sterilized=True,  status="lost",    lat=31.2404, lng=121.4737, addr="上海市静安区昌平路50号",          notes="英短蓝猫，眼睛有分泌物，需治疗",             tags=["走失", "生病"], days_ago=3),
-    dict(name="雪球",   species="cat", breed="波斯猫",     color="白色",   gender="male",   age="senior",health="healthy", sterilized=True,  status="found",   lat=31.2504, lng=121.4837, addr="上海市静安区江宁路88号",          notes="纯白波斯猫，很温顺，在小区内徘徊",           tags=["捡到", "待找主人"], days_ago=8),
+    dict(name="咪咪",   species="cat", breed="中华田园猫", color="橘色",   gender="male",   age="adult", health="healthy", sterilized=False, status="lost",    lat=31.2304, lng=121.4637, addr="上海市静安区新闸路200号",         notes="橘色狸花，胖胖的，佩戴粉色项圈",             tags=["走失", "佩戴项圈"], days_ago=7,            size="medium", coat_length="short",  ear_type="erect",  tail_type="long"),
+    dict(name="团子",   species="cat", breed="英短",       color="蓝灰色", gender="female", age="adult", health="ill",    sterilized=True,  status="lost",    lat=31.2404, lng=121.4737, addr="上海市静安区昌平路50号",          notes="英短蓝猫，眼睛有分泌物，需治疗",             tags=["走失", "生病"], days_ago=3,                size="medium", coat_length="short",  ear_type="erect",  tail_type="short"),
+    dict(name="雪球",   species="cat", breed="波斯猫",     color="白色",   gender="male",   age="senior",health="healthy", sterilized=True,  status="found",   lat=31.2504, lng=121.4837, addr="上海市静安区江宁路88号",          notes="纯白波斯猫，很温顺，在小区内徘徊",           tags=["捡到", "待找主人"], days_ago=8,            size="medium", coat_length="long",   ear_type="floppy", tail_type="long"),
 ]
 
 animal_ids = {}
@@ -102,12 +102,14 @@ for i, a in enumerate(animals_data):
     first_seen = ts(days_ago=a['days_ago']+2)
     last_seen  = ts(days_ago=a['days_ago'])
     cur.execute(
-        "INSERT INTO animals (animal_id, status, species, breed, color, gender, age_estimate, health_status, sterilized, first_seen_at, last_seen_at, location_lat, location_lng, address, notes, tags, photos, created_at, updated_at) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "INSERT INTO animals (animal_id, status, species, breed, color, gender, age_estimate, health_status, sterilized, first_seen_at, last_seen_at, location_lat, location_lng, address, notes, tags, photos, size, coat_length, ear_type, tail_type, created_at, updated_at) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (aid, a['status'], a['species'], a['breed'], a['color'], a['gender'],
          a['age'], a['health'], a['sterilized'], first_seen, last_seen,
          a['lat'], a['lng'], a['addr'], a['notes'],
-         json.dumps(a['tags']), json.dumps([]), ts(), ts())
+         json.dumps(a['tags']), json.dumps([]),
+         a['size'], a['coat_length'], a['ear_type'], a['tail_type'],
+         ts(), ts())
     )
     animal_ids[i] = {'id': aid, 'name': a['name']}
     print(f"  [{a['status']:7}] {a['name']} ({a['species']} {a['breed']}) → {aid[:8]}...")
