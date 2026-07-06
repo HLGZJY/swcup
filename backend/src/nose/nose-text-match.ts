@@ -42,7 +42,10 @@ export function textMatch(dto: any, animal: any): number {
       matched += weight
     }
   }
-  // 没有可对比字段 → 返回中性值 1, 避免融合分被拉成 0
-  if (totalWeight === 0) return 1
+  // BUG-008 修复: 没有可对比字段 → 返回 0(不再给中性值 1)
+  // 旧逻辑返回 1 会导致"毫不相关两个动物 text_match_rate=100%"被误判为完美匹配,
+  // 进而 fusion_score 被拉高,审核员看到不合理的合并候选。
+  // 现在 totalWeight=0 时返回 0,代表"无文本证据",由其它维度(gps/鼻纹)主导判定。
+  if (totalWeight === 0) return 0
   return parseFloat((matched / totalWeight).toFixed(4))
 }

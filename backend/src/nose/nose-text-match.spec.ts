@@ -105,8 +105,8 @@ describe('nose-text-match', () => {
   });
 
   describe('textMatch - 缺失字段处理', () => {
-    it('dto 全空,animal 全空 → 没有可对比字段 → 返回中性值 1', () => {
-      expect(textMatch({}, {})).toBe(1);
+    it('dto 全空,animal 全空 → 没有可对比字段 → 返回 0(BUG-008 修复后不再给中性值 1)', () => {
+      expect(textMatch({}, {})).toBe(0);
     });
 
     it('dto 缺字段,animal 有字段 → 跳过该字段(不计入分母)', () => {
@@ -134,12 +134,12 @@ describe('nose-text-match', () => {
     it('animal 为 null 时不应抛错(兜底)', () => {
       const dto = { color: 'yellow' };
       // @ts-expect-error 测试 null 兜底
-      expect(textMatch(dto, null)).toBe(1);
+      expect(textMatch(dto, null)).toBe(0);
     });
 
     it('dto 为 null 时不应抛错(兜底)', () => {
       // @ts-expect-error 测试 null 兜底
-      expect(textMatch(null, { color: 'yellow' })).toBe(1);
+      expect(textMatch(null, { color: 'yellow' })).toBe(0);
     });
   });
 
@@ -150,6 +150,36 @@ describe('nose-text-match', () => {
       const result = textMatch(dto, animal);
       // 1.0 或其字符串最多 4 位小数
       expect(String(result).split('.')[1]?.length || 0).toBeLessThanOrEqual(4);
+    });
+  });
+
+  describe('textMatch - 【回归 BUG-008】文本匹配度不应被默认为 1', () => {
+    // 用户实测: 拉布拉多 vs 金毛 → text_match_rate=1.0 (BUG)
+    // 修复后: 不应给中性值 1;按字段加权计算
+
+    it('【回归】拉布拉多 vs 金毛 (仅 breed 不同, color/gender 相同) → 不应等于 1.0', () => {
+      const dto = { breed: '拉布拉多', color: '黄色', gender: 'male' };
+      const animal = { breed: '金毛', color: '黄色', gender: 'male' };
+      const score = textMatch(dto, animal);
+      // color(0.20) + gender(0.10) = 0.30; breed(0.10) 不匹配 → 0.30 / 0.40 = 0.75
+      expect(score).toBe(0.75);
+      expect(score).not.toBe(1);
+    });
+
+    it('【回归】完全不相关的字段 (dog vs cat, 颜色不同, 性别不同) → 应接近 0', () => {
+      const dto = { breed: '拉布拉多', color: '黄色', gender: 'male' };
+      const animal = { breed: '萨摩耶', color: '白色', gender: 'female' };
+      const score = textMatch(dto, animal);
+      // 全部不匹配 → 0
+      expect(score).toBe(0);
+      expect(score).not.toBe(1);
+    });
+
+    it('【回归】dto 全空 animal 有字段 → 返回 0(旧逻辑给 1 会误判完美匹配)', () => {
+      // 旧逻辑:textMatch({}, {color:'黄色', breed:'金毛'}) → 返回 1
+      // 新逻辑:应该返回 0,因为没有可对比字段
+      const score = textMatch({}, { color: '黄色', breed: '金毛' });
+      expect(score).toBe(0);
     });
   });
 });
