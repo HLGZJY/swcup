@@ -93,7 +93,11 @@
 
     <!-- 时间线 -->
     <view class="section timeline-section">
-      <text class="section-title">📋 事件时间线</text>
+      <view class="section-header-row">
+        <text class="section-title">📋 事件时间线</text>
+        <!-- 阶段 3 (2026-07-06): 跳到独立时间轴页 -->
+        <text class="timeline-entry" @click="goTimeline">查看完整时间轴 ›</text>
+      </view>
       <view class="timeline">
         <view class="timeline-item">
           <view class="timeline-dot"></view>
@@ -131,8 +135,10 @@
           <text class="label">鼻纹</text>
         </view>
       </view>
-      <view class="btn-claim" @click="onClaim">
-        <text>我要认领</text>
+      <!-- 阶段 3 (2026-07-06): 拆成"我又看到这只"+"申请认领"两按钮 -->
+      <view class="action-buttons">
+        <button class="btn-secondary" size="mini" @click="onSighting">我又看到这只</button>
+        <button class="btn-primary" size="mini" @click="onClaim">申请认领</button>
       </view>
     </view>
 
@@ -287,6 +293,26 @@ function onClaim() {
   uni.navigateTo({
     url: `/pages/claim/index?animal_id=${animal.value.animal_id}`
   })
+}
+
+// 阶段 3 (2026-07-06): 用户上报又看到这只动物,带 animal_id 跳到 report 页
+function onSighting() {
+  const id = animal.value?.animal_id
+  if (!id) {
+    uni.showToast({ title: '档案信息缺失', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/report/index?animal_id=${id}` })
+}
+
+// 阶段 3 (2026-07-06): 跳到独立时间轴页
+function goTimeline() {
+  const id = animal.value?.animal_id
+  if (!id) {
+    uni.showToast({ title: '档案信息缺失', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: `/pages/animal-detail/timeline?id=${id}` })
 }
 </script>
 
@@ -611,4 +637,12 @@ function onClaim() {
   font-size: 26rpx;
   color: #666666;
 }
+
+/* 阶段 3 (2026-07-06): 时间轴头部布局 + 并排按钮 */
+.section-header-row { display: flex; align-items: center; justify-content: space-between; }
+.timeline-entry { color: #0FBF9F; font-size: 26rpx; }
+.action-buttons { display: flex; gap: 16rpx; }
+.action-buttons button { flex: 1; }
+.btn-secondary { background: #F2F2F2; color: #333333; }
+.btn-primary { background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%); color: #FFFFFF; }
 </style>
