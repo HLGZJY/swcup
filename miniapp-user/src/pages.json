@@ -121,6 +121,14 @@
       "style": {
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/animal-detail/comments",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "black",
+        "enablePullDownRefresh": false
+      }
     }
   ],
   "globalStyle": {
