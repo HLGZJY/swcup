@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: Comments API
+  version: '1.0.0'
+  description: 用户对动物评论 + AI 后台处理
+paths:
+  /v1/comments:
+    post:
+      summary: 发表评论
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentDto'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400': { description: Bad Request }
+  /v1/comments/animal/{animal_id}/summary:
+    get:
+      summary: 评论摘要(情感分布 + Top 关键词)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: animal_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentSummary'
+  /v1/comments/animal/{animal_id}:
+    get:
+      summary: 列出该动物评论
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: animal_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, maximum: 100 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Comment' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Sentiment:
+      type: string
+      enum: [care, seek, fake, thanks, report, neutral]
+    Comment:
+      type: object
+      properties:
+        comment_id: { type: string, format: uuid }
+        animal_id: { type: string, format: uuid }
+        reporter_id: { type: string, format: uuid }
+        content: { type: string, maxLength: 500 }
+        sentiment: { $ref: '#/components/schemas/Sentiment' }
+        is_hidden: { type: boolean }
+        created_at: { type: string, format: date-time }
+    CreateCommentDto:
+      type: object
+      required: [animal_id, content]
+      properties:
+        animal_id: { type: string, format: uuid }
+        content: { type: string, minLength: 1, maxLength: 500 }
+    CommentSummary:
+      type: object
+      properties:
+        animal_id: { type: string, format: uuid }
+        total: { type: integer }
+        sentiment_dist:
+          type: object
+          additionalProperties: { type: integer }
+        top_keywords:
+          type: array
+          items: { type: string }
+        auto_summary: { type: string }

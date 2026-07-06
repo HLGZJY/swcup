@@ -43,6 +43,7 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^10.1.1",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -78,8 +79,20 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/test",
+      "<rootDir>/../docs"
+    ],
+    "testMatch": [
+      "**/*.spec.ts",
+      "**/*.test.ts",
+      "**/docs/**/*.test.ts"
+    ],
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
