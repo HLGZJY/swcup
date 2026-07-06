@@ -223,6 +223,25 @@
         />
         <text class="char-count">{{ notes.length }}/500</text>
       </view>
+
+      <!-- 阶段 3 (2026-07-06): intent 收音机 — 用户表达走失/捡到意图 -->
+      <view class="form-item">
+        <text class="form-label">我的意图</text>
+        <view class="gender-options">
+          <view
+            :class="['gender-btn', { selected: intent === 'lost' }]"
+            @click="intent = 'lost'"
+          >
+            <text>我走失了狗</text>
+          </view>
+          <view
+            :class="['gender-btn', { selected: intent === 'found' }]"
+            @click="intent = 'found'"
+          >
+            <text>我捡到狗</text>
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- 确认提交 -->
@@ -344,6 +363,8 @@ const genderOptions = [
   { value: 'male', label: '公' },
   { value: 'female', label: '母' },
 ]
+// 阶段 3 (2026-07-06): 用户意图 — 走失/捡到 (供后续事件透传使用)
+const intent = ref<'lost' | 'found'>('lost')
 const genderLabel = computed(() => {
   return genderOptions.find(g => g.value === gender.value)?.label || '未知'
 })
