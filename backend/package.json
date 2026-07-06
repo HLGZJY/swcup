@@ -82,13 +82,16 @@
     "rootDir": ".",
     "roots": [
       "<rootDir>/src",
-      "<rootDir>/test",
       "<rootDir>/../docs"
     ],
     "testMatch": [
       "**/*.spec.ts",
       "**/*.test.ts",
       "**/docs/**/*.test.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/../docs/superpowers/"
     ],
     "modulePaths": [
       "<rootDir>/node_modules"
