@@ -1,0 +1,128 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "管理员登录",
+        "navigationBarBackgroundColor": "#1A1A1A",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/index",
+      "style": {
+        "navigationBarTitleText": "管理后台",
+        "navigationBarBackgroundColor": "#1A1A1A",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/admin/audit/index",
+      "style": {
+        "navigationBarTitleText": "审核中心",
+        "navigationBarBackgroundColor": "#1A1A1A",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/audit-detail/index",
+      "style": {
+        "navigationBarTitleText": "事件审核详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/animals/index",
+      "style": {
+        "navigationBarTitleText": "动物档案",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/events/index",
+      "style": {
+        "navigationBarTitleText": "事件管理",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/users/index",
+      "style": {
+        "navigationBarTitleText": "用户管理",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/users/detail/index",
+      "style": {
+        "navigationBarTitleText": "用户详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/animals/detail/index",
+      "style": {
+        "navigationBarTitleText": "动物档案详情",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/events/detail/index",
+      "style": {
+        "navigationBarTitleText": "事件详情",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "鼻纹智救-管理端",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#FF6B6B",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/admin/index",
+        "text": "首页",
+        "iconPath": "static/tab-home.png",
+        "selectedIconPath": "static/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/admin/audit/index",
+        "text": "审核",
+        "iconPath": "static/tab-audit.png",
+        "selectedIconPath": "static/tab-audit-active.png"
+      },
+      {
+        "pagePath": "pages/animals/index",
+        "text": "动物",
+        "iconPath": "static/tab-animal.png",
+        "selectedIconPath": "static/tab-animal-active.png"
+      },
+      {
+        "pagePath": "pages/events/index",
+        "text": "事件",
+        "iconPath": "static/tab-event.png",
+        "selectedIconPath": "static/tab-event-active.png"
+      },
+      {
+        "pagePath": "pages/users/index",
+        "text": "用户",
+        "iconPath": "static/tab-user.png",
+        "selectedIconPath": "static/tab-user-active.png"
+      }
+    ]
+  }
+}

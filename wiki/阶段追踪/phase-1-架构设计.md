@@ -39,7 +39,7 @@ tags: [阶段, 架构设计, W1]
 │              └──────────┬──────────┘                        │
 │                         │                                     │
 │                   MySQL 数据库                                  │
-│          （档案 + 事件 + 用户 + 128维向量）                      │
+│          （档案 + 事件 + 用户 + 512维向量）                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -159,8 +159,8 @@ CREATE TABLE animals (
 |------|------|------|------|
 | vector_id | VARCHAR(36) | PK | UUID |
 | animal_id | VARCHAR(36) | FK, NOT NULL | 关联动物 |
-| feature_vector | BLOB(512) | NOT NULL | 128维 Float 数组（512字节） |
-| vector_dimension | INT | DEFAULT 128 | 向量维度 |
+| feature_vector | LONGBLOB | NOT NULL | 512维 Float 数组（2048字节） |
+| vector_dimension | INT | DEFAULT 512 | 向量维度 |
 | nose_photo_url | VARCHAR(255) | NOT NULL | 鼻纹照片路径 |
 | landmark_data | JSON | | 关键点标注 |
 | confidence_score | DECIMAL(5,4) | | 质量置信度 0-1 |
@@ -174,8 +174,8 @@ CREATE TABLE animals (
 CREATE TABLE nose_features (
   vector_id VARCHAR(36) PRIMARY KEY,
   animal_id VARCHAR(36) NOT NULL,
-  feature_vector BLOB(512) NOT NULL,
-  vector_dimension INT DEFAULT 128,
+  feature_vector LONGBLOB NOT NULL,
+  vector_dimension INT DEFAULT 512,
   nose_photo_url VARCHAR(255) NOT NULL,
   landmark_data JSON,
   confidence_score DECIMAL(5,4),
@@ -381,7 +381,7 @@ POST /api/nose/compare
 **处理流程**：
 
 ```
-1. 后端 → FastAPI /extract/feature（图）   → 128维向量
+1. 后端 → FastAPI /extract/feature（图）   → 512维向量
 2. 后端 → MySQL 查询同物种 Top-50 候选向量
 3. 后端计算四维度融合得分：
    - 向量相似度（余弦）：权重 40%
@@ -468,7 +468,7 @@ POST /api/claims
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/detect/liveness` | POST | 活体检测，返回 { pass: bool, reason: string } |
-| `/extract/feature` | POST | 特征提取，接收图片返回 128 维向量 |
+| `/extract/feature` | POST | 特征提取，接收图片返回 512 维向量 |
 | `/compare/vector` | POST | 两向量余弦相似度计算 |
 
 ---
@@ -485,7 +485,7 @@ fusion_score = 0.40 × sim_vector + 0.20 × S_location + 0.20 × sim_image + 0.2
 
 | 维度 | 计算方式 | 说明 |
 |------|----------|------|
-| sim_vector | 余弦相似度 | 128 维向量，范围 0-1 |
+| sim_vector | 余弦相似度 | 512 维向量，范围 0-1 |
 | S_location | `max(0, 1-(d-500)/1000)` | d = 两点距离(m)，500m 内满分，1500m 外 0 分 |
 | sim_image | 1 - Hamming(pHash1 ⊕ pHash2) / 64 | 整图感知哈希相似度 |
 | sim_text | 关键词重合率 | 品种+颜色+性别+标签重合度 |
@@ -536,7 +536,7 @@ ai-service/
 │   │   └── vector.py   # 向量计算
 │   └── main.py
 ├── weights/
-│   └── mobilenet_v2_128d.pth  # 训练好的权重
+│   └── mobilenet_v2_512d.pth  # 训练好的权重
 ├── requirements.txt
 └── Dockerfile
 ```
@@ -591,7 +591,7 @@ main              # 主分支（保护）
 
 以下事项需要老师或团队确认后才能冻结：
 
-- [ ] **向量存储方案**：MySQL BLOB vs pgvector 扩展（MySQL 8.0 内置 JSON 数组也可存 128 维）
+- [ ] **向量存储方案**：MySQL BLOB vs pgvector 扩展（MySQL 8.0 内置 JSON 数组也可存 512 维）
 - [ ] **JWT 认证方案**：简单 token 还是完整 JWT？
 - [ ] **文件存储**：图片存本地 / OSS / 微信云存储？
 - [ ] **活体检测方案**：RGB 活体（低成本）还是 3D 结构光（高精度）？

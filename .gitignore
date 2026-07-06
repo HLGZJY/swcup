@@ -21,7 +21,7 @@ build/
 uploads/
 *.jpg
 *.jpeg
-*.png
+# *.png  # temporarily commented to allow tab icons
 *.mp4
 
 # 日志
@@ -41,3 +41,9 @@ weights/
 # OS
 .DS_Store
 Thumbs.db
+
+# 提交包：体积大，单独交付不入版本控制
+/submission/code/
+/submission/video/
+/submission/assets/architecture/old/
+/submission/assets/training/old/

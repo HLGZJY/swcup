@@ -1,0 +1,488 @@
+<template>
+  <view class="page">
+    <!-- 自定义 navbar（custom 模式：tabBar 页无返回箭头，右侧设置图标） -->
+    <view class="navbar">
+      <view class="navbar-statusbar" />
+      <view class="navbar-content">
+        <view class="navbar-spacer" />
+        <view class="navbar-action" @click="onSettings">
+          <image class="navbar-action-icon" src="/static/icons/icon-settings.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 用户信息卡片 -->
+    <view class="user-card">
+      <!-- 装饰背景（与首页 hero 风格一致） -->
+      <view class="hero-decor">
+        <view class="hero-blob hero-blob-1" />
+        <view class="hero-blob hero-blob-2" />
+      </view>
+
+      <view class="user-info">
+        <text class="user-name">{{ user.nickname }}</text>
+        <text class="user-phone">{{ user.phone }}</text>
+        <view class="user-role">
+          <text class="role-tag">{{ roleLabel }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 完善信息引导 Banner -->
+    <view v-if="needsProfileComplete" class="profile-banner" @click="goToCompleteProfile">
+      <view class="banner-left">
+        <image class="banner-icon-img" src="/static/icons/icon-clock-warning.svg" mode="aspectFit" />
+        <text class="banner-text">完善您的昵称和角色信息</text>
+      </view>
+      <image class="banner-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+    </view>
+
+    <!-- 统计卡片 -->
+    <view class="stats-grid">
+      <view class="stats-accent" />
+      <view class="stat-item" @click="goToMyReports">
+        <text class="stat-num">{{ stats.reportCount }}</text>
+        <text class="stat-label">上报事件</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item" @click="goToMyClaims">
+        <text class="stat-num">{{ stats.claimCount }}</text>
+        <text class="stat-label">认领记录</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-num">{{ stats.approvedCount }}</text>
+        <text class="stat-label">已认领</text>
+      </view>
+    </view>
+
+    <!-- 菜单列表 -->
+    <view class="menu-section">
+      <!-- 我的上报 -->
+      <view class="menu-item" @click="goToMyReports">
+        <image class="menu-icon-img" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
+        <text class="menu-text">我的上报</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+      </view>
+
+      <!-- 认领记录 -->
+      <view class="menu-item" @click="goToMyClaims">
+        <image class="menu-icon-img" src="/static/icons/icon-heart.svg" mode="aspectFit" />
+        <text class="menu-text">认领记录</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+      </view>
+
+      <!-- 绑定手机 -->
+      <view class="menu-item" @click="goToBindPhone">
+        <image class="menu-icon-img" src="/static/icons/icon-phone.svg" mode="aspectFit" />
+        <text class="menu-text">绑定手机</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="menu-section">
+      <!-- 帮助与反馈 -->
+      <view class="menu-item" @click="goToHelp">
+        <image class="menu-icon-img" src="/static/icons/icon-help.svg" mode="aspectFit" />
+        <text class="menu-text">帮助与反馈</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+      </view>
+
+      <!-- 关于我们 -->
+      <view class="menu-item" @click="goToAbout">
+        <image class="menu-icon-img" src="/static/icons/icon-info-gray.svg" mode="aspectFit" />
+        <text class="menu-text">关于我们</text>
+        <text class="menu-version">v1.0.0</text>
+        <image class="menu-arrow-img" src="/static/icons/icon-chevron-right.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <!-- 退出登录 -->
+    <view class="logout-btn" @click="onLogout">
+      <image class="logout-icon-img" src="/static/icons/icon-logout.svg" mode="aspectFit" />
+      <text>退出登录</text>
+    </view>
+
+    <!-- 自定义 tabBar -->
+    <custom-tabbar />
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { apiGetCurrentUser, apiGetMyClaims, apiGetMyEvents } from '@/services/api'
+
+async function refreshUserData() {
+  const [userRes, claimRes, eventRes] = await Promise.all([
+    apiGetCurrentUser(),
+    apiGetMyClaims(),
+    apiGetMyEvents()
+  ])
+
+  if (userRes.code === 0) {
+    user.value = userRes.data
+  }
+
+  if (claimRes.code === 0) {
+    stats.value.claimCount = claimRes.data.length
+    stats.value.approvedCount = claimRes.data.filter((c: any) => c.status === 'approved').length
+  }
+
+  if (eventRes.code === 0) {
+    stats.value.reportCount = (eventRes.data || []).length
+  }
+}
+
+const user = ref<any>({
+  nickname: '加载中...',
+  phone: '',
+  role: 'user'
+})
+
+const stats = ref({
+  reportCount: 0,
+  claimCount: 0,
+  approvedCount: 0
+})
+
+const roleLabel = computed(() => {
+  const map: Record<string, string> = {
+    user: '普通用户',
+    admin: '管理员',
+    org: '机构用户'
+  }
+  return map[user.value.role] || '普通用户'
+})
+
+const needsProfileComplete = computed(() => {
+  return !user.value.nickname || user.value.nickname === '加载中...'
+})
+
+onMounted(async () => {
+  await refreshUserData()
+  // 监听每次显示此页面（从其他页面返回）
+  uni.$on('page:refresh-user', refreshUserData)
+})
+
+onUnmounted(() => {
+  uni.$off('page:refresh-user', refreshUserData)
+})
+
+function goToMyReports() {
+  uni.navigateTo({ url: '/pages/my-reports/index' })
+}
+
+function goToMyClaims() {
+  uni.navigateTo({ url: '/pages/my-claims/index' })
+}
+
+function goToHelp() {
+  uni.showToast({ title: '帮助与反馈（开发中）', icon: 'none' })
+}
+
+function goToAbout() {
+  uni.showToast({ title: '鼻纹智救 v1.0.0', icon: 'none' })
+}
+
+function goToCompleteProfile() {
+  uni.navigateTo({ url: '/pages/profile/complete/index' })
+}
+
+function goToBindPhone() {
+  uni.navigateTo({ url: '/pages/profile/bind/index' })
+}
+
+function onSettings() {
+  uni.navigateTo({ url: '/pages/profile/bind/index' })
+}
+
+function onLogout() {
+  uni.showModal({
+    title: '提示',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        uni.clearStorageSync()
+        uni.reLaunch({ url: '/pages/index/index' })
+      }
+    }
+  })
+}
+</script>
+
+<style scoped lang="scss">
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+  padding-bottom: 48rpx;
+}
+
+/* 自定义 navbar（custom 模式：tabBar 页，渐变与 hero 同色） */
+.navbar {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+}
+
+.navbar-statusbar {
+  height: 48rpx;
+}
+
+.navbar-content {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+}
+
+.navbar-spacer {
+  flex: 1;
+}
+
+.navbar-action {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-action-icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.9;
+}
+
+.user-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  padding: 48rpx 32rpx 32rpx;
+  display: flex;
+  align-items: center;
+}
+
+/* 装饰背景（与首页 hero 风格一致） */
+.hero-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.hero-blob-1 {
+  width: 240rpx;
+  height: 240rpx;
+  top: -80rpx;
+  right: -60rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%);
+}
+
+.hero-blob-2 {
+  width: 180rpx;
+  height: 180rpx;
+  bottom: -60rpx;
+  left: -40rpx;
+  background: radial-gradient(circle, rgba(7,193,96,0.4), transparent 70%);
+}
+
+.user-info {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.user-name {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: block;
+}
+
+.user-phone {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.8);
+  display: block;
+  margin-top: 4rpx;
+}
+
+.user-role {
+  margin-top: 8rpx;
+}
+
+.role-tag {
+  background: rgba(255,255,255,0.2);
+  color: #FFFFFF;
+  font-size: 20rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.stats-grid {
+  position: relative;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  margin: 24rpx;
+  border-radius: 16rpx;
+  padding: 32rpx 32rpx 32rpx 38rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 顶部色条（与首页动物卡片 accent 同源） */
+.stats-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6rpx;
+  height: 100%;
+  background: linear-gradient(180deg, #0FBF9F 0%, rgba(15,191,159,0) 100%);
+  border-radius: 16rpx 0 0 16rpx;
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #0FBF9F;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  color: #999999;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.stat-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background: #EEEEEE;
+}
+
+.profile-banner {
+  margin: 24rpx 24rpx 0;
+  background: #FFF3E0;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1rpx solid #FFE0B2;
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+}
+
+.banner-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.banner-text {
+  font-size: 26rpx;
+  color: #E65100;
+}
+
+.banner-arrow-img {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.menu-section {
+  background: #FFFFFF;
+  margin: 24rpx 24rpx 24rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+  position: relative;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.menu-text {
+  font-size: 28rpx;
+  color: #1A1A1A;
+  flex: 1;
+}
+
+.menu-arrow-img {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.menu-count {
+  font-size: 22rpx;
+  color: #999999;
+  margin-right: 8rpx;
+}
+
+.menu-badge {
+  background: #FF6B6B;
+  color: #FFFFFF;
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 20rpx;
+  margin-right: 8rpx;
+}
+
+.menu-version {
+  font-size: 22rpx;
+  color: #999999;
+  margin-right: 8rpx;
+}
+
+.logout-btn {
+  margin: 48rpx 24rpx;
+  background: #FFFFFF;
+  text-align: center;
+  padding: 28rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #FF6B6B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.logout-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+</style>
