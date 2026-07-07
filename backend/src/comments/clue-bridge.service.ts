@@ -25,12 +25,14 @@ function makeNodeJiebaSegmenter(): Segmenter | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const jieba = require('nodejieba');
-    // 立即探测 native binding (lazy load 第一次调用时才报)
+    // 立即探测 native binding：用中文句子切，必须切出 >=1 个 2+字中文词
     try {
-      const probe = jieba.cut('test', true);
-      if (!Array.isArray(probe)) return null;
+      const probeRaw = jieba.cut('我在朝阳公园看到一只金毛', true);
+      if (!Array.isArray(probeRaw)) return null;
+      const probe = probeRaw.filter((w: string) => w && w.length >= 2 && /[\u4e00-\u9fa5]/.test(w));
+      if (probe.length === 0) return null;
     } catch {
-      return null; // native binding 缺失
+      return null; // native binding 缺失或中文切词异常
     }
     return {
       cut(content: string): string[] {
