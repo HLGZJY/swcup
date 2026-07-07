@@ -406,8 +406,14 @@ export class AdminService {
       animal.breed = dto?.breed ?? record.breed ?? null;
       animal.color = dto?.color ?? record.color ?? null;
       animal.gender = (dto?.gender ?? (record.gender as any) ?? Gender.UNKNOWN) as Gender;
-      animal.location_lat = (record.location_lat ?? 0) as any;
-      animal.location_lng = (record.location_lng ?? 0) as any;
+      // 缺失坐标 → 数据完整性问题,让 admin 看到而不静默吞掉
+      if (record.location_lat == null || record.location_lng == null) {
+        throw new BadRequestException(
+          `该记录缺少 GPS 坐标 (record_id=${record_id}),请检查 collect 阶段是否漏传 GPS`,
+        );
+      }
+      animal.location_lat = record.location_lat as any;
+      animal.location_lng = record.location_lng as any;
       animal.address = dto?.address ?? null;
       animal.photos = dto?.photos ?? [];
       animal.notes = null;
