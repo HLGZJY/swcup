@@ -678,6 +678,24 @@ async function onNext() {
     })
 
     collectResult.value = collectRes.data
+    // 阶段 4 (2026-07-07 低分鼻纹人工审核): 后端返回 under_review 时,前端拦截,不去比对页
+    // 场景: 后端在 collect 阶段发现向量相似度 < 0.75,已写入 pending_nose_records,
+    //       等待 Admin 审核。这条 vector_id 不该进比对流程,直接给用户"审核中"提示
+    if (collectRes.data?.next_action === 'under_review') {
+      uni.hideLoading()
+      uni.showModal({
+        title: '鼻纹审核中',
+        content: '鼻纹质量评分较低,已提交管理员人工审核,请耐心等待。审核通过后会通知您。',
+        showCancel: false,
+        confirmText: '返回首页',
+        success: (modalRes) => {
+          if (modalRes.confirm) {
+            uni.switchTab({ url: '/pages/index/index' })
+          }
+        },
+      })
+      return  // 阻断后续的 result 页跳转
+    }
     // 后端返回 vector_id，前端用 nose_id 作参数名（后端已兼容）
     const noseId = collectRes.data.vector_id || collectRes.data.nose_id
     const isDuplicate = collectRes.data.is_duplicate ? String(collectRes.data.is_duplicate) : 'false'
