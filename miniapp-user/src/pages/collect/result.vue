@@ -71,12 +71,20 @@
 
     <!-- 底部操作 -->
     <view class="bottom-actions">
-      <!-- 确认重复：显示认领按钮 -->
+      <!-- 确认重复: 显示"我要上报"(主) + "认领此动物"(次) -->
+      <!-- 阶段 3 (2026-07-06 BUG-FIX): 用户实测反馈
+           - 重复检测后只给认领按钮,无法给原档案补充发现记录
+           - "我要上报" 提交一条 sighting 事件,事件 intent='stray_sighting'
+           - "认领此动物" 走认领流程(animal-detail)
+      -->
       <view class="action-hint" v-if="isDuplicateConfirmed">
         <text class="hint-icon">⚠️</text>
-        <text>已确认重复，是否认领这只动物？</text>
+        <text>已确认重复,可以上报这条发现记录或认领这只动物</text>
       </view>
-      <view class="btn-primary" v-if="isDuplicateConfirmed" @click="onClaimAnimal">
+      <view class="btn-primary" v-if="isDuplicateConfirmed" @click="onReportSighting">
+        <text>我要上报</text>
+      </view>
+      <view class="btn-secondary" v-if="isDuplicateConfirmed" @click="onClaimAnimal">
         <text>认领此动物</text>
       </view>
       <!-- 有匹配：上报此动物 -->
@@ -127,11 +135,15 @@ const locationLng = ref<number | null>(null)
 const locationText = ref('')
 const bodyPhotoUrl = ref('')
 const nosePhotoUrl = ref('')
+// 阶段 3 (2026-07-06 BUG-FIX): 用户在 collect 表单选的 intent (lost/found)
+//   - 低分走"创建档案" → apiCreateAnimal 读取 → 决定 animal.status
+//   - 高分走"我要上报" → 提交 sighting 事件, intent='stray_sighting' (路人上报)
+const formIntent = ref<'lost' | 'found'>('lost')
 
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text, intent } = currentPage.options || {}
 
   if (!nose_id || nose_id === 'undefined') {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
@@ -171,6 +183,12 @@ onMounted(async () => {
     if (!isNaN(lng) && lng !== 0) locationLng.value = lng
   }
   locationText.value = safeDecode(location_text)
+  // 阶段 3 (2026-07-06 BUG-FIX): 取 intent (lost/found),默认 lost
+  //   - 用户在 collect 表单没选时(老调用),默认 lost (向后兼容)
+  //   - 用户选 "我捡到狗" 时,found → 创建档案后 animal.status=found
+  if (intent === 'found' || intent === 'lost') {
+    formIntent.value = intent
+  }
 
   // 统一走 compare 主路径: 不再因 is_duplicate=true 而本地伪造 compareResult
   // (旧逻辑伪造的 animal.photos=[] 导致匹配卡片预览图永远是 mock 占位图,
@@ -324,6 +342,80 @@ async function onClaimAnimal() {
   })
 }
 
+// ============ 阶段 3 (2026-07-06 BUG-FIX): "我要上报" ============
+// 用户实测反馈: 重复检测后只给"认领"按钮,无法补充发现记录 → 加此按钮
+// 行为:
+//   - 提交一条 report 事件, animal_id = 命中动物, intent='stray_sighting'
+//   - 后端 processEvent 跑 AI 评分 → fusion_score 落入 DB candidates
+//   - admin 端待审中心 +1,审核通过 → 目标 animal.report_count++,timeline +1
+//   - 用户立刻跳到动物详情(确认上报成功 + 看到时间轴)
+async function onReportSighting() {
+  const first = matchList.value[0]
+  if (!first?.animal_id) {
+    uni.showToast({ title: '数据异常，请重新采集', icon: 'none' })
+    return
+  }
+  if (!noseId.value) {
+    uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
+    return
+  }
+
+  // 兜底取真实 GPS (collect 已校验过,但这里再防御一次)
+  let realLat: number | null = locationLat.value
+  let realLng: number | null = locationLng.value
+  if (realLat == null || realLng == null || realLat === 0 || realLng === 0) {
+    try {
+      const loc: any = await uni.getLocation({ type: 'gcj02' })
+      if (loc && loc.latitude && loc.longitude && loc.latitude !== 0 && loc.longitude !== 0) {
+        realLat = loc.latitude
+        realLng = loc.longitude
+      }
+    } catch {
+      // 静默失败,后端从 animal 反查
+    }
+  }
+
+  uni.showLoading({ title: '上报中...' })
+  try {
+    await apiReportEvent({
+      event_type: 'report',
+      // 路人重复看到 → intent 标记为 stray_sighting
+      // (formIntent 是用户在 collect 表单选的 lost/found,这只反映"我自己"
+      //  而 sighting 事件是用户替"这次目击"留的证据,所以用 stray_sighting)
+      intent: 'stray_sighting',
+      animal_id: first.animal_id,
+      nose_vector_id: noseId.value,
+      species: selectedSpecies.value,
+      breed: formBreed.value || undefined,
+      color: formColor.value || undefined,
+      gender: formGender.value || undefined,
+      location_lat: realLat ?? undefined,
+      location_lng: realLng ?? undefined,
+      address: locationText.value || undefined,
+      description: formNotes.value || undefined,
+      photos: (bodyPhotoUrl.value && bodyPhotoUrl.value !== 'undefined' && bodyPhotoUrl.value !== 'null')
+        ? [bodyPhotoUrl.value] : undefined,
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '上报成功', icon: 'success' })
+    setTimeout(() => {
+      uni.redirectTo({
+        url: '/pages/animal-detail/index?animal_id=' + first.animal_id
+      })
+    }, 800)
+  } catch (e: any) {
+    uni.hideLoading()
+    console.error('[onReportSighting]', e)
+    const detail = extractErrorMessage(e)
+    uni.showModal({
+      title: '上报失败',
+      content: detail,
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+  }
+}
+
 // ============ Plan B 无匹配流程 ============
 function extractErrorMessage(e: any): string {
   // uni.request 失败时 e.data?.message 是后端返回的 message 字段（可能为字符串或字符串数组）
@@ -385,6 +477,10 @@ async function onCreateAnimal() {
       notes: formNotes.value || '',
       primary_nose_id: noseId.value,
       photos,
+      // 阶段 3 (2026-07-06 BUG-FIX): 透传用户表单意图 → 决定 animal.status
+      //   intent='lost'  → status=LOST (主人报失)
+      //   intent='found' → status=FOUND (主人捡回/捡到)
+      intent: formIntent.value,
     })
     const animalId = animalRes.data?.animal_id || animalRes.animal_id
     if (!animalId) throw new Error('创建动物档案失败')
@@ -394,6 +490,7 @@ async function onCreateAnimal() {
     // 现在用 'collect' 区分,管理端和我的上报页都会显示"采集"标签
     await apiReportEvent({
       event_type: 'collect',
+      intent: formIntent.value,
       animal_id: animalId,
       nose_vector_id: noseId.value,
       species: selectedSpecies.value,
