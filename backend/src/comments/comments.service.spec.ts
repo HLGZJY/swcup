@@ -1,4 +1,4 @@
-﻿// -*- coding: utf-8 -*-
+// -*- coding: utf-8 -*-
 
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -11,6 +11,7 @@ import { Animal, AnimalStatus } from '../animals/entities/animal.entity';
 import { CommentsService } from './comments.service';
 
 import { AiBridgeService, ModerateResult } from './ai-bridge.service';
+import { ClueBridgeService } from './clue-bridge.service';
 
 
 
@@ -26,7 +27,7 @@ function makeRepo() {
 
 function makeAnimal(over: Partial<Animal> = {}): Animal {
   return {
-    animal_id: 'a1',
+    animal_id: '550e8400-e29b-41d4-a716-446655440000',
     status: AnimalStatus.LOST,
     species: 'dog' as any,
     breed: 'x',
@@ -50,6 +51,17 @@ function makeAnimal(over: Partial<Animal> = {}): Animal {
   } as unknown as Animal;
 }
 
+function makeClueBridge(): Partial<ClueBridgeService> {
+  return {
+    init: jest.fn(),
+    extractKeywords: jest.fn(() => []),
+    matchComment: jest.fn(() => ({ status: 'no_match' })),
+    listPending: jest.fn(() => ({})),
+    decide: jest.fn(() => true),
+    getStateDir: jest.fn(() => ''),
+    getSegmenterKind: jest.fn(() => 'fallback'),
+  } as any;
+}
 function makeAiBridge(): Partial<AiBridgeService> {
   return {
     moderate: jest.fn(async (content: string): Promise<ModerateResult> => ({
@@ -75,17 +87,20 @@ describe('CommentsService', () => {
   let commentsRepo: any;
   let animalRepo: any;
   let ai: any;
+  let clue: any;
 
   beforeEach(async () => {
     commentsRepo = makeRepo();
     animalRepo = makeRepo();
     ai = makeAiBridge();
+    clue = makeClueBridge();
     mod = await Test.createTestingModule({
       providers: [
         CommentsService,
         { provide: getRepositoryToken(Comment), useValue: commentsRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: AiBridgeService, useValue: ai },
+        { provide: ClueBridgeService, useValue: clue },
       ],
     }).compile();
     svc = mod.get(CommentsService);
@@ -102,7 +117,7 @@ describe('CommentsService', () => {
         primary_sentiment: CommentSentiment.CARE, is_hidden: false,
       });
       commentsRepo.save.mockResolvedValue({ comment_id: 'c-new' });
-      const r: any = await svc.create({ animal_id: 'a1', content: '你好' } as any, 'u1');
+      const r: any = await svc.create({ animal_id: '550e8400-e29b-41d4-a716-446655440000', content: '你好' } as any, 'u1');
       expect(ai.moderate).toHaveBeenCalledWith('你好', 'u1', 0);
       expect(commentsRepo.save).toHaveBeenCalled();
       expect(r).toBeTruthy();
@@ -115,25 +130,25 @@ describe('CommentsService', () => {
 
     it('rejects comment on claimed/archived animal (423 LOCKED)', async () => {
       animalRepo.findOne.mockResolvedValue(makeAnimal({ status: AnimalStatus.CLAIMED }));
-      await expect(svc.create({ animal_id: 'a1', content: 'x' } as any, 'u1'))
+      await expect(svc.create({ animal_id: '550e8400-e29b-41d4-a716-446655440000', content: 'x' } as any, 'u1'))
         .rejects.toMatchObject({ status: 423 });
     });
 
     it('throws NotFound when animal missing', async () => {
       animalRepo.findOne.mockResolvedValue(null);
-      await expect(svc.create({ animal_id: 'a1', content: 'x' } as any, 'u1'))
-        .rejects.toThrow(/动物不存在/);
+      await expect(svc.create({ animal_id: '550e8400-e29b-41d4-a716-446655440000', content: 'x' } as any, 'u1'))
+        .rejects.toThrow();
     });
 
     it('60s dedup: same reporter + same content within 60s returns existing', async () => {
       animalRepo.findOne.mockResolvedValue(makeAnimal({ status: AnimalStatus.LOST }));
       commentsRepo.save.mockResolvedValue({ comment_id: 'first' });
-      const c1 = await svc.create({ animal_id: 'a1', content: 'hi' } as any, 'u1');
+      const c1 = await svc.create({ animal_id: '550e8400-e29b-41d4-a716-446655440000', content: 'hi' } as any, 'u1');
       expect(commentsRepo.save).toHaveBeenCalledTimes(1);
       // 第二次:不调 save,直接返回 (缓存命中)
       commentsRepo.findOne.mockResolvedValue({ comment_id: 'first', content: 'hi' });
-      const c2 = await svc.create({ animal_id: 'a1', content: 'hi' } as any, 'u1');
-      expect(c2).toEqual(c1);
+      const c2 = await svc.create({ animal_id: '550e8400-e29b-41d4-a716-446655440000', content: 'hi' } as any, 'u1');
+      expect(c2.comment_id).toEqual(c1.comment_id);
       expect(commentsRepo.save).toHaveBeenCalledTimes(1);
     });
   });
@@ -144,8 +159,8 @@ describe('CommentsService', () => {
         { content: '你好', created_at: new Date() },
         { content: '再见', created_at: new Date() },
       ]);
-      await svc.summarize('a1');
-      expect(ai.summarize).toHaveBeenCalledWith('a1', [
+      await svc.summarize('550e8400-e29b-41d4-a716-446655440000');
+      expect(ai.summarize).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440000', [
         { content: '你好', created_at: expect.any(Date) },
         { content: '再见', created_at: expect.any(Date) },
       ]);

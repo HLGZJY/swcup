@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { ClueAdminService } from './clue-admin.service';
+import { CommentsModule } from '../comments/comments.module';
 import { RescueEvent } from '../events/entities/event.entity';
 import { Claim } from '../claims/entities/claim.entity';
 import { Animal } from '../animals/entities/animal.entity';
@@ -20,9 +22,10 @@ import { NoseModule } from '../nose/nose.module';
     AnimalsModule,
     UsersModule,
     NoseModule,
+    CommentsModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
-  exports: [AdminService],
+  providers: [AdminService, ClueAdminService],
+  exports: [AdminService, ClueAdminService],
 })
 export class AdminModule {}
