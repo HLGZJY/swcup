@@ -167,9 +167,7 @@ export class AdminController {
     return this.adminService.updateUser(userId, body);
   }
 
-
-
-  // ====== P3 ÃƒÂ©Ã¢â‚¬â€Ã‚Â­ÃƒÂ§Ã…Â½Ã‚Â¯: ÃƒÂ¨Ã‚Â¯Ã¢â‚¬Å¾ÃƒÂ¨Ã‚Â®Ã‚ÂºÃƒÂ§Ã‚ÂºÃ‚Â¿ÃƒÂ§Ã‚Â´Ã‚Â¢ÃƒÂ¥Ã‚Â®Ã‚Â¡ÃƒÂ¦Ã‚Â Ã‚Â¸ (admin) =====
+  // ====== P3 评论线索: 管理线索审核 (admin) =====
   @Get('clues/pending')
   @ApiOperation({ summary: 'list all pending clues (admin)' })
   async listPendingClues(@Query() query: { include_all?: string }) {
@@ -194,5 +192,51 @@ export class AdminController {
       adminId,
     );
     return { ok: ok, match_id: matchId, animal_id: animalId, decision: body.decision };
+  }
+
+  // ========== 阶段 3 (2026-07-07): 低分鼻纹人工审核路由 ==========
+
+  @Get('pending-nose-records')
+  @ApiOperation({ summary: '低分鼻纹待审核列表' })
+  async getPendingNoseRecords(@Query() query: any) {
+    return this.adminService.getPendingNoseRecords(query);
+  }
+
+  @Get('pending-nose-records/:record_id')
+  @ApiOperation({ summary: '低分鼻纹待审核详情' })
+  async getPendingNoseRecordDetail(@Param('record_id') record_id: string) {
+    return this.adminService.getPendingNoseRecordDetail(record_id);
+  }
+
+  @Post('pending-nose-records/:record_id/approve-as-new')
+  @ApiOperation({ summary: '审核通过: 确认为新动物' })
+  async approveAsNew(
+    @Param('record_id') record_id: string,
+    @Body() dto: any,
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.approvePendingNoseAsNew(record_id, admin_id, dto);
+  }
+
+  @Post('pending-nose-records/:record_id/approve-as-duplicate')
+  @ApiOperation({ summary: '审核通过: 关联已有动物' })
+  async approveAsDuplicate(
+    @Param('record_id') record_id: string,
+    @Body() body: { animal_id: string },
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.approvePendingNoseAsDuplicate(record_id, body.animal_id, admin_id);
+  }
+
+  @Post('pending-nose-records/:record_id/reject')
+  @ApiOperation({ summary: '审核拒绝' })
+  async reject(
+    @Param('record_id') record_id: string,
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.rejectPendingNoseRecord(record_id, admin_id);
   }
 }

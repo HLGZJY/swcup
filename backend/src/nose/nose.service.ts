@@ -5,12 +5,14 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
+import { PendingNoseRecord, PendingNoseStatus } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species, Gender, AgeEstimate, HealthStatus } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
 import { textMatch } from './nose-text-match';
 
 const FUSION_WEIGHTS = { vector: 0.5, gps: 0.3, text: 0.2 };
+const LOW_SCORE_THRESHOLD = 0.75;
 
 // Haversine 计算两点间地球表面距离（米）
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -35,6 +37,7 @@ export class NoseService {
     @InjectRepository(NoseFeature) private readonly noseRepo: Repository<NoseFeature>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
+    @InjectRepository(PendingNoseRecord) private readonly pendingRepo: Repository<PendingNoseRecord>,
     private readonly config: ConfigService,
   ) {
     this.AI_SERVICE_URL =
@@ -254,7 +257,46 @@ export class NoseService {
       };
     }
 
-    // Step 6: 无匹配 → 全新鼻纹, 引导用户去结果页确认是否建档
+    // Step 6: 无匹配 / 低分匹配 → 写入 pending_nose_records, 进入人工审核
+    //   业务规则: 向量相似度 < 0.75 或无任何匹配 → 由 admin 决定是否建档/关联/拒绝
+    //   高分匹配 (>= 0.88) 在 Step 4 已走 ask_claim_or_new, 孤儿匹配在 Step 5 已走 ask_link_or_new / ask_claim_existing
+    const lowScore = bestMatch === null || bestMatch.cosine_similarity < LOW_SCORE_THRESHOLD;
+    if (lowScore) {
+      await this.pendingRepo.save(
+        this.pendingRepo.create({
+          record_id: uuidv4(),
+          vector_id,
+          collector_id: user_id,
+          vector_similarity: bestMatch?.cosine_similarity ?? null,
+          fusion_score: null,
+          gps_similarity: null,
+          text_match_rate: null,
+          status: PendingNoseStatus.PENDING,
+          animal_id: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          location_lat: dto.location_lat ?? null,
+          location_lng: dto.location_lng ?? null,
+          breed: dto.breed ?? null,
+          color: dto.color ?? null,
+          gender: dto.gender ?? null,
+          species: dto.species ?? null,
+          nose_photo_url: dto.nose_photo_url ?? null,
+          body_photo_url: dto.body_photo_url ?? null,
+        }),
+      );
+      return {
+        vector_id,
+        confidence_score,
+        liveness_passed,
+        is_duplicate: false,
+        matched_animal_id: null,
+        similarity: bestMatch?.cosine_similarity ?? null,
+        next_action: 'under_review',
+      };
+    }
+
+    // Step 7: 中分 (>=0.75 且 < 0.88) → 全新鼻纹, 引导用户去结果页确认是否建档
     return {
       vector_id,
       confidence_score,

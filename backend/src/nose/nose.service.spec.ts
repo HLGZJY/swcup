@@ -5,6 +5,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
 import { NoseService } from './nose.service';
 import { NoseFeature } from './entities/nose-feature.entity';
+import { PendingNoseRecord } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
 
@@ -48,6 +49,14 @@ function makeAnimalRepo() {
 function makeEventRepo() {
   return {
     find: jest.fn(),
+    findOne: jest.fn(),
+  };
+}
+
+function makePendingRepo() {
+  return {
+    create: jest.fn((dto) => dto),
+    save: jest.fn(async (e) => e),
     findOne: jest.fn(),
   };
 }
@@ -106,12 +115,14 @@ describe('NoseService', () => {
   let noseRepo: ReturnType<typeof makeNoseRepo>;
   let animalRepo: ReturnType<typeof makeAnimalRepo>;
   let eventRepo: ReturnType<typeof makeEventRepo>;
+  let pendingRepo: ReturnType<typeof makePendingRepo>;
 
   beforeEach(async () => {
     jest.resetAllMocks();  // 关键: 也要清 implementation, 否则 mockResolvedValueOnce 队列会跨测试残留
     noseRepo = makeNoseRepo();
     animalRepo = makeAnimalRepo();
     eventRepo = makeEventRepo();
+    pendingRepo = makePendingRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -119,6 +130,7 @@ describe('NoseService', () => {
         { provide: getRepositoryToken(NoseFeature), useValue: noseRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
+        { provide: getRepositoryToken(PendingNoseRecord), useValue: pendingRepo },
         { provide: ConfigService, useValue: { get: () => 'http://mock-ai' } },
       ],
     }).compile();
@@ -193,7 +205,7 @@ describe('NoseService', () => {
       expect(result.next_action).toBe('ask_claim_or_new');
     });
 
-    it('【主链路】相似度 < 0.88 + 无孤儿 → ask_user_create (全新鼻纹)', async () => {
+    it('【主链路】相似度 < 0.75 (无任何高分候选) → under_review (进入人工审核)', async () => {
       mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
       mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
       animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
@@ -209,7 +221,13 @@ describe('NoseService', () => {
 
       expect(result.is_duplicate).toBe(false);
       expect(result.matched_animal_id).toBeNull();
-      expect(result.next_action).toBe('ask_user_create');
+      expect(result.next_action).toBe('under_review');
+      // 应写入 pending_nose_records
+      expect(pendingRepo.save).toHaveBeenCalled();
+      const savedPending = pendingRepo.save.mock.calls[0][0];
+      expect(savedPending.status).toBe('pending');
+      expect(savedPending.vector_similarity).toBe(0.5);
+      expect(savedPending.collector_id).toBe('user-1');
     });
 
     it('【Bug6 兜底】主链路未达阈值,但孤儿表有匹配 → ask_link_or_new', async () => {
@@ -263,7 +281,27 @@ describe('NoseService', () => {
       expect(result.matched_animal_id).toBe('animal-2');
     });
 
-    it('无任何匹配 → 应保存鼻纹并返回 next_action=ask_user_create', async () => {
+    it('【阶段 3】中分 0.75~0.88 (低于高分阈值但>=低分阈值) + 无孤儿 → ask_user_create', async () => {
+      // 0.80 属于中分区间: 不走 under_review, 也不走 ask_claim_or_new, 应走 ask_user_create
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.80, l2_distance: 0.5 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      // 孤儿表无候选
+      noseRepo._qb.getMany.mockResolvedValue([]);
+
+      const result = await service.collect({
+        nose_photo: 'base64data',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1');
+
+      expect(result.next_action).toBe('ask_user_create');
+      // 不应写入 pending_nose_records (中分不需审核)
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('无任何匹配 → 应保存鼻纹 + 写入 pending + 返回 next_action=under_review', async () => {
       mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
       animalRepo._qb.getMany.mockResolvedValue([]);
       noseRepo._qb.getMany.mockResolvedValue([]);
@@ -275,11 +313,13 @@ describe('NoseService', () => {
       } as any, 'user-1');
 
       expect(result.is_duplicate).toBe(false);
-      expect(result.next_action).toBe('ask_user_create');
+      expect(result.next_action).toBe('under_review');
       expect(noseRepo.save).toHaveBeenCalled();
       const saved = noseRepo.save.mock.calls[0][0];
       expect(saved.animal_id).toBeNull();
       expect(saved.is_primary).toBe(true);  // 全新鼻纹 → primary=true
+      // 应同时写入 pending_nose_records
+      expect(pendingRepo.save).toHaveBeenCalled();
     });
 
     it('主链路 >=0.88 时新存鼻纹应 is_primary=false', async () => {
