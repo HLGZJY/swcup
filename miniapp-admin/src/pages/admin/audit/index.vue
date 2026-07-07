@@ -1,21 +1,21 @@
 <template>
   <view class="page">
-    <!-- 顶部 Hero（去重审核中心标题） -->
+    <!-- é¡¶éƒ¨ Heroï¼ˆåŽ»é‡å®¡æ ¸ä¸­å¿ƒæ ‡é¢˜ï¼‰ -->
     <view class="hero">
       <view class="hero-bg"></view>
       <view class="hero-content">
         <view class="hero-left">
-          <text class="hero-title">待审中心</text>
-          <text class="hero-sub">{{ pendingTotal }} 件待处理 · 实时同步</text>
+          <text class="hero-title">å¾…å®¡ä¸­å¿ƒ</text>
+          <text class="hero-sub">{{ pendingTotal }} ä»¶å¾…å¤„ç† Â· å®žæ—¶åŒæ­¥</text>
         </view>
         <view class="hero-stat" :class="pendingTotal > 0 ? 'has-pending' : 'all-clear'">
           <text class="stat-num">{{ pendingTotal }}</text>
-          <text class="stat-label">{{ pendingTotal > 0 ? '待审' : '已清' }}</text>
+          <text class="stat-label">{{ pendingTotal > 0 ? 'å¾…å®¡' : 'å·²æ¸…' }}</text>
         </view>
       </view>
     </view>
 
-    <!-- Tab 切换 -->
+    <!-- Tab åˆ‡æ¢ -->
     <view class="audit-tabs">
       <view
         :class="['tab-item', { active: currentTab === 'events' }]"
@@ -26,7 +26,7 @@
           src="/static/icons/icon-event.svg"
           mode="aspectFit"
         />
-        <text class="tab-text">事件审核</text>
+        <text class="tab-text">äº‹ä»¶å®¡æ ¸</text>
         <view class="tab-badge" v-if="pendingEvents > 0">{{ pendingEvents }}</view>
       </view>
       <view
@@ -38,23 +38,37 @@
           src="/static/icons/icon-shield.svg"
           mode="aspectFit"
         />
-        <text class="tab-text">认领审核</text>
+        <text class="tab-text">è®¤é¢†å®¡æ ¸</text>
         <view class="tab-badge tab-badge--claim" v-if="pendingClaims > 0">{{ pendingClaims }}</view>
       </view>
     </view>
 
-    <!-- 事件审核列表 -->
+      <view
+        :class="['tab-item', { active: currentTab === 'clues' }]"
+        @click="goClues"
+      >
+        <image
+          class="tab-icon"
+          src="/static/icons/icon-target.svg"
+          mode="aspectFit"
+        />
+        <text class="tab-text">线索审核</text>
+        <view class="tab-badge tab-badge--clue" v-if="pendingClues > 0">{{ pendingClues }}</view>
+      </view>
+    </view>
+
+    <!-- äº‹ä»¶å®¡æ ¸åˆ—è¡¨ -->
     <view v-if="currentTab === 'events'" class="tab-content">
       <view class="loading-state" v-if="loading">
         <view class="loading-spinner"></view>
-        <text class="loading-text">加载中...</text>
+        <text class="loading-text">åŠ è½½ä¸­...</text>
       </view>
       <view class="empty-state" v-else-if="events.length === 0">
         <view class="empty-icon-wrap">
           <image class="empty-icon" src="/static/icons/icon-check-circle-success.svg" mode="aspectFit" />
         </view>
-        <text class="empty-title">暂无待审核事件</text>
-        <text class="empty-sub">所有事件已处理完毕 ✨</text>
+        <text class="empty-title">æš‚æ— å¾…å®¡æ ¸äº‹ä»¶</text>
+        <text class="empty-sub">æ‰€æœ‰äº‹ä»¶å·²å¤„ç†å®Œæ¯• âœ¨</text>
       </view>
 
       <audit-event-card
@@ -67,18 +81,18 @@
       />
     </view>
 
-    <!-- 认领审核列表 -->
+    <!-- è®¤é¢†å®¡æ ¸åˆ—è¡¨ -->
     <view v-if="currentTab === 'claims'" class="tab-content">
       <view class="loading-state" v-if="loading">
         <view class="loading-spinner"></view>
-        <text class="loading-text">加载中...</text>
+        <text class="loading-text">åŠ è½½ä¸­...</text>
       </view>
       <view class="empty-state" v-else-if="claims.length === 0">
         <view class="empty-icon-wrap">
           <image class="empty-icon" src="/static/icons/icon-shield.svg" mode="aspectFit" />
         </view>
-        <text class="empty-title">暂无待审核认领</text>
-        <text class="empty-sub">所有认领申请已处理完毕</text>
+        <text class="empty-title">æš‚æ— å¾…å®¡æ ¸è®¤é¢†</text>
+        <text class="empty-sub">æ‰€æœ‰è®¤é¢†ç”³è¯·å·²å¤„ç†å®Œæ¯•</text>
       </view>
 
       <view
@@ -94,7 +108,7 @@
                 <image class="avatar-img" :src="resolveImageUrl(item.user?.avatar) || '/static/mock/avatar-default.png'" mode="aspectFill" />
               </view>
               <view class="user-info">
-                <text class="user-name">{{ item.user?.nickname || '匿名用户' }}</text>
+                <text class="user-name">{{ item.user?.nickname || 'åŒ¿åç”¨æˆ·' }}</text>
                 <text class="user-phone">{{ item.user?.phone || '' }}</text>
               </view>
             </view>
@@ -108,29 +122,29 @@
               mode="aspectFill"
             />
             <view class="animal-meta">
-              <text class="animal-breed">{{ item.animal?.breed || '未知品种' }}</text>
+              <text class="animal-breed">{{ item.animal?.breed || 'æœªçŸ¥å“ç§' }}</text>
               <view class="animal-info-row">
-                <text class="animal-info-item">📍 {{ item.animal?.address || '未知地点' }}</text>
+                <text class="animal-info-item">ðŸ“ {{ item.animal?.address || 'æœªçŸ¥åœ°ç‚¹' }}</text>
               </view>
               <view class="animal-info-row">
-                <text class="animal-info-item" v-if="item.animal?.color">🎨 {{ item.animal?.color }}</text>
+                <text class="animal-info-item" v-if="item.animal?.color">ðŸŽ¨ {{ item.animal?.color }}</text>
               </view>
             </view>
           </view>
 
           <view class="claim-notes" v-if="item.notes">
-            <text class="notes-label">认领说明</text>
+            <text class="notes-label">è®¤é¢†è¯´æ˜Ž</text>
             <text class="notes-text">{{ item.notes }}</text>
           </view>
 
           <view class="claim-actions">
             <view class="action-btn reject" @click="onRejectClaim(item.claim_id)">
               <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
-              <text>驳回</text>
+              <text>é©³å›ž</text>
             </view>
             <view class="action-btn approve" @click="onApproveClaim(item.claim_id)">
               <image class="action-icon" src="/static/icons/icon-check.svg" mode="aspectFit" />
-              <text>批准认领</text>
+              <text>æ‰¹å‡†è®¤é¢†</text>
             </view>
           </view>
         </view>
@@ -141,7 +155,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiGetAdminEvents, apiGetAdminClaims, apiConfirmEvent, apiRejectEvent, apiApproveClaim, apiRejectClaim, apiUpdateAnimal, resolveImageUrl } from '@/services/api'
+import { apiGetAdminEvents, apiGetAdminClaims, apiGetPendingClues, apiConfirmEvent, apiRejectEvent, apiApproveClaim, apiRejectClaim, apiUpdateAnimal, resolveImageUrl } from '@/services/api'
 import AuditEventCard from '@/components/audit-event-card/index.vue'
 
 const currentTab = ref('events')
@@ -151,7 +165,8 @@ const pendingEvents = ref(0)
 const pendingClaims = ref(0)
 const loading = ref(true)
 
-const pendingTotal = computed(() => pendingEvents.value + pendingClaims.value)
+const pendingClues = ref(0)
+const pendingTotal = computed(() => pendingEvents.value + pendingClaims.value + pendingClues.value)
 
 onMounted(() => {
   const launchOptions = uni.getLaunchOptionsSync()
@@ -166,7 +181,8 @@ async function loadAuditData() {
   try {
     const [eRes, cRes] = await Promise.all([
       apiGetAdminEvents({ status: 'pending' }),
-      apiGetAdminClaims({ status: 'pending' })
+      apiGetAdminClaims({ status: 'pending' }),
+      apiGetPendingClues().catch(() => ({ data: { items: [], total: 0 } })),
     ])
 
     if (eRes.code === 0) {
@@ -177,9 +193,12 @@ async function loadAuditData() {
       claims.value = cRes.data?.list || []
       pendingClaims.value = cRes.data?.total || 0
     }
+    const pRes: any = results[2]
+    const pPayload = pRes && pRes.data ? pRes.data : pRes
+    pendingClues.value = (pPayload && pPayload.total) || (pPayload && pPayload.items ? pPayload.items.length : 0)
   } catch (e) {
-    console.error('加载审核数据失败', e)
-    uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+    console.error('åŠ è½½å®¡æ ¸æ•°æ®å¤±è´¥', e)
+    uni.showToast({ title: 'åŠ è½½å¤±è´¥ï¼Œè¯·é‡è¯•', icon: 'none' })
   }
   loading.value = false
 }
@@ -188,13 +207,17 @@ function switchTab(tab: string) {
   currentTab.value = tab
 }
 
+function goClues() {
+  uni.navigateTo({ url: '/pages/admin/clues/index' })
+}
+
 function formatTime(isoString: string) {
   if (!isoString) return ''
   const d = new Date(isoString)
   const now = new Date()
   const isToday = d.toDateString() === now.toDateString()
   if (isToday) {
-    return `今天 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `ä»Šå¤© ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
   }
   return `${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
@@ -205,21 +228,21 @@ function goToDetail(eventId: string) {
 
 async function onConfirmEvent(eventId: string) {
   uni.showModal({
-    title: '确认通过',
-    content: '确定要将该事件标记为重复并合并档案吗？',
-    confirmText: '确认',
-    cancelText: '取消',
+    title: 'ç¡®è®¤é€šè¿‡',
+    content: 'ç¡®å®šè¦å°†è¯¥äº‹ä»¶æ ‡è®°ä¸ºé‡å¤å¹¶åˆå¹¶æ¡£æ¡ˆå—ï¼Ÿ',
+    confirmText: 'ç¡®è®¤',
+    cancelText: 'å–æ¶ˆ',
     confirmColor: '#07C160',
     success: async (res) => {
       if (res.confirm) {
         try {
           await apiConfirmEvent(eventId)
-          uni.showToast({ title: '已确认', icon: 'success' })
+          uni.showToast({ title: 'å·²ç¡®è®¤', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value = Math.max(0, pendingEvents.value - 1)
         } catch (e) {
-          console.error('确认事件失败', e)
-          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error('ç¡®è®¤äº‹ä»¶å¤±è´¥', e)
+          uni.showToast({ title: 'æ“ä½œå¤±è´¥', icon: 'none' })
         }
       }
     }
@@ -228,21 +251,21 @@ async function onConfirmEvent(eventId: string) {
 
 async function onRejectEvent(eventId: string) {
   uni.showModal({
-    title: '驳回事件',
-    content: '确定要驳回该事件吗？',
-    confirmText: '驳回',
-    cancelText: '取消',
+    title: 'é©³å›žäº‹ä»¶',
+    content: 'ç¡®å®šè¦é©³å›žè¯¥äº‹ä»¶å—ï¼Ÿ',
+    confirmText: 'é©³å›ž',
+    cancelText: 'å–æ¶ˆ',
     confirmColor: '#FF6B6B',
     success: async (res) => {
       if (res.confirm) {
         try {
           await apiRejectEvent(eventId)
-          uni.showToast({ title: '已驳回', icon: 'success' })
+          uni.showToast({ title: 'å·²é©³å›ž', icon: 'success' })
           events.value = events.value.filter(e => e.event_id !== eventId)
           pendingEvents.value = Math.max(0, pendingEvents.value - 1)
         } catch (e) {
-          console.error('驳回事件失败', e)
-          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error('é©³å›žäº‹ä»¶å¤±è´¥', e)
+          uni.showToast({ title: 'æ“ä½œå¤±è´¥', icon: 'none' })
         }
       }
     }
@@ -254,10 +277,10 @@ async function onApproveClaim(claimId: string) {
   if (!claim) return
 
   uni.showModal({
-    title: '批准认领',
-    content: `确定要批准 ${claim.user?.nickname || '该用户'} 的认领申请吗？`,
-    confirmText: '批准',
-    cancelText: '取消',
+    title: 'æ‰¹å‡†è®¤é¢†',
+    content: `ç¡®å®šè¦æ‰¹å‡† ${claim.user?.nickname || 'è¯¥ç”¨æˆ·'} çš„è®¤é¢†ç”³è¯·å—ï¼Ÿ`,
+    confirmText: 'æ‰¹å‡†',
+    cancelText: 'å–æ¶ˆ',
     confirmColor: '#07C160',
     success: async (res) => {
       if (res.confirm) {
@@ -266,12 +289,12 @@ async function onApproveClaim(claimId: string) {
           if (claim.animal_id) {
             await apiUpdateAnimal(claim.animal_id, { status: 'claimed' })
           }
-          uni.showToast({ title: '已批准', icon: 'success' })
+          uni.showToast({ title: 'å·²æ‰¹å‡†', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value = Math.max(0, pendingClaims.value - 1)
         } catch (e) {
-          console.error('批准认领失败', e)
-          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error('æ‰¹å‡†è®¤é¢†å¤±è´¥', e)
+          uni.showToast({ title: 'æ“ä½œå¤±è´¥', icon: 'none' })
         }
       }
     }
@@ -280,21 +303,21 @@ async function onApproveClaim(claimId: string) {
 
 async function onRejectClaim(claimId: string) {
   uni.showModal({
-    title: '驳回认领',
-    content: '确定要驳回该认领申请吗？',
-    confirmText: '驳回',
-    cancelText: '取消',
+    title: 'é©³å›žè®¤é¢†',
+    content: 'ç¡®å®šè¦é©³å›žè¯¥è®¤é¢†ç”³è¯·å—ï¼Ÿ',
+    confirmText: 'é©³å›ž',
+    cancelText: 'å–æ¶ˆ',
     confirmColor: '#FF6B6B',
     success: async (res) => {
       if (res.confirm) {
         try {
           await apiRejectClaim(claimId)
-          uni.showToast({ title: '已驳回', icon: 'success' })
+          uni.showToast({ title: 'å·²é©³å›ž', icon: 'success' })
           claims.value = claims.value.filter(c => c.claim_id !== claimId)
           pendingClaims.value = Math.max(0, pendingClaims.value - 1)
         } catch (e) {
-          console.error('驳回认领失败', e)
-          uni.showToast({ title: '操作失败', icon: 'none' })
+          console.error('é©³å›žè®¤é¢†å¤±è´¥', e)
+          uni.showToast({ title: 'æ“ä½œå¤±è´¥', icon: 'none' })
         }
       }
     }
@@ -309,7 +332,7 @@ async function onRejectClaim(claimId: string) {
   padding-bottom: 40rpx;
 }
 
-/* ============ 顶部 Hero ============ */
+/* ============ é¡¶éƒ¨ Hero ============ */
 .hero {
   position: relative;
   background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%);
@@ -396,7 +419,7 @@ async function onRejectClaim(claimId: string) {
 .hero-stat.has-pending .stat-label { color: #FF6B6B; }
 .hero-stat.all-clear .stat-label   { color: rgba(255,255,255,0.9); }
 
-/* ============ Tab 切换 ============ */
+/* ============ Tab åˆ‡æ¢ ============ */
 .audit-tabs {
   display: flex;
   background: #FFFFFF;
@@ -460,13 +483,13 @@ async function onRejectClaim(claimId: string) {
   background: #FF9F00;
 }
 
-/* ============ 列表区 ============ */
+/* ============ åˆ—è¡¨åŒº ============ */
 .tab-content {
   padding: 24rpx;
   min-height: 400rpx;
 }
 
-/* ============ 加载状态 ============ */
+/* ============ åŠ è½½çŠ¶æ€ ============ */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -493,7 +516,7 @@ async function onRejectClaim(claimId: string) {
   color: #999999;
 }
 
-/* ============ 空状态 ============ */
+/* ============ ç©ºçŠ¶æ€ ============ */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -530,7 +553,7 @@ async function onRejectClaim(claimId: string) {
   color: #999999;
 }
 
-/* ============ 认领卡片 ============ */
+/* ============ è®¤é¢†å¡ç‰‡ ============ */
 .claim-card {
   position: relative;
   display: flex;

@@ -1,11 +1,12 @@
 -- =============================================
--- Migration: 新建 comments 表(评论功能)
+-- Migration: 新建 comments 表(评论功能) + 查询索引
 -- 日期: 2026-07-06
 -- 原因: Phase 0 Task 0.2 占位,首次落地基础 schema
+--       Phase A Task A.1 补齐查询热点索引
 --       对应 OpenAPI: docs/api/comments.openapi.yaml
 -- 运行: docker exec -i swcup2026-db mysql -uroot -prootpassword nose_rescue < scripts/migrate-2026-07-06-create-comments.sql
--- 幂等: CREATE TABLE IF NOT EXISTS,可重复执行
--- 表 + 列级 CHECK 已落定;索引放到 Phase A-T1 再加
+-- 幂等: CREATE TABLE IF NOT EXISTS + INFORMATION_SCHEMA 守卫, 可重复执行
+-- 表 + 列级 CHECK + 索引均已落定
 -- =============================================
 
 USE nose_rescue;
@@ -40,4 +41,34 @@ CREATE TABLE IF NOT EXISTS comments (
   CONSTRAINT fk_comments_reporter FOREIGN KEY (reporter_id)
     REFERENCES users(user_id)
 );
--- 索引在 Phase A-T1 加 (animal_id, created_at DESC) / (reporter_id, created_at DESC) 等
+
+-- 索引(查询热点)
+-- MySQL 8.0 不支持 CREATE INDEX IF NOT EXISTS, 用 INFORMATION_SCHEMA + PREPARE 实现幂等
+-- 1) 详情页评论流: 按动物 + 倒序时间, 直接覆盖 ORDER BY created_at DESC
+SET @idx_exists := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = 'nose_rescue'
+    AND TABLE_NAME = 'comments'
+    AND INDEX_NAME = 'idx_comments_animal_created'
+);
+SET @sql := IF(@idx_exists = 0,
+  'CREATE INDEX idx_comments_animal_created ON comments (animal_id, created_at DESC)',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 2) 详情页筛选可见评论: MySQL 8.0 不支持 partial index, 用复合索引 (animal_id, is_hidden)
+--    查询 WHERE animal_id = ? AND is_hidden = 0 可命中此索引
+SET @idx_exists := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = 'nose_rescue'
+    AND TABLE_NAME = 'comments'
+    AND INDEX_NAME = 'idx_comments_animal_visible'
+);
+SET @sql := IF(@idx_exists = 0,
+  'CREATE INDEX idx_comments_animal_visible ON comments (animal_id, is_hidden)',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

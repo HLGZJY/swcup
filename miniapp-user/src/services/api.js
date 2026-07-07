@@ -425,3 +425,37 @@ function request(path, options = {}, opts = {}) {
     })
   })
 }
+
+
+// ============ 评论相关 (Phase A 评论 + AI) ============
+
+/**
+ * 发表评论
+ * POST /v1/comments
+ * @param {{ animal_id: string, content: string }} params
+ */
+export function apiCreateComment(params) {
+  return request('/v1/comments', { method: 'POST', body: params })
+}
+
+/**
+ * 列出某动物的可见评论
+ * GET /v1/comments/animal/:animal_id?limit=&offset=
+ */
+export function apiGetComments(animalId, query) {
+  query = query || {}
+  var q = []
+  if (query.limit != null) q.push('limit=' + query.limit)
+  if (query.offset != null) q.push('offset=' + query.offset)
+  var path = '/v1/comments/animal/' + encodeURIComponent(animalId)
+  if (q.length) path += '?' + q.join('&')
+  return request(path, { method: 'GET' })
+}
+
+/**
+ * 某动物评论 AI 摘要
+ * GET /v1/comments/animal/:animal_id/summary
+ */
+export function apiGetCommentsSummary(animalId) {
+  return request('/v1/comments/animal/' + encodeURIComponent(animalId) + '/summary', { method: 'GET' })
+}

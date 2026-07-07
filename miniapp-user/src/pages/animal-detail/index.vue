@@ -1,4 +1,4 @@
-<template>
+﻿﻿﻿﻿﻿﻿﻿<template>
   <view class="page" v-if="animal">
     <!-- 主图轮播 -->
     <view class="photo-section">
@@ -150,6 +150,7 @@
     </view>
   </view>
 
+<navigator :url="'/pages/animal-detail/comments?animal_id=' + animalId" hover-class="none" class="comments-entry" v-if="animal && animal.animal_id"><text class="comments-entry-text">查看评论 ({{ commentCount }})</text></navigator>
   <view class="page-loading" v-else>
     <text>加载中...</text>
   </view>
@@ -162,8 +163,21 @@ export default {
     return {
       statusMap: {
         lost: '走失中', found: '发现中', claimed: '待认领', archived: '已归档'
-      }
+      },
+      commentCount: 0,
+      animalId: ''
     }
+  },
+  onLoad(query: any) {
+    this.animalId = query?.animal_id || 'a001'
+  },
+  onShow() {
+    if (!this.animalId) return
+    apiGetComments(this.animalId, { limit: 1, offset: 0 }).then((cr: any) => {
+      if (cr && cr.code === 0 && typeof cr.data?.total === 'number') {
+        this.commentCount = cr.data.total
+      }
+    }).catch(() => { /* */ })
   },
   onShareAppMessage() {
     const pages = getCurrentPages()
@@ -192,7 +206,7 @@ export default {
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiGetAnimalDetail, resolveImageUrl } from '@/services/api'
+import { apiGetAnimalDetail, apiGetComments, resolveImageUrl } from '@/services/api'
 
 const animal = ref<any>(null)
 const showFuseScore = ref(false)
@@ -220,7 +234,7 @@ onMounted(async () => {
     const res: any = await apiGetAnimalDetail(animalId)
     if (res.code === 0) {
       animal.value = res.data
-    }
+      // 评论数由 options api onShow 拉,保持单一数据源    }
     // 检查是否有融合得分
     const score = uni.getStorageSync('currentFuseScore')
     if (score) {
@@ -648,4 +662,22 @@ function goTimeline() {
 .action-buttons button { flex: 1; }
 .btn-secondary { background: #F2F2F2; color: #333333; }
 .btn-primary { background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%); color: #FFFFFF; }
+
+/* 阶段 A 评论 (2026-07-06): 详情页入口 */
+.comments-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 2rpx solid #0FBF9F;
+  border-radius: 32rpx;
+  padding: 18rpx 0;
+  margin: 20rpx 32rpx;
+  font-size: 28rpx;
+  color: #0FBF9F;
+}
+.comments-entry-text {
+  font-size: 28rpx;
+  color: #0FBF9F;
+}
 </style>

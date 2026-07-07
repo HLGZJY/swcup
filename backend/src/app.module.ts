@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -17,6 +17,8 @@ import { Animal } from './animals/entities/animal.entity';
 import { NoseFeature } from './nose/entities/nose-feature.entity';
 import { RescueEvent } from './events/entities/event.entity';
 import { Claim } from './claims/entities/claim.entity';
+import { Comment } from './comments/entities/comment.entity';
+import { CommentsModule } from './comments/comments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -41,7 +43,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        entities: [User, Animal, NoseFeature, RescueEvent, Claim],
+        entities: [User, Animal, NoseFeature, RescueEvent, Claim, Comment],
         synchronize: true,
         logging: false,
       }),
@@ -52,6 +54,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     NoseModule,
     EventsModule,
     ClaimsModule,
+    CommentsModule,
     UploadModule,
     AdminModule,
   ],
