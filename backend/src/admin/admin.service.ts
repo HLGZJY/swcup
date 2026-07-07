@@ -4,8 +4,9 @@ import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { RescueEvent } from '../events/entities/event.entity';
 import { Claim } from '../claims/entities/claim.entity';
-import { Animal } from '../animals/entities/animal.entity';
+import { Animal, AnimalStatus, Species, Gender } from '../animals/entities/animal.entity';
 import { User } from '../users/entities/user.entity';
+import { PendingNoseRecord } from '../nose/entities/pending-nose-record.entity';
 import { EventsService } from '../events/events.service';
 
 // 阶段 2 (2026-07-06): admin 端动作集 — 闭合 4 个合法动作
@@ -18,6 +19,7 @@ export class AdminService {
     @InjectRepository(Claim) private readonly claimRepo: Repository<Claim>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(PendingNoseRecord) private readonly pendingRepo: Repository<PendingNoseRecord>,
     private readonly dataSource: DataSource,
     // 阶段 2: 注入 EventsService 用于 action='create_new' 派发
     private readonly eventsService: EventsService,
@@ -339,5 +341,138 @@ export class AdminService {
   async updateUser(user_id: string, data: Partial<User>) {
     await this.userRepo.update({ user_id }, data);
     return this.getUserDetail(user_id);
+  }
+
+  // ========== 阶段 3 (2026-07-07): 低分鼻纹人工审核 ==========
+
+  /**
+   * 列表: 支持 status 过滤 + 分页
+   * status 取值: 'pending' | 'approved_new' | 'approved_dup' | 'rejected'
+   */
+  async getPendingNoseRecords(query: { status?: string; page?: number; limit?: number } = {}) {
+    const { status, page = 1, limit = 20 } = query;
+    const qb = this.pendingRepo.createQueryBuilder('p');
+    if (status) qb.andWhere('p.status = :status', { status });
+    const [list, total] = await qb
+      .orderBy('p.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return { total, list };
+  }
+
+  /**
+   * 详情: 不存在则抛 NotFoundException
+   */
+  async getPendingNoseRecordDetail(record_id: string) {
+    const record = await this.pendingRepo.findOne({ where: { record_id } });
+    if (!record) throw new NotFoundException('PendingNoseRecord not found');
+    return record;
+  }
+
+  /**
+   * 审核通过 (新建动物):
+   *   事务内: 查 record (NotFound) → 校验 status=pending (BadRequest) →
+   *   新建 Animal (status=found, primary_nose_id=record.vector_id) →
+   *   更新 PendingNoseRecord (status=approved_new + reviewed_by + reviewed_at + animal_id)
+   *
+   * dto 可选覆盖字段: species / breed / color / gender / address / photos
+   * 未传则用 record 上采集时填写的字段, species/gender 兜底到 'other' / 'unknown'
+   */
+  async approvePendingNoseAsNew(
+    record_id: string,
+    admin_id: string,
+    dto?: {
+      species?: string;
+      breed?: string;
+      color?: string;
+      gender?: string;
+      address?: string;
+      photos?: string[];
+    },
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const record = await manager.findOne(PendingNoseRecord, { where: { record_id } });
+      if (!record) throw new NotFoundException('PendingNoseRecord not found');
+      if ((record.status as string) !== 'pending') {
+        throw new BadRequestException(`record 当前状态为 ${record.status}, 不可重复审批`);
+      }
+
+      const now = new Date();
+      const animal = new Animal();
+      animal.animal_id = uuidv4();
+      animal.status = AnimalStatus.FOUND;
+      animal.species = (dto?.species ?? (record.species as any) ?? Species.OTHER) as Species;
+      animal.breed = dto?.breed ?? record.breed ?? null;
+      animal.color = dto?.color ?? record.color ?? null;
+      animal.gender = (dto?.gender ?? (record.gender as any) ?? Gender.UNKNOWN) as Gender;
+      animal.location_lat = (record.location_lat ?? 0) as any;
+      animal.location_lng = (record.location_lng ?? 0) as any;
+      animal.address = dto?.address ?? null;
+      animal.photos = dto?.photos ?? [];
+      animal.notes = null;
+      animal.first_seen_at = now;
+      animal.last_seen_at = now;
+      animal.primary_nose_id = record.vector_id;
+      const savedAnimal = await manager.save(animal);
+
+      await manager.update(PendingNoseRecord, { record_id }, {
+        status: 'approved_new' as any,
+        reviewed_by: admin_id,
+        reviewed_at: now,
+        animal_id: savedAnimal.animal_id,
+      });
+
+      return { record_id, animal_id: savedAnimal.animal_id, status: 'approved_new' };
+    });
+  }
+
+  /**
+   * 审核通过 (关联已有动物):
+   *   事务内: 查 record + animal → 校验 status=pending (BadRequest) →
+   *   若 animal.status='lost' 则更新为 'found' →
+   *   更新 PendingNoseRecord (status=approved_dup + reviewed_by + reviewed_at + animal_id)
+   */
+  async approvePendingNoseAsDuplicate(record_id: string, animal_id: string, admin_id: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const record = await manager.findOne(PendingNoseRecord, { where: { record_id } });
+      if (!record) throw new NotFoundException('PendingNoseRecord not found');
+      const animal = await manager.findOne(Animal, { where: { animal_id } });
+      if (!animal) throw new NotFoundException('Animal not found');
+      if ((record.status as string) !== 'pending') {
+        throw new BadRequestException(`record 当前状态为 ${record.status}, 不可重复审批`);
+      }
+
+      const now = new Date();
+      if ((animal.status as string) === 'lost') {
+        await manager.update(Animal, { animal_id }, { status: 'found' as any });
+      }
+
+      await manager.update(PendingNoseRecord, { record_id }, {
+        status: 'approved_dup' as any,
+        reviewed_by: admin_id,
+        reviewed_at: now,
+        animal_id,
+      });
+
+      return { record_id, animal_id, status: 'approved_dup' };
+    });
+  }
+
+  /**
+   * 拒绝: 校验 record 存在 + status=pending → 更新为 status=rejected
+   */
+  async rejectPendingNoseRecord(record_id: string, admin_id: string) {
+    const record = await this.pendingRepo.findOne({ where: { record_id } });
+    if (!record) throw new NotFoundException('PendingNoseRecord not found');
+    if ((record.status as string) !== 'pending') {
+      throw new BadRequestException(`record 当前状态为 ${record.status}, 不可重复审批`);
+    }
+    await this.pendingRepo.update({ record_id }, {
+      status: 'rejected' as any,
+      reviewed_by: admin_id,
+      reviewed_at: new Date(),
+    });
+    return { record_id, status: 'rejected' };
   }
 }

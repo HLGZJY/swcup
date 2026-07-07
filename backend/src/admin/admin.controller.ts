@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, UseGuards, Body, Version } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Query, UseGuards, Body, Version, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -163,5 +163,51 @@ export class AdminController {
   @ApiOperation({ summary: '更新用户信息' })
   async updateUser(@Param('user_id') userId: string, @Body() body: any) {
     return this.adminService.updateUser(userId, body);
+  }
+
+  // ========== 阶段 3 (2026-07-07): 低分鼻纹人工审核路由 ==========
+
+  @Get('pending-nose-records')
+  @ApiOperation({ summary: '低分鼻纹待审核列表' })
+  async getPendingNoseRecords(@Query() query: any) {
+    return this.adminService.getPendingNoseRecords(query);
+  }
+
+  @Get('pending-nose-records/:record_id')
+  @ApiOperation({ summary: '低分鼻纹待审核详情' })
+  async getPendingNoseRecordDetail(@Param('record_id') record_id: string) {
+    return this.adminService.getPendingNoseRecordDetail(record_id);
+  }
+
+  @Post('pending-nose-records/:record_id/approve-as-new')
+  @ApiOperation({ summary: '审核通过: 确认为新动物' })
+  async approveAsNew(
+    @Param('record_id') record_id: string,
+    @Body() dto: any,
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.approvePendingNoseAsNew(record_id, admin_id, dto);
+  }
+
+  @Post('pending-nose-records/:record_id/approve-as-duplicate')
+  @ApiOperation({ summary: '审核通过: 关联已有动物' })
+  async approveAsDuplicate(
+    @Param('record_id') record_id: string,
+    @Body() body: { animal_id: string },
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.approvePendingNoseAsDuplicate(record_id, body.animal_id, admin_id);
+  }
+
+  @Post('pending-nose-records/:record_id/reject')
+  @ApiOperation({ summary: '审核拒绝' })
+  async reject(
+    @Param('record_id') record_id: string,
+    @Request() req,
+  ) {
+    const admin_id = req?.user?.user_id || 'system';
+    return this.adminService.rejectPendingNoseRecord(record_id, admin_id);
   }
 }

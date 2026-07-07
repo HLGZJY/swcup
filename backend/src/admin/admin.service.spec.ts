@@ -7,6 +7,7 @@ import { RescueEvent, EventType, EventStatus } from '../events/entities/event.en
 import { Claim, ClaimStatus } from '../claims/entities/claim.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
 import { User, UserRole } from '../users/entities/user.entity';
+import { PendingNoseRecord, PendingNoseStatus } from '../nose/entities/pending-nose-record.entity';
 import { EventsService } from '../events/events.service';
 
 function makeRepo() {
@@ -167,12 +168,39 @@ function makeUser(overrides: Partial<User> = {}): User {
   } as User;
 }
 
+function makePendingNoseRecord(overrides: Partial<PendingNoseRecord> = {}): PendingNoseRecord {
+  return {
+    record_id: 'pending-1',
+    vector_id: 'vector-1',
+    collector_id: 'user-1',
+    fusion_score: null,
+    vector_similarity: 0.62,
+    gps_similarity: null,
+    text_match_rate: null,
+    status: PendingNoseStatus.PENDING,
+    animal_id: null,
+    reviewed_by: null,
+    reviewed_at: null,
+    location_lat: 39.9,
+    location_lng: 116.4,
+    breed: 'shiba',
+    color: 'yellow',
+    gender: 'male',
+    species: 'dog',
+    nose_photo_url: '/p/nose1.jpg',
+    body_photo_url: '/p/body1.jpg',
+    created_at: new Date('2026-07-07'),
+    ...overrides,
+  } as PendingNoseRecord;
+}
+
 describe('AdminService', () => {
   let service: AdminService;
   let eventRepo: ReturnType<typeof makeRepo>;
   let claimRepo: ReturnType<typeof makeRepo>;
   let animalRepo: ReturnType<typeof makeRepo>;
   let userRepo: ReturnType<typeof makeRepo>;
+  let pendingRepo: ReturnType<typeof makeRepo>;
   let dataSource: ReturnType<typeof makeDataSource>;
   let eventsService: ReturnType<typeof makeEventsService>;
 
@@ -181,6 +209,7 @@ describe('AdminService', () => {
     claimRepo = makeRepo();
     animalRepo = makeRepo();
     userRepo = makeRepo();
+    pendingRepo = makeRepo();
     dataSource = makeDataSource();
     eventsService = makeEventsService();
 
@@ -191,6 +220,7 @@ describe('AdminService', () => {
         { provide: getRepositoryToken(Claim), useValue: claimRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(PendingNoseRecord), useValue: pendingRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: EventsService, useValue: eventsService },
       ],
@@ -688,6 +718,259 @@ describe('AdminService', () => {
         .rejects.toThrow(BadRequestException);
       await expect(service.dispatchEventAction('event-1', 'delete' as any))
         .rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ========== 阶段 3 (2026-07-07): 低分鼻纹人工审核 ==========
+
+  describe('getPendingNoseRecords', () => {
+    it('应支持 status 过滤', async () => {
+      pendingRepo._qb.getManyAndCount.mockResolvedValue([[], 0]);
+      await service.getPendingNoseRecords({ status: 'pending' });
+      expect(pendingRepo._qb.andWhere).toHaveBeenCalledWith('p.status = :status', { status: 'pending' });
+    });
+
+    it('应支持分页 (page/limit)', async () => {
+      pendingRepo._qb.getManyAndCount.mockResolvedValue([[], 0]);
+      await service.getPendingNoseRecords({ page: 2, limit: 10 });
+      expect(pendingRepo._qb.skip).toHaveBeenCalledWith(10);
+      expect(pendingRepo._qb.take).toHaveBeenCalledWith(10);
+    });
+
+    it('无 status 时不应加 status 过滤条件', async () => {
+      pendingRepo._qb.getManyAndCount.mockResolvedValue([[], 0]);
+      await service.getPendingNoseRecords({});
+      const andWhereCalls = pendingRepo._qb.andWhere.mock.calls;
+      expect(andWhereCalls.some((c: any[]) => String(c[0]).includes('p.status'))).toBe(false);
+    });
+
+    it('应返回 total + list', async () => {
+      const record = makePendingNoseRecord();
+      pendingRepo._qb.getManyAndCount.mockResolvedValue([[record], 1]);
+      const result = await service.getPendingNoseRecords({});
+      expect(result.total).toBe(1);
+      expect(result.list[0].record_id).toBe('pending-1');
+    });
+  });
+
+  describe('getPendingNoseRecordDetail', () => {
+    it('record 不存在应抛 NotFoundException', async () => {
+      pendingRepo.findOne.mockResolvedValue(null);
+      await expect(service.getPendingNoseRecordDetail('missing')).rejects.toThrow(NotFoundException);
+    });
+
+    it('record 存在应返回完整记录', async () => {
+      pendingRepo.findOne.mockResolvedValue(makePendingNoseRecord());
+      const result = await service.getPendingNoseRecordDetail('pending-1');
+      expect(result.record_id).toBe('pending-1');
+      expect(result.status).toBe('pending');
+    });
+  });
+
+  describe('approvePendingNoseAsNew', () => {
+    it('record 不存在应抛 NotFoundException', async () => {
+      const manager = {
+        findOne: jest.fn().mockResolvedValueOnce(null),
+        save: jest.fn(),
+        update: jest.fn(),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.approvePendingNoseAsNew('missing', 'admin-1'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('非 pending 状态应抛 BadRequestException', async () => {
+      const manager = {
+        findOne: jest.fn().mockResolvedValueOnce(makePendingNoseRecord({ status: 'rejected' as any })),
+        save: jest.fn(),
+        update: jest.fn(),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.approvePendingNoseAsNew('pending-1', 'admin-1'))
+        .rejects.toThrow(/不可重复审批/);
+    });
+
+    it('happy path: 应新建 Animal (status=found, primary_nose_id=record.vector_id) + 更新 record', async () => {
+      const manager = {
+        findOne: jest.fn().mockResolvedValueOnce(makePendingNoseRecord()),
+        save: jest.fn(async (e: any) => ({ ...e, animal_id: 'new-animal-id' })),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      const result = await service.approvePendingNoseAsNew('pending-1', 'admin-1', {
+        breed: 'shiba-updated',
+        color: 'black',
+      });
+
+      // Animal 创建校验
+      expect(manager.save).toHaveBeenCalledTimes(1);
+      const savedAnimal = manager.save.mock.calls[0][0];
+      expect(savedAnimal.status).toBe('found');
+      expect(savedAnimal.primary_nose_id).toBe('vector-1');
+      expect(savedAnimal.breed).toBe('shiba-updated');
+      expect(savedAnimal.color).toBe('black');
+      expect(savedAnimal.species).toBe('dog');
+      expect(savedAnimal.gender).toBe('male');
+
+      // PendingNoseRecord 更新校验
+      expect(manager.update).toHaveBeenCalledWith(
+        PendingNoseRecord,
+        { record_id: 'pending-1' },
+        expect.objectContaining({
+          status: 'approved_new',
+          reviewed_by: 'admin-1',
+          reviewed_at: expect.any(Date),
+          animal_id: 'new-animal-id',
+        }),
+      );
+
+      expect(result.status).toBe('approved_new');
+      expect(result.animal_id).toBe('new-animal-id');
+    });
+
+    it('record 字段缺失时 species/gender 应兜底', async () => {
+      const manager = {
+        findOne: jest.fn().mockResolvedValueOnce(makePendingNoseRecord({ species: null, gender: null })),
+        save: jest.fn(async (e: any) => ({ ...e, animal_id: 'fallback-id' })),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await service.approvePendingNoseAsNew('pending-1', 'admin-1');
+
+      const savedAnimal = manager.save.mock.calls[0][0];
+      expect(savedAnimal.species).toBe('other');
+      expect(savedAnimal.gender).toBe('unknown');
+    });
+  });
+
+  describe('approvePendingNoseAsDuplicate', () => {
+    it('record 不存在应抛 NotFoundException', async () => {
+      const manager = {
+        findOne: jest.fn().mockResolvedValueOnce(null),
+        save: jest.fn(),
+        update: jest.fn(),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.approvePendingNoseAsDuplicate('missing', 'animal-1', 'admin-1'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('animal 不存在应抛 NotFoundException', async () => {
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makePendingNoseRecord())
+          .mockResolvedValueOnce(null),
+        save: jest.fn(),
+        update: jest.fn(),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.approvePendingNoseAsDuplicate('pending-1', 'missing-animal', 'admin-1'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('非 pending 状态应抛 BadRequestException', async () => {
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makePendingNoseRecord({ status: 'approved_new' as any }))
+          .mockResolvedValueOnce(makeAnimal()),
+        save: jest.fn(),
+        update: jest.fn(),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.approvePendingNoseAsDuplicate('pending-1', 'animal-1', 'admin-1'))
+        .rejects.toThrow(/不可重复审批/);
+    });
+
+    it('happy path: animal status=lost 应级联更新为 found + record=approved_dup', async () => {
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makePendingNoseRecord())
+          .mockResolvedValueOnce(makeAnimal({ status: AnimalStatus.LOST })),
+        save: jest.fn(),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      const result = await service.approvePendingNoseAsDuplicate('pending-1', 'animal-1', 'admin-1');
+
+      // animal status 升级
+      expect(manager.update).toHaveBeenCalledWith(
+        Animal,
+        { animal_id: 'animal-1' },
+        { status: 'found' },
+      );
+
+      // record 更新
+      expect(manager.update).toHaveBeenCalledWith(
+        PendingNoseRecord,
+        { record_id: 'pending-1' },
+        expect.objectContaining({
+          status: 'approved_dup',
+          reviewed_by: 'admin-1',
+          reviewed_at: expect.any(Date),
+          animal_id: 'animal-1',
+        }),
+      );
+
+      expect(result.status).toBe('approved_dup');
+      expect(result.animal_id).toBe('animal-1');
+    });
+
+    it('animal status=found 时不应触发状态变更', async () => {
+      const manager = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(makePendingNoseRecord())
+          .mockResolvedValueOnce(makeAnimal({ status: AnimalStatus.FOUND })),
+        save: jest.fn(),
+        update: jest.fn(async () => ({ affected: 1 })),
+      };
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await service.approvePendingNoseAsDuplicate('pending-1', 'animal-1', 'admin-1');
+
+      // 只更新 record, 不更新 animal
+      const animalUpdates = manager.update.mock.calls.filter(
+        (c: any[]) => c[0] === Animal,
+      );
+      expect(animalUpdates.length).toBe(0);
+    });
+  });
+
+  describe('rejectPendingNoseRecord', () => {
+    it('record 不存在应抛 NotFoundException', async () => {
+      pendingRepo.findOne.mockResolvedValue(null);
+      await expect(service.rejectPendingNoseRecord('missing', 'admin-1'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('非 pending 状态应抛 BadRequestException', async () => {
+      pendingRepo.findOne.mockResolvedValue(makePendingNoseRecord({ status: 'approved_new' as any }));
+      await expect(service.rejectPendingNoseRecord('pending-1', 'admin-1'))
+        .rejects.toThrow(/不可重复审批/);
+    });
+
+    it('happy path: 应设置 status=rejected + reviewed_by + reviewed_at', async () => {
+      pendingRepo.findOne.mockResolvedValue(makePendingNoseRecord());
+
+      const result = await service.rejectPendingNoseRecord('pending-1', 'admin-1');
+
+      expect(pendingRepo.update).toHaveBeenCalledWith(
+        { record_id: 'pending-1' },
+        expect.objectContaining({
+          status: 'rejected',
+          reviewed_by: 'admin-1',
+          reviewed_at: expect.any(Date),
+        }),
+      );
+      expect(result.status).toBe('rejected');
+      expect(result.record_id).toBe('pending-1');
     });
   });
 });
