@@ -689,9 +689,12 @@ async function onNext() {
     uni.showToast({ title: '采集成功', icon: 'success' })
 
     // 跳转到结果页
+    // 阶段 3 (2026-07-06 BUG-FIX): 透传 intent (走失/捡到) 到 result 页,
+    //   重复检测后用户点"我要上报"时,事件 intent 由它派生;
+    //   低分创建时,apiCreateAnimal 也读这个 intent 决定 status (lost/found)
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ''}&location_lng=${locationLng.value ?? ''}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}`
+        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ''}&location_lng=${locationLng.value ?? ''}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}&intent=${intent.value}`
       })
     }, 1000)
   } catch (e: any) {
