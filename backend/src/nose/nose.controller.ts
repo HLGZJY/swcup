@@ -35,7 +35,9 @@ export class NoseController {
 
   // Bug 3 修复 (2026-07-08): 用户主动建档走 pending 流程
   //   不再直接 POST /v2/animals,改为提交待审记录,admin 审核通过后才落库
-  @Public()
+  // 【Defect 3 修复 / 2026-07-08】取消 @Public() — 必须 JWT 鉴权,确保 collector_id 有归属
+  //   之前 @Public() 让 req.user 永远为空,service 抛 400 让前端误以为是业务校验失败
+  //   改为标准 401,前端能跳登录页
   @Post('pending-animal-request')
   @ApiOperation({ summary: '提交待审动物档案（用户主动建档 → admin 审核）' })
   createPendingAnimalRequest(@Body() dto: any, @Request() req: any) {
