@@ -8,6 +8,7 @@ import { NoseFeature } from './entities/nose-feature.entity';
 import { PendingNoseRecord } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
+import { IdempotencyCache } from '../common/idempotency/idempotency-cache.service';
 
 // Mock axios
 jest.mock('axios');
@@ -127,6 +128,7 @@ describe('NoseService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NoseService,
+        IdempotencyCache,
         { provide: getRepositoryToken(NoseFeature), useValue: noseRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
@@ -394,6 +396,77 @@ describe('NoseService', () => {
         'http://mock-ai/extract/feature',
         expect.objectContaining({ image: 'SUFFIX' }),
       );
+    });
+
+    // ========== 【Bug 5】幂等性: 同张照片 5 分钟内重复提交 ==========
+    // 场景: 2026-07-08 报告现场, 用户在 collect 页手抖,1.66s 内连点两次
+    //   → 生成 vector_id 6ebf15ac + 5bdf0e0d, 产生重复孤儿鼻纹
+    // 期望: 5 分钟内同张 nose_photo 应识别为重复提交, 直接返回首次的 vector_id
+    //   → 不再调 AI service, 不再写库, 不再产生孤儿数据
+    it('【Bug 5】同张 nose_photo 5 分钟内重复提交 → 返回首次 vector_id, 不再创建新 NoseFeature, 不再调 AI', async () => {
+      // 第一次提交: 走完整流程 (1 动物 + 低分对比 → under_review)
+      //   复用了上面 "【主链路】相似度 < 0.75 → under_review" 的 mock pattern
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);  // 孤儿表无候选
+
+      const dto = {
+        nose_photo: 'base64data-SAME-PHOTO-HASH',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any;
+
+      const result1 = await service.collect(dto, 'user-1');
+      expect(result1.vector_id).toBeDefined();
+      expect(noseRepo.save).toHaveBeenCalledTimes(1);
+      // extract + 1 次 animal vector compare 共 2 次 AI 调用
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+
+      // 第二次提交: 同张照片, 不重置 axios mock (预期不再调 AI)
+      const result2 = await service.collect(dto, 'user-1');
+
+      // 应返回首次的 vector_id (幂等)
+      expect(result2.vector_id).toBe(result1.vector_id);
+      // 不应再创建新 NoseFeature (还是 1 次,不是 2 次)
+      expect(noseRepo.save).toHaveBeenCalledTimes(1);
+      // 不应再调 AI service (axios.post 总数不变)
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    });
+
+    it('【Bug 5】不同 nose_photo → 正常创建新 vector_id, 不命中缓存', async () => {
+      // 反向断言: 缓存只对同张照片生效, 不同照片应正常处理两次
+      // 第一次: photo-A
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);
+
+      const result1 = await service.collect({
+        nose_photo: 'photo-A',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1');
+
+      // 第二次: photo-B, 重新排队 AI mock
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.6) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.4, l2_distance: 1.2 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);
+
+      const result2 = await service.collect({
+        nose_photo: 'photo-B',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1');
+
+      // vector_id 应不同
+      expect(result1.vector_id).not.toBe(result2.vector_id);
+      // 两次都创建了 NoseFeature
+      expect(noseRepo.save).toHaveBeenCalledTimes(2);
     });
   });
 

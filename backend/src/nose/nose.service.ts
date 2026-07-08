@@ -1,7 +1,8 @@
-﻿import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
@@ -10,6 +11,7 @@ import { Animal, AnimalStatus, Species, Gender, AgeEstimate, HealthStatus } from
 import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
 import { textMatch } from './nose-text-match';
+import { IdempotencyCache } from '../common/idempotency/idempotency-cache.service';
 
 const FUSION_WEIGHTS = { vector: 0.5, gps: 0.3, text: 0.2 };
 const LOW_SCORE_THRESHOLD = 0.75;
@@ -32,6 +34,7 @@ function gpsScore(distanceM: number): number {
 @Injectable()
 export class NoseService {
   private readonly AI_SERVICE_URL: string;
+  private readonly logger = new Logger(NoseService.name);
 
   constructor(
     @InjectRepository(NoseFeature) private readonly noseRepo: Repository<NoseFeature>,
@@ -39,9 +42,17 @@ export class NoseService {
     @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
     @InjectRepository(PendingNoseRecord) private readonly pendingRepo: Repository<PendingNoseRecord>,
     private readonly config: ConfigService,
+    private readonly idempotency: IdempotencyCache,
   ) {
     this.AI_SERVICE_URL =
       this.config.get<string>('AI_SERVICE_URL') || 'http://localhost:8000';
+  }
+
+  // 算 nose_photo 的稳定 key (Bug 5 幂等性 / 2026-07-08)
+  //   同一张照片(无论 data:image/jpeg;base64, 前缀) → 同一 hash
+  //   SHA256 截断 16 字符 = 64-bit,冲突概率 ~10^-19,远低于 5 分钟内同图重复概率
+  private idempotencyKey(nose_photo: string): string {
+    return createHash('sha256').update(nose_photo).digest('hex').slice(0, 16);
   }
 
   // 调 AI-service 提取特征向量
@@ -184,6 +195,17 @@ export class NoseService {
       throw new BadRequestException('请提供有效的位置信息，不支持默认坐标');
     }
 
+    // 【Bug 5 修复 / 2026-07-08】幂等性: 同张 nose_photo 5 分钟内重复提交 → 返回首次结果
+    //   现场: 2026-07-08 报告,用户在 collect 页 1.66s 内连点两次 → 6ebf15ac + 5bdf0e0d 孤儿
+    //   放在 AI 调用前,省 AI service 开销
+    //   key 用 SHA256(nose_photo) 截断 16 字符,稳定且不暴露 base64 原文
+    const idempKey = this.idempotencyKey(dto.nose_photo);
+    const cached = this.idempotency.get(idempKey);
+    if (cached) {
+      this.logger.log(`[NoseService.collect] 命中幂等缓存 key=${idempKey} → vector_id=${cached.vector_id}`);
+      return cached;
+    }
+
     // Step 1: 提向量
     const vector = await this.extractVectorFromImage(dto.nose_photo);
     const vector_id = uuidv4();
@@ -228,7 +250,7 @@ export class NoseService {
 
     // Step 4: 动物匹配 → 已有动物档案, 提示认领
     if (bestMatch && bestMatch.cosine_similarity >= 0.88) {
-      return {
+      const result = {
         vector_id,
         confidence_score,
         liveness_passed,
@@ -237,13 +259,15 @@ export class NoseService {
         similarity: bestMatch.cosine_similarity,
         next_action: 'ask_claim_or_new',
       };
+      this.idempotency.set(idempKey, result);
+      return result;
     }
 
     // Step 5: 孤儿匹配(新增) → 之前采过但没建档, 告诉前端
     //   - 若孤儿 NoseFeature.animal_id 非空(已经被人补建档), 走 ask_claim_existing
     //   - 若孤儿 NoseFeature.animal_id 仍为空, 走 ask_link_or_new (前端可决定是关联还是新建)
     if (orphanMatch) {
-      return {
+      const result = {
         vector_id,
         confidence_score,
         liveness_passed,
@@ -255,6 +279,8 @@ export class NoseService {
           ? 'ask_claim_existing'  // 已有动物, 提示认领
           : 'ask_link_or_new',    // 孤儿鼻纹, 提示关联或新建
       };
+      this.idempotency.set(idempKey, result);
+      return result;
     }
 
     // Step 6: 无匹配 / 低分匹配 → 写入 pending_nose_records, 进入人工审核
@@ -293,7 +319,7 @@ export class NoseService {
           body_photo_url: dto.body_photo_url ?? null,
         }),
       );
-      return {
+      const result = {
         vector_id,
         confidence_score,
         liveness_passed,
@@ -302,10 +328,12 @@ export class NoseService {
         similarity: bestMatch?.cosine_similarity ?? null,
         next_action: 'under_review',
       };
+      this.idempotency.set(idempKey, result);
+      return result;
     }
 
     // Step 7: 中分 (>=0.75 且 < 0.88) → 全新鼻纹, 引导用户去结果页确认是否建档
-    return {
+    const result7 = {
       vector_id,
       confidence_score,
       liveness_passed,
@@ -314,6 +342,8 @@ export class NoseService {
       similarity: null,
       next_action: 'ask_user_create',
     };
+    this.idempotency.set(idempKey, result7);
+    return result7;
   }
 
   async compare(dto: CompareNoseDto, user_id: string) {
