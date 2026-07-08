@@ -558,9 +558,12 @@ export class NoseService {
     if (!user_id) {
       throw new BadRequestException('请先登录后再提交动物档案');
     }
-    if (!dto?.nose_vector_id) {
-      throw new BadRequestException('缺少鼻纹记录ID');
-    }
+    // 【Bug A / 2026-07-08】允许 nose_vector_id 为空 — 用户走失时没拍鼻纹只传全身照
+    //   防御: dto 里 'null'/'undefined' 字符串都视为空 (前端 JS null 拼接产物)
+    const noseVectorId: string | null =
+      dto?.nose_vector_id && dto.nose_vector_id !== 'null' && dto.nose_vector_id !== 'undefined'
+        ? String(dto.nose_vector_id)
+        : null;
     if (!dto.location_lat || !dto.location_lng || dto.location_lat === 0 || dto.location_lng === 0) {
       throw new BadRequestException('请提供有效的位置信息，不支持默认坐标');
     }
@@ -570,7 +573,7 @@ export class NoseService {
     await this.pendingRepo.save(
       this.pendingRepo.create({
         record_id,
-        vector_id: dto.nose_vector_id,
+        vector_id: noseVectorId,
         collector_id: user_id,
         source: PendingNoseSource.USER_CREATE_REQUEST,
         status: PendingNoseStatus.PENDING,
@@ -601,7 +604,7 @@ export class NoseService {
     );
     return {
       record_id,
-      vector_id: dto.nose_vector_id,
+      vector_id: noseVectorId,
       next_action: 'under_review',
     };
   }

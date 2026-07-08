@@ -457,10 +457,9 @@ function extractErrorMessage(e: any): string {
 }
 
 async function onCreateAnimal() {
-  if (!noseId.value) {
-    uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
-    return
-  }
+  // 【Bug A / 2026-07-08】不再阻断无鼻纹场景 — 用户走失没拍鼻纹时,也要能提交待审档案
+  //   后端 nose.service.ts:createPendingAnimalRequest 已放宽 nose_vector_id 可为 null,
+  //   PendingNoseRecord.vector_id 已 nullable
   uni.showLoading({ title: '提交中...' })
   try {
     // 构建 photos 数组:仅在有有效全身照 URL 时才放进数组
@@ -488,8 +487,13 @@ async function onCreateAnimal() {
     //   旧: 动物立即创建,绕开 admin 审核
     //   新: 写入 pending_nose_records (source=user_create_request) → admin 审核通过后才落库
     //   提示用户"档案已提交,待管理员审核",不立即跳转 animal-detail(动物还没创建)
+    // 【Bug A / 2026-07-08】nose_vector_id 允许 null — 字符串 'null' (无鼻纹) 显式映射为 undefined,
+    //   防止「鼻纹字段值是字符串 'null' 污染数据库」+ 后端 IsString 校验失败
+    const noseVectorIdForRequest = noseId.value && noseId.value !== 'null' && noseId.value !== 'undefined'
+      ? noseId.value
+      : undefined
     const pendingRes: any = await apiCreatePendingAnimalRequest({
-      nose_vector_id: noseId.value,
+      nose_vector_id: noseVectorIdForRequest,
       species: selectedSpecies.value,
       breed: formBreed.value,
       color: formColor.value,

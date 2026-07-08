@@ -25,8 +25,11 @@ export class PendingNoseRecord {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'record_id' })
   record_id: string;
 
-  @Column({ type: 'varchar', length: 36, name: 'vector_id' })
-  vector_id: string;
+  // 【Bug A / 2026-07-08】vector_id 改 nullable — 无鼻纹场景 (collect without nose_photo + intent=lost/found)
+  //   允许 vector_id 为 null,适配用户走失时只拍全身照、没拍鼻纹的常见场景
+  //   LOW_SCORE_NOSE 源仍要求 vector_id 非空 (collect() 已生成 uuid);USER_CREATE_REQUEST 允许 null
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'vector_id' })
+  vector_id: string | null;
 
   @Column({ type: 'varchar', length: 36, name: 'collector_id' })
   collector_id: string;
