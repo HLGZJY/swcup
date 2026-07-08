@@ -325,7 +325,8 @@
         :class="['btn-next', { disabled: !canNext || submitting }]"
         @click="onNext"
       >
-        <text v-if="currentStep < 3">{{ currentStep === 2 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
+        <!-- 【Defect 1 / 2026-07-08】鼻纹可选,不再有"上传鼻纹"提示文案,统一显示"下一步" -->
+        <text v-if="currentStep < 3">下一步</text>
         <text v-else>开始比对</text>
       </view>
     </view>
@@ -422,7 +423,7 @@ const speciesLabel = computed(() => {
 const canNext = computed(() => {
   if (currentStep.value === 0) return true
   if (currentStep.value === 1) return !!bodyPhoto.value
-  if (currentStep.value === 2) return !!nosePhoto.value
+  if (currentStep.value === 2) return true  // 【Defect 1 / 2026-07-08】鼻纹步骤可跳过 — 后端 collect 已支持无鼻纹 (ask_user_confirm)
   if (currentStep.value === 3) return true
   return true
 })
@@ -655,11 +656,8 @@ async function onNext() {
   if (submitting.value) return
   submitting.value = true
 
-  if (!nosePhotoBase64.value) {
-    submitting.value = false
-    uni.showToast({ title: '请先拍摄鼻纹照片', icon: 'none' })
-    return
-  }
+  // 【Defect 1 / 2026-07-08】鼻纹可选,后端 collect 已支持缺失鼻纹返回 ask_user_confirm
+  //   不再前置拦截 "请先拍摄鼻纹照片"
 
   // GPS 校验：禁止使用 (0,0) 默认值
   if (!locationLat.value || !locationLng.value || locationLat.value === 0 || locationLng.value === 0) {
