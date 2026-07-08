@@ -93,6 +93,8 @@ export class EventsService {
       body_colors: dto.body_colors ?? null,
 
       gender: dto.gender,
+      // 【Defect 4 / 2026-07-08】持久化 intent — admin 后审 createAnimalFromEvent 需要读取
+      intent: dto.intent || null,
     } as Partial<RescueEvent>);
     await this.eventRepo.save(event);
 
@@ -152,7 +154,7 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    this.logger.log(`[EventsService.createAnimalFromEvent] event=${event_id} → 建档`);
+    this.logger.log(`[EventsService.createAnimalFromEvent] event=${event_id} → 建档 (intent=${event.intent})`);
     const newAnimal = await this.animalsService.create({
       species: event.species,
       breed: event.breed ?? undefined,
@@ -170,7 +172,33 @@ export class EventsService {
       // event.occurred_at → first_seen_at + last_seen_at
       first_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
       last_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
+      // 【Defect 4 / 2026-07-08】intent 透传 → AnimalsService.create 决定 status
+      //   intent=found → AnimalStatus.FOUND;intent=lost/undefined → AnimalStatus.LOST
+      intent: event.intent || undefined,
     } as any);
+
+    // 【Defect 4 / 2026-07-08】intent=found → 主动物 status=found + 额外生成一条 lost 记录
+    //   场景: 发现页上报"我捡到狗",审核建档后,管理员可能后续想用这只动物触发走失匹配
+    //   不重复生成 lost 记录的兜底: 仅 intent=found 时创建
+    if (event.intent === 'found') {
+      await this.animalsService.create({
+        species: event.species,
+        breed: event.breed ?? undefined,
+        color: event.color ?? undefined,
+        gender: event.gender ?? undefined,
+        location_lat: event.location_lat,
+        location_lng: event.location_lng,
+        address: event.address ?? undefined,
+        photos: event.photos ?? undefined,
+        body_colors: event.body_colors ?? undefined,
+        notes: event.description ?? undefined,
+        // 不挂 primary_nose_id — lost 记录不需要向量重复
+        first_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
+        last_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
+        intent: 'lost',  // 显式 lost
+      } as any);
+      this.logger.log(`[EventsService.createAnimalFromEvent] intent=found → 额外生成 lost 记录`);
+    }
 
     // 关键副作用: event.animal_id 指向新动物, status=confirmed (与 confirmEvent 区分)
     // confirmEvent status=duplicated + is_duplicate=true; create_new status=confirmed

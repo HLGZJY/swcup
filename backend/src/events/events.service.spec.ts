@@ -932,6 +932,82 @@ describe('EventsService', () => {
       expect(createArg.photos == null || Array.isArray(createArg.photos)).toBe(true);
       expect(eventRepo.update).toHaveBeenCalled();
     });
+
+    // ========== Defect 4 (2026-07-08): admin create_new 必须透传 intent 决定 status ==========
+    //   发现页上报 (intent=found) 审核通过 → Animal.status 应是 found 而非 lost
+    //   同时若 intent=found,自动生成一条 lost 记录 (用于走失匹配)
+
+    it('【Defect 4】event.intent="found" → 主动物 (第一次 create) 应收到 intent=found', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({
+          event_id: 'e-found',
+          intent: 'found',
+          species: 'dog',
+          breed: 'shiba',
+          color: 'yellow',
+        }),
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'found-animal-id' });
+
+      await service.createAnimalFromEvent('e-found');
+
+      // 第一次 create 是主动物 (intent=found → status=found)
+      expect(animalsService.create.mock.calls[0][0].intent).toBe('found');
+      // 第二次 create 是额外生成的 lost 记录 (见下一测试 case)
+    });
+
+    it('【Defect 4】event.intent="found" → 应额外自动创建一条 lost 记录 (用于走失匹配)', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({
+          event_id: 'e-found',
+          intent: 'found',
+          species: 'dog',
+          breed: 'shiba',
+          color: 'yellow',
+          location_lat: 31.22,
+          location_lng: 121.44,
+          address: 'Shanghai',
+          photos: ['/p/cat.jpg'],
+        }),
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'found-animal-id' });
+
+      await service.createAnimalFromEvent('e-found');
+
+      // animalsService.create 应被调 2 次: 第一次主动物 (intent=found), 第二次 lost 记录 (intent=lost)
+      expect(animalsService.create).toHaveBeenCalledTimes(2);
+      const secondCallArg = animalsService.create.mock.calls[1][0];
+      expect(secondCallArg.intent).toBe('lost');
+      // 同一只动物 (species/breed/color 透传)
+      expect(secondCallArg.species).toBe('dog');
+      expect(secondCallArg.breed).toBe('shiba');
+      expect(secondCallArg.color).toBe('yellow');
+    });
+
+    it('【Defect 4】event.intent="lost" → 只创建 1 只动物 (intent=lost → status=lost),不生成额外记录', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({ event_id: 'e-lost', intent: 'lost' }),
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'lost-animal-id' });
+
+      await service.createAnimalFromEvent('e-lost');
+
+      expect(animalsService.create).toHaveBeenCalledTimes(1);
+      const createArg = animalsService.create.mock.calls[0][0];
+      expect(createArg.intent).toBe('lost');
+    });
+
+    it('【Defect 4】event.intent 缺省 → 默认按 lost 处理 (向后兼容)', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({ event_id: 'e-no-intent' }), // 不传 intent
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'compat-id' });
+
+      await service.createAnimalFromEvent('e-no-intent');
+
+      // 缺省 intent 不应触发额外 lost 记录 (避免重复)
+      expect(animalsService.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ========== 阶段 3 (2026-07-06): linkToAnimal 用户自助关联 ==========

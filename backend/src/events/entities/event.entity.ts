@@ -126,6 +126,13 @@ export class RescueEvent {
   @Column({ type: 'enum', enum: Gender, nullable: true, name: 'gender' })
   gender: Gender;
 
+  // 【Defect 4 / 2026-07-08】intent 持久化 — 之前 dto.intent 只在 create 时用来驱动自动建档,不入库
+  //   导致 admin 后审 createAnimalFromEvent 拿不到 intent,默认 status=lost 错误
+  //   现在持久化后,createAnimalFromEvent 读 event.intent 透传给 AnimalsService.create
+  //   intent='found' 时再额外生成一条 lost 记录
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'intent' })
+  intent: string;
+
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 }
