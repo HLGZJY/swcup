@@ -322,7 +322,7 @@
         <text>上一步</text>
       </view>
       <view
-        :class="['btn-next', { disabled: !canNext }]"
+        :class="['btn-next', { disabled: !canNext || submitting }]"
         @click="onNext"
       >
         <text v-if="currentStep < 3">{{ currentStep === 2 && !nosePhoto ? '上传鼻纹' : '下一步' }}</text>
@@ -354,6 +354,9 @@ const locationLat = ref<number | null>(null)
 const locationLng = ref<number | null>(null)
 // 位置已被用户/预填锁定,GPS 回调不能覆盖
 const locationLocked = ref(false)
+// 【Bug 5 防抖 / 2026-07-08】用户手抖 1 秒内连点"开始比对"导致重复提交
+//   后端已有幂等缓存兜底,前端再加 disabled 视觉反馈,提升体验
+const submitting = ref(false)
 
 const breed = ref('')
 const color = ref('')
@@ -647,13 +650,20 @@ async function onNext() {
     return
   }
 
+  // 【Bug 5 防抖 / 2026-07-08】采集步骤且正在提交中 → 拦截重复点击
+  //   防止 1.66s 内连点产生两次 vector_id(后端有幂等缓存兜底,这里是 UX 提升)
+  if (submitting.value) return
+  submitting.value = true
+
   if (!nosePhotoBase64.value) {
+    submitting.value = false
     uni.showToast({ title: '请先拍摄鼻纹照片', icon: 'none' })
     return
   }
 
   // GPS 校验：禁止使用 (0,0) 默认值
   if (!locationLat.value || !locationLng.value || locationLat.value === 0 || locationLng.value === 0) {
+    submitting.value = false
     uni.showToast({ title: '请提供有效的位置信息', icon: 'none' })
     return
   }
@@ -721,6 +731,9 @@ async function onNext() {
     if (!e.code) {
       uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
     }
+  } finally {
+    // 注意: 成功路径会 navigateTo 跳页,这里设 false 主要给 catch 路径兜底
+    submitting.value = false
   }
 }
 </script>

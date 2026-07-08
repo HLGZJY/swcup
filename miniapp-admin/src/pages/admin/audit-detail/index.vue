@@ -243,7 +243,17 @@
         <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
         <text>驳回</text>
       </view>
+      <!-- 【Bug 6 / 2026-07-08】无候选时显示"创建新动物"按钮,替代"确认合并" -->
       <view
+        v-if="candidates.length === 0"
+        class="action-create"
+        @click="onCreateNew"
+      >
+        <image class="action-icon" src="/static/icons/icon-plus.svg" mode="aspectFit" />
+        <text>创建新动物</text>
+      </view>
+      <view
+        v-else
         :class="['action-confirm', { disabled: !selectedId }]"
         @click="onConfirm"
       >
@@ -260,7 +270,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiGetAdminAuditDetail, apiConfirmEvent, apiRejectEvent, apiProcessEvent, resolveImageUrl } from '@/services/api'
+import { apiGetAdminAuditDetail, apiConfirmEvent, apiRejectEvent, apiProcessEvent, apiCreateAnimalFromEvent, resolveImageUrl } from '@/services/api'
 
 const event_id = ref('')
 const event = ref<any>({
@@ -453,6 +463,31 @@ function onConfirm() {
           setTimeout(() => uni.navigateBack(), 1200)
         } catch (e) {
           console.error('合并失败', e)
+          uni.showToast({ title: '操作失败', icon: 'none' })
+        }
+      }
+    }
+  })
+}
+
+// 【Bug 6 / 2026-07-08】无候选时,admin 从发现页上报事件创建新动物
+// 后端: PUT /admin/events/:event_id/action body={ action: 'create_new' }
+// 成功 → 事件字段 → 新 Animal,event.status=confirmed,刷新列表
+function onCreateNew() {
+  uni.showModal({
+    title: '创建新动物',
+    content: '将从该事件的照片与位置信息建立新动物档案,事件标记为已确认。',
+    confirmText: '创建',
+    cancelText: '取消',
+    confirmColor: '#5B7CFA',
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          await apiCreateAnimalFromEvent(event_id.value)
+          uni.showToast({ title: '已创建', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 1200)
+        } catch (e) {
+          console.error('创建新动物失败', e)
           uni.showToast({ title: '操作失败', icon: 'none' })
         }
       }
@@ -1156,7 +1191,7 @@ function onConfirm() {
   z-index: 10;
 }
 
-.action-reject, .action-confirm {
+.action-reject, .action-confirm, .action-create {
   flex: 1;
   display: flex;
   align-items: center;
@@ -1208,5 +1243,19 @@ function onConfirm() {
 .action-confirm.disabled .action-icon {
   filter: none;
   color: #BBBBBB;
+}
+
+/* 【Bug 6 / 2026-07-08】创建新动物 — 与"合并"区分的蓝色主操作 */
+.action-create {
+  background: linear-gradient(135deg, #5B7CFA 0%, #3D5AFE 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(91, 124, 250, 0.3);
+}
+
+.action-create .action-icon { filter: brightness(0) invert(1); }
+
+.action-create:active {
+  opacity: 0.9;
+  transform: scale(0.99);
 }
 </style>

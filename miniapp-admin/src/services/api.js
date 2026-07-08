@@ -4,12 +4,12 @@
  * 所有接口均需 admin role
  */
 
-const BASE_URL = 'http://192.168.32.1:3000/v1'
+const BASE_URL = "http://192.168.32.1:3000/v1";
 
 // 静态资源 URL 不走 API versioning (NestJS URI versioning 只对 controller 路由生效)
 // ServeStaticModule 实际挂在 /static, 拼成 /v1/static/... 会 404
 // 修复: 解析图片 URL 时必须用 STATIC_BASE_URL (无 /v1)
-const STATIC_BASE_URL = 'http://192.168.32.1:3000'
+const STATIC_BASE_URL = "http://192.168.32.1:3000";
 
 /**
  * 解析图片完整 URL
@@ -19,12 +19,12 @@ const STATIC_BASE_URL = 'http://192.168.32.1:3000'
  * - 字面字符串 "undefined"/"null" 视为空值（防御历史脏数据导致 /v1undefined 404）
  */
 export function resolveImageUrl(path) {
-  if (!path) return ''
+  if (!path) return "";
   // 防御:某些历史数据/异常上下游可能传入字符串 "undefined"/"null"
-  if (path === 'undefined' || path === 'null') return ''
-  if (path.startsWith('http://') || path.startsWith('https://')) return path
-  if (path.startsWith('/static/mock/')) return path
-  return STATIC_BASE_URL + path
+  if (path === "undefined" || path === "null") return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("/static/mock/")) return path;
+  return STATIC_BASE_URL + path;
 }
 
 // ============ 管理端接口（需认证+admin）============
@@ -35,7 +35,7 @@ export function resolveImageUrl(path) {
  * 响应: { totalAnimals, lostAnimals, foundAnimals, claimedAnimals, pendingEvents, pendingClaims, todayReports, todayResolved, todayProcessing }
  */
 export function apiGetStats() {
-  return request('/admin/stats')
+  return request("/admin/stats");
 }
 
 /**
@@ -43,8 +43,11 @@ export function apiGetStats() {
  * GET /admin/animals?page=1&limit=20&status=lost
  */
 export function apiGetAdminAnimals(params = {}) {
-  console.log('[API-FN] apiGetAdminAnimals called, params=', JSON.stringify(params))
-  return request('/admin/animals', { params })
+  console.log(
+    "[API-FN] apiGetAdminAnimals called, params=",
+    JSON.stringify(params),
+  );
+  return request("/admin/animals", { params });
 }
 
 /**
@@ -52,7 +55,7 @@ export function apiGetAdminAnimals(params = {}) {
  * GET /admin/animals/:animal_id
  */
 export function apiGetAdminAnimalDetail(animalId) {
-  return request(`/admin/animals/${animalId}`)
+  return request(`/admin/animals/${animalId}`);
 }
 
 /**
@@ -61,10 +64,10 @@ export function apiGetAdminAnimalDetail(animalId) {
  * 请求: { status, species, breed, color, gender, age_estimate, health_status, sterilized, first_seen_at, last_seen_at, location_lat, location_lng, address, notes }
  */
 export function apiCreateAnimal(params) {
-  return request('/admin/animals', {
-    method: 'POST',
-    body: params
-  })
+  return request("/admin/animals", {
+    method: "POST",
+    body: params,
+  });
 }
 
 /**
@@ -75,9 +78,9 @@ export function apiCreateAnimal(params) {
  */
 export function apiUpdateAnimal(animalId, params) {
   return request(`/admin/animals/${animalId}`, {
-    method: 'PUT',
-    body: params
-  })
+    method: "PUT",
+    body: params,
+  });
 }
 
 /**
@@ -87,8 +90,8 @@ export function apiUpdateAnimal(animalId, params) {
  */
 export function apiDeleteAnimal(animalId) {
   return request(`/admin/animals/${animalId}`, {
-    method: 'DELETE'
-  })
+    method: "DELETE",
+  });
 }
 
 /**
@@ -96,8 +99,8 @@ export function apiDeleteAnimal(animalId) {
  * GET /admin/events?page=1&limit=20&status=pending
  */
 export function apiGetAdminEvents(params = {}) {
-  console.log('[API-FN] apiGetAdminEvents called')
-  return request('/admin/events', { params })
+  console.log("[API-FN] apiGetAdminEvents called");
+  return request("/admin/events", { params });
 }
 
 /**
@@ -105,7 +108,7 @@ export function apiGetAdminEvents(params = {}) {
  * GET /admin/events/:event_id
  */
 export function apiGetAdminEventDetail(eventId) {
-  return request(`/admin/events/${eventId}`)
+  return request(`/admin/events/${eventId}`);
 }
 
 /**
@@ -114,7 +117,7 @@ export function apiGetAdminEventDetail(eventId) {
  * 响应新增: candidates[], vector_similarity, gps_similarity, image_similarity, text_match_rate
  */
 export function apiGetAdminAuditDetail(eventId) {
-  return request(`/admin/events/${eventId}`)
+  return request(`/admin/events/${eventId}`);
 }
 
 /**
@@ -123,8 +126,8 @@ export function apiGetAdminAuditDetail(eventId) {
  */
 export function apiProcessEvent(eventId) {
   return request(`/admin/events/${eventId}/process`, {
-    method: 'POST'
-  })
+    method: "POST",
+  });
 }
 
 /**
@@ -134,9 +137,9 @@ export function apiProcessEvent(eventId) {
  */
 export function apiConfirmEvent(eventId, params = {}) {
   return request(`/admin/events/${eventId}/confirm`, {
-    method: 'PUT',
-    body: params
-  })
+    method: "PUT",
+    body: params,
+  });
 }
 
 /**
@@ -145,8 +148,21 @@ export function apiConfirmEvent(eventId, params = {}) {
  */
 export function apiRejectEvent(eventId) {
   return request(`/admin/events/${eventId}/reject`, {
-    method: 'PUT'
-  })
+    method: "PUT",
+  });
+}
+
+/**
+ * 【Bug 6 / 2026-07-08】admin 从发现页上报事件创建新动物
+ * 场景: 发现页上报动物无候选时,admin 需有"创建新动物"入口
+ * 后端: eventsService.createAnimalFromEvent(event_id),事件字段 → 新 Animal,event.status=confirmed
+ * PUT /admin/events/:event_id/action body={ action: 'create_new' }
+ */
+export function apiCreateAnimalFromEvent(eventId) {
+  return request(`/admin/events/${eventId}/action`, {
+    method: "PUT",
+    body: { action: "create_new" },
+  });
 }
 
 /**
@@ -154,7 +170,7 @@ export function apiRejectEvent(eventId) {
  * GET /admin/claims?page=1&limit=20&status=pending
  */
 export function apiGetAdminClaims(params = {}) {
-  return request('/admin/claims', { params })
+  return request("/admin/claims", { params });
 }
 
 /**
@@ -162,7 +178,7 @@ export function apiGetAdminClaims(params = {}) {
  * GET /admin/claims/:claim_id
  */
 export function apiGetAdminClaimDetail(claimId) {
-  return request(`/admin/claims/${claimId}`)
+  return request(`/admin/claims/${claimId}`);
 }
 
 /**
@@ -172,8 +188,8 @@ export function apiGetAdminClaimDetail(claimId) {
  */
 export function apiApproveClaim(claimId) {
   return request(`/admin/claims/${claimId}/approve`, {
-    method: 'PUT'
-  })
+    method: "PUT",
+  });
 }
 
 /**
@@ -182,8 +198,8 @@ export function apiApproveClaim(claimId) {
  */
 export function apiRejectClaim(claimId) {
   return request(`/admin/claims/${claimId}/reject`, {
-    method: 'PUT'
-  })
+    method: "PUT",
+  });
 }
 
 /**
@@ -191,7 +207,7 @@ export function apiRejectClaim(claimId) {
  * GET /admin/users
  */
 export function apiGetAdminUsers(params = {}) {
-  return request('/admin/users', { params })
+  return request("/admin/users", { params });
 }
 
 /**
@@ -199,7 +215,7 @@ export function apiGetAdminUsers(params = {}) {
  * GET /admin/users/:user_id
  */
 export function apiGetUserDetail(userId) {
-  return request(`/admin/users/${userId}`)
+  return request(`/admin/users/${userId}`);
 }
 
 /**
@@ -207,7 +223,7 @@ export function apiGetUserDetail(userId) {
  * GET /admin/users/:user_id/events?page=1&limit=20
  */
 export function apiGetUserEvents(userId, params = {}) {
-  return request(`/admin/users/${userId}/events`, { params })
+  return request(`/admin/users/${userId}/events`, { params });
 }
 
 /**
@@ -215,7 +231,7 @@ export function apiGetUserEvents(userId, params = {}) {
  * GET /admin/users/:user_id/claims?page=1&limit=20
  */
 export function apiGetUserClaims(userId, params = {}) {
-  return request(`/admin/users/${userId}/claims`, { params })
+  return request(`/admin/users/${userId}/claims`, { params });
 }
 
 /**
@@ -223,7 +239,7 @@ export function apiGetUserClaims(userId, params = {}) {
  * GET /admin/users/:user_id/animals?page=1&limit=20
  */
 export function apiGetUserAnimals(userId, params = {}) {
-  return request(`/admin/users/${userId}/animals`, { params })
+  return request(`/admin/users/${userId}/animals`, { params });
 }
 
 /**
@@ -233,9 +249,9 @@ export function apiGetUserAnimals(userId, params = {}) {
  */
 export function apiUpdateUser(userId, data) {
   return request(`/admin/users/${userId}`, {
-    method: 'PUT',
-    body: data
-  })
+    method: "PUT",
+    body: data,
+  });
 }
 
 /**
@@ -243,44 +259,58 @@ export function apiUpdateUser(userId, data) {
  * GET /users/me
  */
 export function apiGetCurrentUser() {
-  return request('/users/me')
+  return request("/users/me");
 }
 
 // ============ 内部工具函数 ============
 
 function request(path, options = {}) {
-  const { needAuth = true } = { needAuth: true }
-  const { method = 'GET', params = {}, body = {} } = options
+  const { needAuth = true } = { needAuth: true };
+  const { method = "GET", params = {}, body = {} } = options;
 
   return new Promise((resolve, reject) => {
-    console.log('[API-PROMISE] Promise created for path=', path)
+    console.log("[API-PROMISE] Promise created for path=", path);
     setTimeout(() => {
-      console.log('[API-TIMEOUT] still pending after 5s, path=', path)
-    }, 5000)
-    let fullPath = path
+      console.log("[API-TIMEOUT] still pending after 5s, path=", path);
+    }, 5000);
+    let fullPath = path;
     if (Object.keys(params).length > 0) {
       // 手动拼接 query string，避免小程序端 URLSearchParams 兼容性问题
       const query = Object.entries(params)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-        .join('&')
-      fullPath = `${path}?${query}`
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(
+          ([k, v]) =>
+            `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`,
+        )
+        .join("&");
+      fullPath = `${path}?${query}`;
     }
 
-    const header = {}
-    const token = uni.getStorageSync('token')
+    const header = {};
+    const token = uni.getStorageSync("token");
 
     if (needAuth) {
       if (token) {
-        header['Authorization'] = 'Bearer ' + token
+        header["Authorization"] = "Bearer " + token;
       }
     }
 
     // DEBUG: 打印请求信息
-    console.log('[API]', method, BASE_URL + fullPath, 'token=', token ? token.slice(0, 20) + '...' : 'EMPTY')
+    console.log(
+      "[API]",
+      method,
+      BASE_URL + fullPath,
+      "token=",
+      token ? token.slice(0, 20) + "..." : "EMPTY",
+    );
 
     // 入口日志：确认 request 函数被调用了
-    console.log('[API>>] request called, path=', path, 'options=', JSON.stringify(options))
+    console.log(
+      "[API>>] request called, path=",
+      path,
+      "options=",
+      JSON.stringify(options),
+    );
 
     uni.request({
       url: BASE_URL + fullPath,
@@ -289,84 +319,85 @@ function request(path, options = {}) {
       data: body,
       success: (res) => {
         // DEBUG: 打印响应
-        console.log('[API] response', JSON.stringify(res.data)?.slice(0, 300))
+        console.log("[API] response", JSON.stringify(res.data)?.slice(0, 300));
 
         // HTTP 状态码非 2xx → 视为网络/服务器错误
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          let msg = '请求失败'
-          if (res.statusCode === 401) msg = '登录已过期，请重新登录'
-          else if (res.statusCode === 403) msg = '无权限访问'
-          else if (res.statusCode === 500) msg = '服务器异常'
-          uni.showToast({ title: msg, icon: 'none' })
+          let msg = "请求失败";
+          if (res.statusCode === 401) msg = "登录已过期，请重新登录";
+          else if (res.statusCode === 403) msg = "无权限访问";
+          else if (res.statusCode === 500) msg = "服务器异常";
+          uni.showToast({ title: msg, icon: "none" });
           // 401 也要清除 token 并跳转
           if (res.statusCode === 401) {
-            uni.removeStorageSync('token')
-            uni.removeStorageSync('user_info')
-            setTimeout(() => uni.reLaunch({ url: '/pages/login/login' }), 1500)
+            uni.removeStorageSync("token");
+            uni.removeStorageSync("user_info");
+            setTimeout(() => uni.reLaunch({ url: "/pages/login/login" }), 1500);
           }
-          reject(res)
-          return
+          reject(res);
+          return;
         }
 
-        const data = res.data
+        const data = res.data;
         // data 不是合法 JSON 对象
-        if (!data || typeof data !== 'object') {
-          uni.showToast({ title: '响应格式异常', icon: 'none' })
-          reject(res)
-          return
+        if (!data || typeof data !== "object") {
+          uni.showToast({ title: "响应格式异常", icon: "none" });
+          reject(res);
+          return;
         }
 
         // 认证错误 → 跳转登录
         if (data.code === 40101 || data.code === 40102) {
-          uni.removeStorageSync('token')
-          uni.removeStorageSync('user_info')
-          uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
+          uni.removeStorageSync("token");
+          uni.removeStorageSync("user_info");
+          uni.showToast({ title: "登录已过期，请重新登录", icon: "none" });
           setTimeout(() => {
-            uni.reLaunch({ url: '/pages/login/login' })
-          }, 1500)
-          reject(data)
-          return
+            uni.reLaunch({ url: "/pages/login/login" });
+          }, 1500);
+          reject(data);
+          return;
         }
 
         // 无管理员权限
         if (data.code === 40303) {
-          uni.showToast({ title: '无管理员权限', icon: 'none' })
-          reject(data)
-          return
+          uni.showToast({ title: "无管理员权限", icon: "none" });
+          reject(data);
+          return;
         }
 
         // AI 识别失败
         if (data.code === 50002 || data.code === 50003) {
-          uni.showToast({ title: 'AI识别失败，请稍后重试', icon: 'none' })
-          reject(data)
-          return
+          uni.showToast({ title: "AI识别失败，请稍后重试", icon: "none" });
+          reject(data);
+          return;
         }
 
         // 其他业务错误
         if (data.code !== 0) {
-          uni.showToast({ title: data.message || '请求失败', icon: 'none' })
-          reject(data)
-          return
+          uni.showToast({ title: data.message || "请求失败", icon: "none" });
+          reject(data);
+          return;
         }
 
         // 兼容：后端 list 类接口双层包装 {code,data:{code,data:{list/total}}}
         // 判断依据：data.data 本身也是标准响应结构（含有 code 字段）
-        let unwrapped = data
-        if (data.data && typeof data.data === 'object' && 'code' in data.data) {
-          const inner = data.data
+        let unwrapped = data;
+        if (data.data && typeof data.data === "object" && "code" in data.data) {
+          const inner = data.data;
           unwrapped = {
             code: inner.code,
             message: inner.message,
-            data: inner.data
-          }
+            data: inner.data,
+          };
         }
 
-        resolve(unwrapped)
+        resolve(unwrapped);
       },
       fail: (err) => {
-        uni.showToast({ title: '网络异常，请检查网络', icon: 'none' })
-        reject(err)
-      }
-    })
-  })
+        uni.showToast({ title: "网络异常，请检查网络", icon: "none" });
+        reject(err);
+      },
+    });
+  });
 }
+export { request };
