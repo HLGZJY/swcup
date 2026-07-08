@@ -140,18 +140,37 @@ const nosePhotoUrl = ref('')
 //   - 高分走"我要上报" → 提交 sighting 事件, intent='stray_sighting' (路人上报)
 const formIntent = ref<'lost' | 'found'>('lost')
 
+// 【Defect 2 / 2026-07-08】无鼻纹场景专用分支: collect 跳过来时
+//   - next_action === 'ask_user_confirm'
+//   - nose_id 是 'null' 字符串或空 (collect.vector_id 是 null 时 `${null}` 字符串化的产物)
+//   此时直接走 Plan B,不调 apiNoseCompare (否则后端 404 → 空态卡死)
+const passedNextAction = ref('')
+
 onMounted(async () => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text, intent } = currentPage.options || {}
+  const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text, intent, next_action } = currentPage.options || {}
 
-  if (!nose_id || nose_id === 'undefined') {
+  // 【Defect 2 / 2026-07-08】先收集透传过来的 next_action(用于后续判断是否走 Plan B)
+  //   必须先 set 再做缺鼻纹校验:合法无鼻纹场景(nose_id='null' + next_action='ask_user_confirm')不能被错误回退
+  if (next_action === 'ask_user_confirm' || next_action === 'ask_user_create') {
+    passedNextAction.value = next_action
+  }
+
+  // 【Defect 2 / 2026-07-08】无鼻纹场景判定:
+  //   - 有 next_action 兜底 (ask_user_confirm / ask_user_create) → 允许缺鼻纹,后续走 Plan B
+  //   - 没有任何 next_action 兜底 + 缺鼻纹 → 才是真的"缺鼻纹ID,请重新采集",回退
+  const hasNoValidNose = !nose_id || nose_id === 'undefined' || nose_id === 'null'
+  if (hasNoValidNose && !passedNextAction.value) {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
     uni.navigateBack()
     return
   }
 
-  noseId.value = nose_id
+  // 【Defect 2 / 2026-07-08】合法无鼻纹场景 → 不设 noseId,后续 apiNoseCompare 跳过
+  if (!hasNoValidNose) {
+    noseId.value = nose_id
+  }
   selectedSpecies.value = species || uni.getStorageSync('selectedSpecies') || 'dog'
   // sanitize: URL 参数若为字符串 "undefined"/"null"(由 encodeURIComponent(undefined) 产生)视为空值
   // 避免污染 photos 字段
@@ -188,6 +207,13 @@ onMounted(async () => {
   //   - 用户选 "我捡到狗" 时,found → 创建档案后 animal.status=found
   if (intent === 'found' || intent === 'lost') {
     formIntent.value = intent
+  }
+
+  // 【Defect 2 / 2026-07-08】无鼻纹场景 → 跳过比对,让 needsConfirmation (Plan B UI) 直接生效
+  //   旧逻辑始终调 apiNoseCompare → 后端 404 → 空 catch → compareResult=null → 所有按钮不渲染
+  //   → WeChat MP 报 navigateTo:fail timeout (页面无 CTA,用户操作卡死)
+  if (passedNextAction.value === 'ask_user_confirm') {
+    return
   }
 
   // 统一走 compare 主路径: 不再因 is_duplicate=true 而本地伪造 compareResult
@@ -265,7 +291,10 @@ const hasMatch = computed(() => {
   return results && results.length > 0 && results[0].fusion_score >= 0.75
 })
 
+// 【Defect 2 / 2026-07-08】无鼻纹场景(collect 透传 next_action=ask_user_confirm)+比对后服务端 ask_user_create,
+//   都应展示 Plan B UI (创建档案 + 取消)
 const needsConfirmation = computed(() => {
+  if (passedNextAction.value === 'ask_user_confirm') return true
   if (!compareResult.value) return false
   return compareResult.value.next_action === 'ask_user_create'
 })

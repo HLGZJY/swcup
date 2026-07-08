@@ -706,6 +706,9 @@ async function onNext() {
     }
     // 后端返回 vector_id，前端用 nose_id 作参数名（后端已兼容）
     const noseId = collectRes.data.vector_id || collectRes.data.nose_id
+    // 【Defect 2 / 2026-07-08】透传 next_action 到 result 页
+    //   无鼻纹场景后端返回 next_action=ask_user_confirm,result 页据此跳过比对直接走 Plan B
+    const passedNextAction = collectRes.data?.next_action || ''
     const isDuplicate = collectRes.data.is_duplicate ? String(collectRes.data.is_duplicate) : 'false'
     const matchedAnimalId = collectRes.data.matched_animal_id || ''
     const similarity = collectRes.data.similarity || 0
@@ -718,9 +721,10 @@ async function onNext() {
     // 阶段 3 (2026-07-06 BUG-FIX): 透传 intent (走失/捡到) 到 result 页,
     //   重复检测后用户点"我要上报"时,事件 intent 由它派生;
     //   低分创建时,apiCreateAnimal 也读这个 intent 决定 status (lost/found)
+    // 【Defect 2 / 2026-07-08】再透传 next_action,result 页用它判断是否跳过比对
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${noseId}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ''}&location_lng=${locationLng.value ?? ''}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}&intent=${intent.value}`
+        url: `/pages/collect/result?nose_id=${noseId}&next_action=${encodeURIComponent(passedNextAction)}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ''}&location_lng=${locationLng.value ?? ''}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}&intent=${intent.value}`
       })
     }, 1000)
   } catch (e: any) {
