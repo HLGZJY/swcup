@@ -111,7 +111,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiNoseCompare, apiCreateAnimal, apiReportEvent, resolveImageUrl } from '@/services/api'
+import { apiNoseCompare, apiCreatePendingAnimalRequest, apiReportEvent, resolveImageUrl } from '@/services/api'
 
 const collectResult = ref<any>(null)
 const compareResult = ref<any>(null)
@@ -136,7 +136,7 @@ const locationText = ref('')
 const bodyPhotoUrl = ref('')
 const nosePhotoUrl = ref('')
 // 阶段 3 (2026-07-06 BUG-FIX): 用户在 collect 表单选的 intent (lost/found)
-//   - 低分走"创建档案" → apiCreateAnimal 读取 → 决定 animal.status
+//   - 低分走"创建档案" → apiCreatePendingAnimalRequest 走 pending 审核
 //   - 高分走"我要上报" → 提交 sighting 事件, intent='stray_sighting' (路人上报)
 const formIntent = ref<'lost' | 'found'>('lost')
 
@@ -432,7 +432,7 @@ async function onCreateAnimal() {
     uni.showToast({ title: '缺少鼻纹ID，请重新采集', icon: 'none' })
     return
   }
-  uni.showLoading({ title: '创建中...' })
+  uni.showLoading({ title: '提交中...' })
   try {
     // 构建 photos 数组:仅在有有效全身照 URL 时才放进数组
     // 过滤字符串 "undefined"/"null" 等无效值,防止数据库 photos 字段被污染
@@ -455,17 +455,16 @@ async function onCreateAnimal() {
       }
     }
 
-    // Step 1: 创建动物档案
-    const animalRes: any = await apiCreateAnimal({
+    // Bug 3 修复 (2026-07-08): 不再直接 POST /v2/animals,改为提交待审记录
+    //   旧: 动物立即创建,绕开 admin 审核
+    //   新: 写入 pending_nose_records (source=user_create_request) → admin 审核通过后才落库
+    //   提示用户"档案已提交,待管理员审核",不立即跳转 animal-detail(动物还没创建)
+    const pendingRes: any = await apiCreatePendingAnimalRequest({
+      nose_vector_id: noseId.value,
       species: selectedSpecies.value,
       breed: formBreed.value,
       color: formColor.value,
       gender: formGender.value,
-      size: formSize.value || undefined,
-      coat_length: formCoatLength.value || undefined,
-      ear_type: formEarType.value || undefined,
-      tail_type: formTailType.value || undefined,
-      // 使用用户实际选择的值(不再硬编码 unknown)
       age_estimate: formAge.value || undefined,
       health_status: formHealth.value || undefined,
       sterilized: formSterilized.value === 'yes' ? true
@@ -475,40 +474,29 @@ async function onCreateAnimal() {
       location_lng: realLng,
       address: locationText.value || '',
       notes: formNotes.value || '',
-      primary_nose_id: noseId.value,
       photos,
-      // 阶段 3 (2026-07-06 BUG-FIX): 透传用户表单意图 → 决定 animal.status
-      //   intent='lost'  → status=LOST (主人报失)
-      //   intent='found' → status=FOUND (主人捡回/捡到)
       intent: formIntent.value,
-    })
-    const animalId = animalRes.data?.animal_id || animalRes.animal_id
-    if (!animalId) throw new Error('创建动物档案失败')
-
-    // Step 2: 上报事件（关联到新建的动物；lat/lng 缺省由后端从 animal 反查）
-    // 修复: 之前用 'report' 跟"上报"流程的 report 事件混淆,在"我的上报"列表看起来像重复
-    // 现在用 'collect' 区分,管理端和我的上报页都会显示"采集"标签
-    await apiReportEvent({
-      event_type: 'collect',
-      intent: formIntent.value,
-      animal_id: animalId,
-      nose_vector_id: noseId.value,
-      species: selectedSpecies.value,
-      location_lat: realLat,
-      location_lng: realLng,
     })
 
     uni.hideLoading()
-    uni.showToast({ title: '创建成功', icon: 'success' })
-    setTimeout(() => {
-      uni.redirectTo({ url: `/pages/animal-detail/index?animal_id=${animalId}` })
-    }, 1000)
+    uni.showModal({
+      title: '档案已提交审核',
+      content: '您的动物档案已提交,正在等待管理员审核。审核通过后会通知您。',
+      showCancel: false,
+      confirmText: '我知道了',
+      success: () => {
+        // 跳到首页,不跳转 animal-detail(因为动物还没创建)
+        uni.switchTab({ url: '/pages/index/index' })
+      },
+    })
+    // 静默使用 pendingRes 避免 lint 警告
+    void pendingRes
   } catch (e: any) {
     uni.hideLoading()
     console.error('[onCreateAnimal]', e)
     const detail = extractErrorMessage(e)
     uni.showModal({
-      title: '创建失败',
+      title: '提交失败',
       content: detail,
       showCancel: false,
       confirmText: '我知道了',

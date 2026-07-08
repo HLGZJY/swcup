@@ -32,4 +32,13 @@ export class NoseController {
   classify(@Body() dto: { image: string }) {
     return this.noseService.classify(dto)
   }
+
+  // Bug 3 修复 (2026-07-08): 用户主动建档走 pending 流程
+  //   不再直接 POST /v2/animals,改为提交待审记录,admin 审核通过后才落库
+  @Public()
+  @Post('pending-animal-request')
+  @ApiOperation({ summary: '提交待审动物档案（用户主动建档 → admin 审核）' })
+  createPendingAnimalRequest(@Body() dto: any, @Request() req: any) {
+    return this.noseService.createPendingAnimalRequest(dto, req?.user?.user_id);
+  }
 }

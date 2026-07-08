@@ -414,9 +414,15 @@ export class AdminService {
       }
       animal.location_lat = record.location_lat as any;
       animal.location_lng = record.location_lng as any;
-      animal.address = dto?.address ?? null;
-      animal.photos = dto?.photos ?? [];
-      animal.notes = null;
+      animal.address = dto?.address ?? record.address ?? null;
+      animal.photos = dto?.photos ?? record.photos ?? [];
+      // Bug 3 修复 (2026-07-08): USER_CREATE_REQUEST 提交的额外字段透传到 Animal
+      //   - 旧: age_estimate/health_status/sterilized/notes 全部丢弃
+      //   - 新: 从 record 读取,允许 dto 覆盖
+      animal.age_estimate = (dto as any)?.age_estimate ?? (record.age_estimate as any) ?? null;
+      animal.health_status = (dto as any)?.health_status ?? (record.health_status as any) ?? null;
+      animal.sterilized = (dto as any)?.sterilized ?? record.sterilized ?? null;
+      animal.notes = (dto as any)?.notes ?? record.notes ?? null;
       animal.first_seen_at = now;
       animal.last_seen_at = now;
       animal.primary_nose_id = record.vector_id;

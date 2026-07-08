@@ -49,10 +49,17 @@ export class AnimalsController {
   }
 
   // === Plan B: 用户端创建动物档案（无需 admin 角色）===
+  // Bug 3 修复 (2026-07-08): 移除了无审核的"用户端直接建档"通道
+  //   用户在 result.vue 点"创建档案"改为提交 pending_animal_request
+  //   admin 审核通过后落库 (admin.approvePendingNoseAsNew / AsDuplicate)
+  //   此接口保留 Roles('admin') 是因为 admin 端 / 我的上报页可能仍要走
+  //   临时建档通道(例如 admin 帮用户代提交)
+  //   用户端请走 POST /v1/nose/pending-animal-request
   @Version('2')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   @Post()
-  @ApiOperation({ summary: '创建动物档案（用户端，Plan B）' })
+  @ApiOperation({ summary: '创建动物档案（admin 端兜底通道,用户请走 pending 流）' })
   createForUser(@Body() dto: CreateAnimalDto) {
     return this.animalsService.create(dto);
   }

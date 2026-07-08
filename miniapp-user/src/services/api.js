@@ -228,6 +228,27 @@ export function apiCreateAnimal(params) {
 }
 
 /**
+ * 阶段 4 (2026-07-08 Bug 3 修复): 用户主动建档走 pending 审核流
+ * POST /v1/nose/pending-animal-request
+ * 请求: {
+ *   nose_vector_id,        // 必填,前端 result.vue 拿到 collect 返回的 vector_id
+ *   species, breed, color, gender,         // 基础档案字段
+ *   age_estimate, health_status, sterilized, // 详细字段
+ *   location_lat, location_lng,           // 必填,后端校验必须有效经纬度
+ *   address, notes, photos,                // 可选
+ *   intent: 'found' | 'lost'               // 表单来源(发现/丢失)
+ * }
+ * 响应: { record_id, status: 'pending' }
+ * 注意: 此接口是 @Public(),但后端会校验 user_id,未登录会抛 BadRequest
+ */
+export function apiCreatePendingAnimalRequest(params) {
+  return request('/v1/nose/pending-animal-request', {
+    method: 'POST',
+    body: params
+  })
+}
+
+/**
  * 阶段 3: 获取动物时间轴
  * GET /v1/animals/:id/timeline
  */

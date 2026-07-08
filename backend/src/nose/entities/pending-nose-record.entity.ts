@@ -12,6 +12,14 @@ export enum PendingNoseStatus {
   REJECTED = 'rejected',
 }
 
+// Bug 3 修复 (2026-07-08): 区分两条进 pending 表的入口
+//   LOW_SCORE_NOSE: nose.collect() 自动写入 (低分鼻纹,向量不确定)
+//   USER_CREATE_REQUEST: 用户主动点"创建档案",提交完整动物档案待 admin 审核
+export enum PendingNoseSource {
+  LOW_SCORE_NOSE = 'low_score_nose',
+  USER_CREATE_REQUEST = 'user_create_request',
+}
+
 @Entity('pending_nose_records')
 export class PendingNoseRecord {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'record_id' })
@@ -22,6 +30,9 @@ export class PendingNoseRecord {
 
   @Column({ type: 'varchar', length: 36, name: 'collector_id' })
   collector_id: string;
+
+  @Column({ type: 'enum', enum: PendingNoseSource, default: PendingNoseSource.LOW_SCORE_NOSE, name: 'source' })
+  source: PendingNoseSource;
 
   @Column({ type: 'decimal', precision: 5, scale: 4, nullable: true, name: 'fusion_score' })
   fusion_score: number | null;
@@ -70,6 +81,28 @@ export class PendingNoseRecord {
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'body_photo_url' })
   body_photo_url: string | null;
+
+  // ========== Bug 3 修复 (2026-07-08): USER_CREATE_REQUEST 额外字段 ==========
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'age_estimate' })
+  age_estimate: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true, name: 'health_status' })
+  health_status: string | null;
+
+  @Column({ type: 'tinyint', nullable: true })
+  sterilized: boolean | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  address: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  photos: string[] | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  intent: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;

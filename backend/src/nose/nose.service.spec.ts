@@ -178,6 +178,28 @@ describe('NoseService', () => {
         .rejects.toThrow('有效的位置信息');
     });
 
+    it('【Bug 1】user_id=undefined 进入低分匹配路径应抛 BadRequestException，不静默 500', async () => {
+      // 场景: @Public() 注解使 JwtAuthGuard 跳过 JWT 处理 → req.user 是 undefined
+      // 原来: nose.service.collect 在 Step 6 写 pending_nose_records 时 collector_id=undefined
+      //       → MySQL 抛 "Field 'collector_id' doesn't have a default value" (500)
+      // 现在: 缺 user_id 时直接 BadRequestException,前端能拿到明确错误信息
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);  // 孤儿表无候选 → 走 lowScore
+
+      await expect(service.collect({
+        nose_photo: 'base64data',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, undefined))
+        .rejects.toThrow(/请先登录/);
+
+      // 不应再触发 pendingRepo.save(无 user_id 写库会 500)
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
     it('【主链路】匹配已有动物(>=0.88) → ask_claim_or_new', async () => {
       // mock AI extract 返回向量
       mockedAxios.post.mockResolvedValueOnce({
@@ -469,19 +491,19 @@ describe('NoseService', () => {
       expect(cand.vector_similarity).toBe(0.9);
     });
 
-    it('【Bug6 兜底】主链路未达阈值 + 孤儿表有匹配 → 应合并去重', async () => {
+    it('【Bug6 兜底】主链路未达阈值 + 孤儿表只有未建档记录 → 孤儿被过滤, results 为空', async () => {
+      // 行为变更 (2026-07-08): 用户决策"compare 过滤掉所有孤儿"后,
+      // Bug6 兜底分支不再把孤儿展示为候选 — 孤儿信息只在 collect() 的 ask_link_or_new 里透传
       const nf = makeNoseFeature({ feature_vector: 'ff'.repeat(128) as any });
       noseRepo.findOne.mockResolvedValue(nf);
 
-      // 主链路 compare: 0.5 (未达 0.88)
+      // 主链路 compare: 0.5 (未达 0.88) + 孤儿表 compare: 0.92
       mockedAxios.post
         .mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } })
-        // 孤儿 compare: 0.92
         .mockResolvedValueOnce({ data: { cosine_similarity: 0.92, l2_distance: 0.1 } });
 
-      // 主链路无候选(避免上面 jest.fn mock 计数错乱)
       animalRepo._qb.getMany.mockResolvedValue([]);
-      // 孤儿表有匹配
+      // 孤儿表只有未建档的孤儿
       noseRepo._qb.getMany.mockResolvedValue([
         makeNoseFeature({ vector_id: 'orphan-1', animal_id: null }),
       ]);
@@ -491,11 +513,69 @@ describe('NoseService', () => {
         species: 'dog',
       } as any, 'user-1');
 
+      // 孤儿被过滤 → 0 results
+      expect(result.total).toBe(0);
+      expect(result.results).toEqual([]);
+      expect(result.next_action).toBe('ask_user_create');
+    });
+
+    it('【Bug 2】compare 过滤掉所有孤儿鼻纹 — 只返回已建档动物', async () => {
+      // 场景: 用户对同一只动物采 3 次,产生 3 个孤儿; compare 时不应再把它们当候选
+      // 用户决策 (2026-07-08): compare() 结果里不展示未建档的孤儿,避免候选列表被"自己以前采过"污染
+      // 孤儿信息通过 collect() 的 matched_nose_id / ask_link_or_new 让前端直接处理
+      const nf = makeNoseFeature({ feature_vector: 'ff'.repeat(128) as any });
+      noseRepo.findOne.mockResolvedValue(nf);
+
+      // 主链路无候选 + 孤儿表有 2 条孤儿
+      mockedAxios.post.mockResolvedValue({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([]);
+      noseRepo._qb.getMany.mockResolvedValue([
+        makeNoseFeature({ vector_id: 'orphan-1', animal_id: null }),
+        makeNoseFeature({ vector_id: 'orphan-2', animal_id: null }),
+      ]);
+
+      const result = await service.compare({
+        vector_id: 'v-1',
+        species: 'dog',
+      } as any, 'user-1');
+
+      // 过滤后孤儿不应出现在 results
+      expect(result.total).toBe(0);
+      expect(result.results).toEqual([]);
+      // 无任何候选 → next_action 应该是 ask_user_create (让用户去走 pending 流)
+      expect(result.next_action).toBe('ask_user_create');
+    });
+
+    it('【Bug 2】compare 主链路有真实动物 + 孤儿表有孤儿 → 只返回真实动物,孤儿被过滤', async () => {
+      const nf = makeNoseFeature({ feature_vector: 'ff'.repeat(128) as any });
+      noseRepo.findOne.mockResolvedValue(nf);
+
+      // 主链路 1 次 compare + 孤儿表 1 次
+      mockedAxios.post
+        .mockResolvedValueOnce({ data: { cosine_similarity: 0.92, l2_distance: 0.1 } })
+        .mockResolvedValueOnce({ data: { cosine_similarity: 0.99, l2_distance: 0.05 } });
+
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal({ animal_id: 'animal-real' })]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      // 孤儿表有 1 条孤儿 (animal_id=null, 不应进入 results)
+      noseRepo._qb.getMany.mockResolvedValue([
+        makeNoseFeature({ vector_id: 'orphan-x', animal_id: null }),
+      ]);
+
+      const result = await service.compare({
+        vector_id: 'v-1',
+        species: 'dog',
+        location_lat: 39.9,
+        location_lng: 116.4,
+        breed: 'shiba', color: 'yellow',
+      } as any, 'user-1');
+
       expect(result.total).toBe(1);
-      expect(result.results[0].is_orphan).toBe(true);
-      // 孤儿无 animal 时, animal 字段应为占位对象
-      expect(result.results[0].animal.animal_id).toBeNull();
-      expect(result.results[0].animal.status).toBe('orphan');
+      expect(result.results[0].animal_id).toBe('animal-real');
+      expect(result.results[0].is_orphan).toBe(false);
+      // 孤儿不应混入
+      const orphans = result.results.filter(r => r.is_orphan);
+      expect(orphans).toEqual([]);
     });
 
     it('孤儿候选 animal_id 已被补建档时,应使用真实 animal', async () => {
@@ -575,6 +655,94 @@ describe('NoseService', () => {
       const result = await service.compare({ vector_id: 'v-1' } as any, 'user-1');
       expect(result.threshold_confirmed).toBe(0.88);
       expect(result.threshold_suspected).toBe(0.75);
+    });
+  });
+
+  // ========== Bug 3 (2026-07-08): 用户主动建档走 pending 流 ==========
+  describe('createPendingAnimalRequest', () => {
+    it('应将用户提交的动物档案写入 pending_nose_records (source=user_create_request)', async () => {
+      // 场景: 用户在 result.vue 点"创建档案"
+      // 旧逻辑: 直接 POST /v2/animals,动物立即创建,绕开 admin 审核
+      // 新逻辑: 写入 pending_nose_records + source=user_create_request, 等 admin 审核
+      const dto = {
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        breed: 'shiba',
+        color: 'yellow',
+        gender: 'male',
+        age_estimate: 'adult',
+        health_status: 'healthy',
+        sterilized: true,
+        location_lat: 39.9,
+        location_lng: 116.4,
+        address: 'Beijing',
+        notes: '红色项圈',
+        photos: ['/p/1.jpg'],
+        intent: 'found',
+      };
+      const result = await service.createPendingAnimalRequest(dto as any, 'user-1');
+
+      // 关键断言: 写入 pending_nose_records (且 source 区分正确)
+      expect(pendingRepo.save).toHaveBeenCalledTimes(1);
+      const saved = pendingRepo.save.mock.calls[0][0];
+      expect(saved.source).toBe('user_create_request');
+      expect(saved.collector_id).toBe('user-1');
+      expect(saved.vector_id).toBe('v-1');
+      expect(saved.status).toBe('pending');
+      // 业务字段透传
+      expect(saved.breed).toBe('shiba');
+      expect(saved.color).toBe('yellow');
+      expect(saved.gender).toBe('male');
+      expect(saved.intent).toBe('found');
+      expect(saved.location_lat).toBe(39.9);
+      expect(saved.location_lng).toBe(116.4);
+      // 返回值: 记录 ID + under_review 提示
+      expect(result.record_id).toBeDefined();
+      expect(result.next_action).toBe('under_review');
+    });
+
+    it('user_id=undefined 应抛 BadRequestException,不入 pending', async () => {
+      // 复用了 Bug 1 修复: pending 表 collector_id NOT NULL,需 user_id
+      await expect(service.createPendingAnimalRequest({
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, undefined))
+        .rejects.toThrow(/请先登录/);
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('缺 GPS 应抛 BadRequestException (与 collect 同样严格)', async () => {
+      await expect(service.createPendingAnimalRequest({
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        location_lat: 0,
+        location_lng: 0,
+      } as any, 'user-1'))
+        .rejects.toThrow(/有效的位置信息/);
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('缺 nose_vector_id 应抛 BadRequestException', async () => {
+      await expect(service.createPendingAnimalRequest({
+        species: 'dog',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1'))
+        .rejects.toThrow(/鼻纹记录/);
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('intent 缺省应默认为 "found" (与建档流程默认行为一致)', async () => {
+      await service.createPendingAnimalRequest({
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1');
+      const saved = pendingRepo.save.mock.calls[0][0];
+      expect(saved.intent).toBe('found');
     });
   });
 

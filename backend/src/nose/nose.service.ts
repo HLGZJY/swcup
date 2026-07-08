@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
-import { PendingNoseRecord, PendingNoseStatus } from './entities/pending-nose-record.entity';
+import { PendingNoseRecord, PendingNoseStatus, PendingNoseSource } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species, Gender, AgeEstimate, HealthStatus } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
@@ -260,6 +260,13 @@ export class NoseService {
     // Step 6: 无匹配 / 低分匹配 → 写入 pending_nose_records, 进入人工审核
     //   业务规则: 向量相似度 < 0.75 或无任何匹配 → 由 admin 决定是否建档/关联/拒绝
     //   高分匹配 (>= 0.88) 在 Step 4 已走 ask_claim_or_new, 孤儿匹配在 Step 5 已走 ask_link_or_new / ask_claim_existing
+    // Bug 1 修复 (2026-07-08): 缺 user_id 时不让进 pending 写入
+    //   场景: /v1/nose/collect 是 @Public(),JwtAuthGuard 跳过 JWT → req.user 永远是 undefined
+    //   之前: pendingRepo.save({collector_id: undefined}) → MySQL 抛 "Field 'collector_id' doesn't have a default value" (500)
+    //   现在: 显式 BadRequestException,前端能拿到明确提示(参 7bbb9eb 修坐标缺失的同款模式)
+    if (!user_id) {
+      throw new BadRequestException('请先登录后再采集鼻纹');
+    }
     const lowScore = bestMatch === null || bestMatch.cosine_similarity < LOW_SCORE_THRESHOLD;
     if (lowScore) {
       await this.pendingRepo.save(
@@ -267,6 +274,7 @@ export class NoseService {
           record_id: uuidv4(),
           vector_id,
           collector_id: user_id,
+          source: PendingNoseSource.LOW_SCORE_NOSE,
           vector_similarity: bestMatch?.cosine_similarity ?? null,
           fusion_score: null,
           gps_similarity: null,
@@ -343,6 +351,10 @@ export class NoseService {
     }
 
     // 3. 合并两类候选, 按 animal_id + nose_id 去重, 按相似度降序
+    // Bug 2 修复 (2026-07-08): 过滤掉所有孤儿鼻纹 (is_orphan=true) — 用户决策"compare 不展示未建档的孤儿"
+    //   理由: 候选列表混入了"用户自己以前的采集尝试",无识别价值,让用户混乱
+    //   孤儿信息通过 collect() 的 matched_nose_id / ask_link_or_new 让前端直接处理
+    //   admin 审核页 (EventsService.processEvent) 同步不再展示孤儿,统一走 pending_nose_records 审核流
     type Candidate = {
       animal: Animal | null;
       nose_feature: NoseFeature;
@@ -358,20 +370,22 @@ export class NoseService {
       seenNose.add(item.nose_feature.vector_id);
       all.push({ animal: item.animal, nose_feature: item.nose_feature, cosine_similarity: item.cosine_similarity, is_orphan: false });
     }
-    // 孤儿匹配补充入列(已被主链路覆盖的跳过)
+    // 孤儿匹配补充入列(已被主链路覆盖的跳过) — 仅保留已被补建档的 (animal_id 非空)
     for (const item of orphanCandidates) {
       const nf = item.nose_feature;
       // 优先用 NoseFeature.animal_id 而非关联的 animal(关联可能未加载, 但字段一定对)
       const ownerAnimalId = nf.animal_id || nf.animal?.animal_id || null;
+      // 孤儿(animal_id 为空)直接跳过 — 不进 results
+      if (!ownerAnimalId) continue;
       if (seenNose.has(nf.vector_id)) continue;
-      if (ownerAnimalId && seenAnimal.has(ownerAnimalId)) continue;
+      if (seenAnimal.has(ownerAnimalId)) continue;
       seenNose.add(nf.vector_id);
-      if (ownerAnimalId) seenAnimal.add(ownerAnimalId);
+      seenAnimal.add(ownerAnimalId);
       all.push({
         animal: nf.animal || null,
         nose_feature: nf,
         cosine_similarity: item.cosine_similarity,
-        is_orphan: !ownerAnimalId,
+        is_orphan: false,  // 已被补建档,不算孤儿
       });
     }
 
@@ -480,6 +494,85 @@ export class NoseService {
       threshold_suspected,
       next_action: results[0].fusion_score >= threshold_confirmed ? 'match_found' : 'ask_user_create',
       candidate: results[0] || null,
+    };
+  }
+
+  /**
+   * Bug 3 修复 (2026-07-08): 用户主动建档走 pending 流程
+   *   - 旧: POST /v2/animals 直接落库 animals 表,绕开 admin 审核
+   *   - 新: 写入 pending_nose_records (source=user_create_request),admin 看到新待审队列
+   *         通过 approve_as_new / approve_as_duplicate 决定是建新动物还是关联已有
+   *   - 入参: 用户从 result.vue onCreateAnimal 提交的完整动物档案 + nose_vector_id
+   *   - 校验: user_id/GPS/nose_vector_id 必填,与 collect() 保持同样严格
+   *   - 落库: 复用 pending_nose_records 表,扩展字段存用户提交的 animal 档案
+   */
+  async createPendingAnimalRequest(
+    dto: {
+      nose_vector_id: string;
+      species?: string;
+      breed?: string;
+      color?: string;
+      gender?: string;
+      age_estimate?: string;
+      health_status?: string;
+      sterilized?: boolean;
+      location_lat?: number;
+      location_lng?: number;
+      address?: string;
+      notes?: string;
+      photos?: string[];
+      intent?: string;
+    },
+    user_id: string,
+  ) {
+    if (!user_id) {
+      throw new BadRequestException('请先登录后再提交动物档案');
+    }
+    if (!dto?.nose_vector_id) {
+      throw new BadRequestException('缺少鼻纹记录ID');
+    }
+    if (!dto.location_lat || !dto.location_lng || dto.location_lat === 0 || dto.location_lng === 0) {
+      throw new BadRequestException('请提供有效的位置信息，不支持默认坐标');
+    }
+    // intent 缺省 = "found" — 与 AnimalsService.create 的默认行为对齐
+    const intent = dto.intent || 'found';
+    const record_id = uuidv4();
+    await this.pendingRepo.save(
+      this.pendingRepo.create({
+        record_id,
+        vector_id: dto.nose_vector_id,
+        collector_id: user_id,
+        source: PendingNoseSource.USER_CREATE_REQUEST,
+        status: PendingNoseStatus.PENDING,
+        species: dto.species ?? null,
+        breed: dto.breed ?? null,
+        color: dto.color ?? null,
+        gender: dto.gender ?? null,
+        age_estimate: dto.age_estimate ?? null,
+        health_status: dto.health_status ?? null,
+        sterilized: dto.sterilized ?? null,
+        location_lat: dto.location_lat ?? null,
+        location_lng: dto.location_lng ?? null,
+        address: dto.address ?? null,
+        notes: dto.notes ?? null,
+        photos: dto.photos ?? null,
+        intent,
+        // 这些字段对 USER_CREATE_REQUEST 场景没意义,但表结构允许,置 null
+        fusion_score: null,
+        vector_similarity: null,
+        gps_similarity: null,
+        text_match_rate: null,
+        animal_id: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        nose_photo_url: null,
+        body_photo_url: null,
+      }),
+    );
+    return {
+      record_id,
+      vector_id: dto.nose_vector_id,
+      next_action: 'under_review',
     };
   }
 

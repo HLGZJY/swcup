@@ -173,8 +173,8 @@
 
       <view
         v-for="candidate in candidates"
-        :key="candidate.animal_id"
-        :class="['candidate-card', { selected: selectedId === candidate.animal_id, recommended: candidate.is_recommended }]"
+        :key="candidateKey(candidate)"
+        :class="['candidate-card', { selected: selectedId === candidateKey(candidate), recommended: candidate.is_recommended }]"
         @click="selectCandidate(candidate)"
       >
         <view class="candidate-accent"></view>
@@ -208,9 +208,9 @@
           </view>
         </view>
         <view class="candidate-radio">
-          <view :class="['radio-circle', { filled: selectedId === candidate.animal_id }]">
+          <view :class="['radio-circle', { filled: selectedId === candidateKey(candidate) }]">
             <image
-              v-if="selectedId === candidate.animal_id"
+              v-if="selectedId === candidateKey(candidate)"
               class="check-icon"
               src="/static/icons/icon-check.svg"
               mode="aspectFit"
@@ -338,7 +338,7 @@ async function loadAuditDetail(eventId: string) {
       time_score.value = res.data.time_score ?? 0
       candidates.value = res.data.candidates || []
       const recommended = candidates.value.find((c: any) => c.is_recommended)
-      if (recommended) selectedId.value = recommended.animal_id
+      if (recommended) selectedId.value = candidateKey(recommended)
     }
   } catch (e) {
     console.error('加载审核详情失败', e)
@@ -348,8 +348,16 @@ async function loadAuditDetail(eventId: string) {
   }
 }
 
+// Bug 4 修复 (2026-07-08): 用复合键避免孤儿记录 animal_id=null 全部"全选"bug
+// 旧逻辑: :key="candidate.animal_id" + selectedId.value = candidate.animal_id
+//   → 孤儿所有 animal_id=null, 点击任一孤儿 → 全部 orphan 卡同时显示 selected
+// 新逻辑: candidateKey() 优先用 animal_id, 兜底用 vector_id/nose_id/index,保证每条候选独立
+function candidateKey(c: any): string {
+  return c.animal_id || c.vector_id || c.nose_id || `idx-${candidates.value.indexOf(c)}`
+}
+
 function selectCandidate(candidate: any) {
-  selectedId.value = candidate.animal_id
+  selectedId.value = candidateKey(candidate)
   uni.vibrateShort && uni.vibrateShort({ type: 'light' })
 }
 
@@ -417,8 +425,19 @@ function onConfirm() {
     return
   }
 
-  const candidate = candidates.value.find(c => c.animal_id === selectedId.value)
+  // Bug 4 修复: 用 candidateKey 查候选,API 仍传真实 animal_id
+  const candidate = candidates.value.find(c => candidateKey(c) === selectedId.value)
   if (!candidate) return
+  // 孤儿无 animal_id,不能合并 — 提示用户走其他审核入口
+  if (!candidate.animal_id) {
+    uni.showModal({
+      title: '该候选未建档',
+      content: '该鼻纹记录尚未关联动物档案,无法直接合并。请到"低分鼻纹审核"处理。',
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+    return
+  }
 
   uni.showModal({
     title: '确认合并',
@@ -429,7 +448,7 @@ function onConfirm() {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await apiConfirmEvent(event_id.value, { animal_id: selectedId.value })
+          await apiConfirmEvent(event_id.value, { animal_id: candidate.animal_id })
           uni.showToast({ title: '已合并', icon: 'success' })
           setTimeout(() => uni.navigateBack(), 1200)
         } catch (e) {
