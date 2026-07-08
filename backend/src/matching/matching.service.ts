@@ -110,7 +110,10 @@ export class MatchingService {
    * @param limit 返回前 N 个
    */
   async findSimilarLostAnimalsForReport(event: RescueEvent, limit: number = 5): Promise<ReportCandidate[]> {
-    // 1. 筛选候选: status='lost' + 同物种 + 5km 内 (粗筛, 避免无效 AI 调用)
+    // 1. 筛选候选: status IN ('lost','found') + 同物种 + 5km 内 (粗筛, 避免无效 AI 调用)
+    // Bug B Part 2 修复 (2026-07-08): 之前只查 status='lost',漏掉 'found' 动物
+    //   场景: 路人目击 stray_sighting → admin 审核 → 应找到同区域已"found"的动物合并
+    //   修复: IN ('lost','found'),让候选池包含刚捡到/主人在找的所有动物
     const eventLat = Number(event.location_lat);
     const eventLng = Number(event.location_lng);
     if (!eventLat || !eventLng || eventLat === 0 || eventLng === 0) {
@@ -118,7 +121,7 @@ export class MatchingService {
     }
 
     const qb = this.animalRepo.createQueryBuilder('a')
-      .where('a.status = :status', { status: 'lost' });
+      .where('a.status IN (:...statuses)', { statuses: ['lost', 'found'] });
     if (event.species) {
       qb.andWhere('a.species = :species', { species: event.species });
     }
