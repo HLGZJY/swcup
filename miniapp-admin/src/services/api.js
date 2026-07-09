@@ -166,6 +166,18 @@ export function apiCreateAnimalFromEvent(eventId) {
 }
 
 /**
+ * 【2026-07-09 重构】admin 合并事件到目标动物
+ * 区别于 apiCreateAnimalFromEvent:保留旧动物 + 把事件合并到它,event.status=duplicated + is_duplicate=true
+ * PUT /admin/events/:event_id/action body={ action: 'merge', animal_id }
+ */
+export function apiMergeEvent(eventId, animalId) {
+  return request(`/admin/events/${eventId}/action`, {
+    method: "PUT",
+    body: { action: "merge", animal_id: animalId },
+  });
+}
+
+/**
  * 获取认领申请列表（管理）
  * GET /admin/claims?page=1&limit=20&status=pending
  */

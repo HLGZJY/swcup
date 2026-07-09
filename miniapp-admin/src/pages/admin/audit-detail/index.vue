@@ -238,31 +238,26 @@
     <view class="bottom-spacer"></view>
 
     <!-- Fixed action bar -->
+    <!-- 【2026-07-09 重构】固定 3 按钮布局,候选为空时仅禁"合并" -->
     <view class="action-bar">
       <view class="action-reject" @click="onReject">
         <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
         <text>驳回</text>
       </view>
-      <!-- 【Bug 6 / 2026-07-08】无候选时显示"创建新动物"按钮,替代"确认合并" -->
-      <view
-        v-if="candidates.length === 0"
-        class="action-create"
-        @click="onCreateNew"
-      >
+      <view class="action-create" @click="onCreateNew">
         <image class="action-icon" src="/static/icons/icon-plus.svg" mode="aspectFit" />
-        <text>创建新动物</text>
+        <text>同意新建</text>
       </view>
       <view
-        v-else
         :class="['action-confirm', { disabled: !selectedId }]"
-        @click="onConfirm"
+        @click="onMerge"
       >
         <image
           class="action-icon"
           :src="selectedId ? '/static/icons/icon-merge.svg' : '/static/icons/icon-check.svg'"
           mode="aspectFit"
         />
-        <text>{{ selectedId ? '确认合并' : '请先选择候选' }}</text>
+        <text>{{ selectedId ? '合并到候选' : '合并(请先选)' }}</text>
       </view>
     </view>
   </view>
@@ -270,7 +265,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiGetAdminAuditDetail, apiConfirmEvent, apiRejectEvent, apiProcessEvent, apiCreateAnimalFromEvent, resolveImageUrl } from '@/services/api'
+import { apiGetAdminAuditDetail, apiRejectEvent, apiProcessEvent, apiCreateAnimalFromEvent, apiMergeEvent, resolveImageUrl } from '@/services/api'
 
 const event_id = ref('')
 const event = ref<any>({
@@ -429,20 +424,21 @@ function onReject() {
   })
 }
 
-function onConfirm() {
+function onMerge() {
   if (!selectedId.value) {
-    uni.showToast({ title: '请先选择匹配候选', icon: 'none' })
+    uni.showToast({ title: '请先选择候选动物', icon: 'none' })
     return
   }
 
   // Bug 4 修复: 用 candidateKey 查候选,API 仍传真实 animal_id
   const candidate = candidates.value.find(c => candidateKey(c) === selectedId.value)
   if (!candidate) return
-  // 孤儿无 animal_id,不能合并 — 提示用户走其他审核入口
   if (!candidate.animal_id) {
+    // [2026-07-09 重构] 没有 animal_id 的孤儿候选不再触发"低分鼻纹审核"提示
+    //   旧流程的 pending_nose_records 表已废弃,新流程走 admin 自行拒绝/同意新建
     uni.showModal({
       title: '该候选未建档',
-      content: '该鼻纹记录尚未关联动物档案,无法直接合并。请到"低分鼻纹审核"处理。',
+      content: '该候选尚未关联动物档案,无法直接合并。请选其他候选,或使用"同意新建"。',
       showCancel: false,
       confirmText: '我知道了',
     })
@@ -450,15 +446,16 @@ function onConfirm() {
   }
 
   uni.showModal({
-    title: '确认合并',
-    content: `将本次事件合并到：\n${candidate.breed}（${candidate.address || '未知地点'}）`,
+    title: '合并到该动物',
+    content: `将本次事件合并到：\n${candidate.breed || '未知品种'}（${candidate.address || '未知地点'}）`,
     confirmText: '合并',
     cancelText: '取消',
     confirmColor: '#07C160',
     success: async (res) => {
       if (res.confirm) {
         try {
-          await apiConfirmEvent(event_id.value, { animal_id: candidate.animal_id })
+          // [2026-07-09 重构] 走统一 dispatchEventAction,action=merge
+          await apiMergeEvent(event_id.value, candidate.animal_id)
           uni.showToast({ title: '已合并', icon: 'success' })
           setTimeout(() => uni.navigateBack(), 1200)
         } catch (e) {
