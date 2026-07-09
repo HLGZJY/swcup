@@ -20,52 +20,16 @@
       </view>
     </view>
 
-    <!-- Tab 切换 -->
-    <view class="audit-tabs">
-      <view
-        :class="['tab-item', { active: currentTab === 'events' }]"
-        @click="switchTab('events')"
-      >
-        <image
-          class="tab-icon"
-          src="/static/icons/icon-event.svg"
-          mode="aspectFit"
-        />
-        <text class="tab-text">事件审核</text>
-        <view class="tab-badge" v-if="pendingEvents > 0">{{
-          pendingEvents
-        }}</view>
-      </view>
-      <view
-        :class="['tab-item', { active: currentTab === 'claims' }]"
-        @click="switchTab('claims')"
-      >
-        <image
-          class="tab-icon"
-          src="/static/icons/icon-shield.svg"
-          mode="aspectFit"
-        />
-        <text class="tab-text">认领审核</text>
-        <view class="tab-badge tab-badge--claim" v-if="pendingClaims > 0">{{
-          pendingClaims
-        }}</view>
-      </view>
-      <view
-        :class="['tab-item', { active: currentTab === 'clues' }]"
-        @click="goClues"
-      >
-        <image
-          class="tab-icon"
-          src="/static/icons/icon-target.svg"
-          mode="aspectFit"
-        />
-        <text class="tab-text">线索审核</text>
-        <view class="tab-badge tab-badge--clue" v-if="pendingClues > 0">{{
-          pendingClues
-        }}</view>
-      </view>
-      <!-- 【2026-07-09 重构】待审鼻纹 tab 已删除:pending_nose_records 表废弃,审核统一走 3 按钮 -->
-    </view>
+    <!-- Tab 切换 (AuditTab 组件接管,3 Tab 同页切换,无 navigateTo 跳转) -->
+    <AuditTab
+      v-model="currentTab"
+      :tabs="[
+        { key: 'events', label: '事件审核', icon: '/static/icons/icon-event.svg', badge: pendingEvents },
+        { key: 'claims', label: '认领审核', icon: '/static/icons/icon-shield.svg', badge: pendingClaims, badgeClass: 'tab-badge--claim' },
+        { key: 'clues',  label: '线索审核', icon: '/static/icons/icon-target.svg', badge: pendingClues,  badgeClass: 'tab-badge--clue' },
+      ]"
+    />
+    <!-- 【2026-07-09 重构】待审鼻纹 tab 已删除:pending_nose_records 表废弃,审核统一走 3 按钮 -->
 
     <!-- 事件审核列表 -->
     <view v-if="currentTab === 'events'" class="tab-content">
@@ -73,17 +37,11 @@
         <view class="loading-spinner"></view>
         <text class="loading-text">加载中...</text>
       </view>
-      <view class="empty-state" v-else-if="events.length === 0">
-        <view class="empty-icon-wrap">
-          <image
-            class="empty-icon"
-            src="/static/icons/icon-check-circle-success.svg"
-            mode="aspectFit"
-          />
-        </view>
-        <text class="empty-title">暂无待审核事件</text>
-        <text class="empty-sub">所有事件已处理完毕 ✨</text>
-      </view>
+      <EmptyStatus
+        v-else-if="events.length === 0"
+        title="暂无待审核事件"
+        sub="所有事件已处理完毕 ✨"
+      />
 
       <audit-event-card
         v-for="item in events"
@@ -101,17 +59,12 @@
         <view class="loading-spinner"></view>
         <text class="loading-text">加载中...</text>
       </view>
-      <view class="empty-state" v-else-if="claims.length === 0">
-        <view class="empty-icon-wrap">
-          <image
-            class="empty-icon"
-            src="/static/icons/icon-shield.svg"
-            mode="aspectFit"
-          />
-        </view>
-        <text class="empty-title">暂无待审核认领</text>
-        <text class="empty-sub">所有认领申请已处理完毕</text>
-      </view>
+      <EmptyStatus
+        v-else-if="claims.length === 0"
+        title="暂无待审核认领"
+        sub="所有认领申请已处理完毕"
+        icon="/static/icons/icon-shield.svg"
+      />
 
       <view v-for="item in claims" :key="item.claim_id" class="claim-card">
         <view class="claim-accent"></view>
@@ -196,6 +149,63 @@
         </view>
       </view>
     </view>
+
+    <!-- 线索审核列表 (从原 pages/admin/clues/index.vue 迁入,无页面跳转) -->
+    <view v-if="currentTab === 'clues'" class="tab-content">
+      <view class="loading-state" v-if="loading">
+        <view class="loading-spinner"></view>
+        <text class="loading-text">加载中...</text>
+      </view>
+      <EmptyStatus
+        v-else-if="clues.length === 0"
+        title="暂无待审核线索"
+        sub="用户报告类评论暂时没有匹配到任何事件 ✨"
+      />
+      <view v-else class="clue-list">
+        <view v-for="item in clues" :key="item.match_id" class="clue-card">
+          <view class="clue-header">
+            <view class="score-badge" :class="scoreClass(item.match_score)">
+              <text class="score-num">{{ Math.round((item.match_score || 0) * 100) }}</text>
+              <text class="score-label">score</text>
+            </view>
+            <view class="meta">
+              <text :class="['sentiment-tag', 'sentiment-' + item.sentiment]">{{ item.sentiment }}</text>
+              <text class="recorded-time">{{ formatTime(item.recorded_at) }}</text>
+            </view>
+          </view>
+          <view class="clue-body">
+            <view class="comment-block">
+              <text class="comment-label">用户评论</text>
+              <text class="comment-content">{{ commentPreview[item.comment_id] || '加载中...' }}</text>
+              <view class="keyword-row" v-if="item.keywords && item.keywords.length">
+                <text class="kw-chip" v-for="k in item.keywords" :key="k">{{ k }}</text>
+              </view>
+            </view>
+            <view class="arrow-line"><text class="arrow-text">↓ 匹配到 ↓</text></view>
+            <view class="event-block">
+              <text class="event-label">候选事件</text>
+              <view class="event-info-row">
+                <text class="event-eventid">#{{ (item.candidate_event_id || '').slice(0, 8) }}</text>
+                <text class="event-address">{{ item.candidate_event_address || '(无地址)' }}</text>
+              </view>
+              <view class="match-reasons" v-if="item.match_reasons && item.match_reasons.length">
+                <text class="reason" v-for="(r, i) in item.match_reasons" :key="i">• {{ r }}</text>
+              </view>
+            </view>
+          </view>
+          <view class="clue-actions">
+            <view class="action-btn reject" @click="onDecideClue(item, 'rejected')">
+              <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
+              <text>驳回</text>
+            </view>
+            <view class="action-btn approve" @click="onDecideClue(item, 'confirmed')">
+              <image class="action-icon" src="/static/icons/icon-check.svg" mode="aspectFit" />
+              <text>确认关联</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -211,18 +221,21 @@ import {
   apiUpdateAnimal,
   resolveImageUrl,
 } from "@/services/api";
-import { apiGetPendingClues } from "@/services/clue";
+import { apiGetPendingClues, apiDecideClue } from "@/services/clue";
 import AuditEventCard from "@/components/audit-event-card/index.vue";
+import AuditTab from "@/components/audit-tab/index.vue";
+import EmptyStatus from "@/components/empty-status/index.vue";
 
 const currentTab = ref("events");
 const events = ref<any[]>([]);
 const claims = ref<any[]>([]);
+const clues = ref<any[]>([]);
+const commentPreview = ref<Record<string, string>>({});
 const pendingEvents = ref(0);
 const pendingClaims = ref(0);
+const pendingClues = ref(0);
 const loading = ref(true);
 // 【2026-07-09 重构】pendingNoseRecords 已删除
-
-const pendingClues = ref(0);
 const pendingTotal = computed(
   () =>
     pendingEvents.value +
@@ -232,8 +245,9 @@ const pendingTotal = computed(
 
 onMounted(() => {
   const launchOptions = uni.getLaunchOptionsSync();
-  if (launchOptions.query?.type === "claims") {
-    currentTab.value = "claims";
+  const t = launchOptions.query?.type;
+  if (t === "claims" || t === "clues" || t === "events") {
+    currentTab.value = t;
   }
   loadAuditData();
 });
@@ -249,18 +263,23 @@ async function loadAuditData() {
 
     const [eRes, cRes, pRes] = results;
 
-    if (eRes.code === 0) {
+    if (eRes?.code === 0) {
       events.value = eRes.data?.list || [];
       pendingEvents.value = eRes.data?.total || 0;
     }
-    if (cRes.code === 0) {
+    if (cRes?.code === 0) {
       claims.value = cRes.data?.list || [];
       pendingClaims.value = cRes.data?.total || 0;
     }
     const pPayload = pRes && pRes.data ? pRes.data : pRes;
-    pendingClues.value =
-      (pPayload && pPayload.total) ||
-      (pPayload && pPayload.items ? pPayload.items.length : 0);
+    const clueList = pPayload?.items || [];
+    clues.value = clueList;
+    pendingClues.value = pPayload?.total ?? clueList.length;
+    // 后端 clue item 不含 comment 文本,前端按关键词拼个 stub 用于卡片展示
+    for (const it of clueList) {
+      commentPreview.value[it.comment_id] =
+        `[comment ${(it.comment_id || "").slice(0, 8)}] sentiment=${it.sentiment}, kw=${(it.keywords || []).slice(0, 3).join(",")}`;
+    }
   } catch (e) {
     console.error("加载审核数据失败", e);
     uni.showToast({ title: "加载失败，请重试", icon: "none" });
@@ -272,10 +291,7 @@ function switchTab(tab: string) {
   currentTab.value = tab;
 }
 
-function goClues() {
-  uni.navigateTo({ url: "/pages/admin/clues/index" });
-}
-
+// 【2026-07-09 重构】goClues 已删除:线索审核改造为本地 Tab 切换,不再 navigateTo
 // 【2026-07-09 重构】goPendingNose 已删除:待审鼻纹 tab 废弃
 
 function formatTime(isoString: string) {
@@ -391,6 +407,37 @@ async function onRejectClaim(claimId: string) {
       }
     },
   });
+}
+
+// 线索审核操作:确认关联 / 驳回
+async function onDecideClue(item: any, decision: "confirmed" | "rejected") {
+  try {
+    const r: any = await apiDecideClue(
+      item.animal_id,
+      item.match_id,
+      decision,
+      "",
+    );
+    const ok = r && (r.ok || (r.data && r.data.ok));
+    if (ok) {
+      uni.showToast({
+        title: decision === "confirmed" ? "已确认关联" : "已驳回",
+        icon: "success",
+      });
+      clues.value = clues.value.filter((x) => x.match_id !== item.match_id);
+      pendingClues.value = Math.max(0, pendingClues.value - 1);
+    } else {
+      uni.showToast({ title: "操作失败", icon: "none" });
+    }
+  } catch (e) {
+    uni.showToast({ title: "网络异常", icon: "none" });
+  }
+}
+
+function scoreClass(s: number) {
+  if (s >= 0.7) return "score-high";
+  if (s >= 0.5) return "score-mid";
+  return "score-low";
 }
 </script>
 
@@ -833,4 +880,87 @@ async function onRejectClaim(claimId: string) {
 .action-btn.reject:active {
   background: #eeeeee;
 }
+
+/* ============ 线索卡片 (clue, 从原 pages/admin/clues/index.vue 迁入) ============ */
+.tab-content {
+  padding: 24rpx;
+}
+.clue-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+.clue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  min-width: 80rpx;
+}
+.score-badge.score-high { background: rgba(255, 107, 107, 0.15); }
+.score-badge.score-mid  { background: rgba(255, 159, 0, 0.15); }
+.score-badge.score-low  { background: rgba(153, 153, 153, 0.15); }
+.score-num { font-size: 32rpx; font-weight: 700; line-height: 1; }
+.score-high .score-num { color: #ff6b6b; }
+.score-mid  .score-num { color: #ff9f00; }
+.score-low  .score-num { color: #999999; }
+.score-label { font-size: 16rpx; color: #999; margin-top: 2rpx; }
+.meta { display: flex; flex-direction: column; align-items: flex-end; }
+.sentiment-tag {
+  display: inline-block;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  margin-bottom: 6rpx;
+}
+.sentiment-tag.sentiment-report  { background: #fff3e0; color: #ff6b6b; }
+.sentiment-tag.sentiment-seek    { background: #e3f2fd; color: #2196f3; }
+.sentiment-tag.sentiment-thanks  { background: #e8f5e9; color: #0fbf9f; }
+.sentiment-tag.sentiment-care    { background: #fce4ec; color: #e91e63; }
+.sentiment-tag.sentiment-neutral { background: #f0f0f0; color: #666666; }
+.recorded-time { font-size: 20rpx; color: #999; }
+.clue-body {
+  padding: 16rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.comment-block, .event-block { padding: 12rpx 0; }
+.comment-label, .event-label {
+  display: block;
+  font-size: 20rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+.comment-content { display: block; color: #333; font-size: 28rpx; line-height: 1.5; }
+.keyword-row { margin-top: 12rpx; display: flex; flex-wrap: wrap; gap: 8rpx; }
+.kw-chip {
+  padding: 4rpx 12rpx;
+  background: #fff3e0;
+  color: #ff6b6b;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+}
+.arrow-line { text-align: center; padding: 12rpx 0; }
+.arrow-text { color: #999; font-size: 22rpx; letter-spacing: 4rpx; }
+.event-info-row { display: flex; align-items: baseline; gap: 12rpx; }
+.event-eventid { color: #999; font-size: 22rpx; }
+.event-address { color: #333; font-size: 26rpx; flex: 1; }
+.match-reasons { margin-top: 12rpx; padding: 12rpx; background: #fafafa; border-radius: 8rpx; }
+.reason { display: block; color: #666; font-size: 20rpx; line-height: 1.6; }
+.clue-actions { display: flex; gap: 16rpx; padding-top: 16rpx; }
+.clue-actions .action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 16rpx; border-radius: 12rpx; }
+.clue-actions .action-btn.reject { background: #fafafa; color: #999; border: 1rpx solid #e0e0e0; }
+.clue-actions .action-btn.approve { background: linear-gradient(135deg, #ff6b6b, #ff9f00); color: #ffffff; }
+.clue-actions .action-icon { width: 28rpx; height: 28rpx; }
+.clue-actions .action-btn text { font-size: 26rpx; font-weight: 600; }
+.clue-actions .action-btn.reject text { color: #999; }
 </style>
