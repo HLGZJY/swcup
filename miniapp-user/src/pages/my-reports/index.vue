@@ -5,7 +5,11 @@
       <view class="navbar-statusbar" />
       <view class="navbar-content">
         <view class="navbar-back" @click="goBack">
-          <image class="navbar-back-icon" src="/static/icons/icon-chevron-left.svg" mode="aspectFit" />
+          <image
+            class="navbar-back-icon"
+            src="/static/icons/icon-chevron-left.svg"
+            mode="aspectFit"
+          />
         </view>
         <text class="navbar-title">我的上报</text>
         <view class="navbar-spacer" />
@@ -13,7 +17,11 @@
     </view>
 
     <view class="list-empty" v-if="reports.length === 0 && !loading">
-      <image class="empty-icon" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
+      <image
+        class="empty-icon"
+        src="/static/icons/icon-filetext.svg"
+        mode="aspectFit"
+      />
       <text class="empty-text">暂无上报记录</text>
       <text class="empty-hint">快去发现身边的流浪动物吧</text>
     </view>
@@ -71,12 +79,18 @@
 
         <view class="report-footer">
           <view class="report-footer-left">
-            <image class="report-location-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
+            <image
+              class="report-location-icon"
+              src="/static/icons/icon-mappin.svg"
+              mode="aspectFit"
+            />
             <text class="report-location">{{ formatEventAddress(item) }}</text>
           </view>
           <view class="report-footer-right">
             <text class="report-time">{{ formatTime(item.occurred_at) }}</text>
-            <text class="report-created">创建于 {{ formatCreatedAt(item.created_at) }}</text>
+            <text class="report-created"
+              >创建于 {{ formatCreatedAt(item.created_at) }}</text
+            >
           </view>
         </view>
       </view>
@@ -116,105 +130,112 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { apiGetMyEvents, apiGetAnimals, apiLinkEventToAnimal } from '@/services/api'
-import { resolveImageUrl } from '@/services/api'
+import { ref, onMounted } from "vue";
+import { apiGetMyEvents, apiGetAnimals, apiLinkEventToAnimal } from "@/services/api";
+import { resolveImageUrl } from "@/services/api";
 
-const reports = ref<any[]>([])
-const loading = ref(false)
+const reports = ref<any[]>([]);
+const loading = ref(false);
 
 const statusMap: Record<string, string> = {
-  pending: '待审核',
-  confirmed: '已确认',
-  duplicated: '重复',
-  linked: '已关联',
-  resolved: '已处理',
-  rejected: '已驳回',
-  processing: '处理中'
-}
+  pending: "待审核",
+  confirmed: "已确认",
+  duplicated: "重复",
+  linked: "已关联",
+  resolved: "已处理",
+  rejected: "已驳回",
+  processing: "处理中",
+};
 
 const eventTypeMap: Record<string, string> = {
-  collect: '采集',  // 鼻纹采集流程创建的事件(无匹配时创建新档案)
-  report: '上报',
-  rescue: '救助',
-  medical: '医疗',
-  adopt: '领养',
-  transfer: '转移',
-  release: '放生'
-}
+  collect: "采集",
+  report: "上报",
+  rescue: "救助",
+  medical: "医疗",
+  adopt: "领养",
+  transfer: "转移",
+  release: "放生",
+};
 
 onMounted(async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const res: any = await apiGetMyEvents()
-    reports.value = res.data || []
+    const res: any = await apiGetMyEvents();
+    reports.value = res.data || [];
   } catch (e) {
-    console.error('加载我的上报失败', e)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    console.error("加载我的上报失败", e);
+    uni.showToast({ title: "加载失败", icon: "none" });
   }
-  loading.value = false
-})
+  loading.value = false;
+});
 
 function formatTime(isoString: string) {
-  if (!isoString) return ''
-  const date = new Date(isoString)
-  const now = new Date()
-  const diff = (now.getTime() - date.getTime()) / 1000
-  if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
-  if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
-  return Math.floor(diff / 86400) + '天前'
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diff = (now.getTime() - date.getTime()) / 1000;
+  if (diff < 3600) return Math.floor(diff / 60) + "分钟前";
+  if (diff < 86400) return Math.floor(diff / 3600) + "小时前";
+  return Math.floor(diff / 86400) + "天前";
 }
 
 function formatCreatedAt(isoString: string) {
-  if (!isoString) return ''
-  const date = new Date(isoString)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function shortEventId(eventId: string) {
-  if (!eventId) return ''
-  return eventId.slice(-6)
+  if (!eventId) return "";
+  return eventId.slice(-6);
 }
 
-// collect 类型的 description/address 在 DB 中本就为 NULL,前端按类型给语义化兜底
 function formatEventDesc(item: any) {
-  if (item.description) return item.description
-  if (item.event_type === 'collect') return '[鼻纹采集]'
-  return '无描述'
+  if (item.description) return item.description;
+  if (item.event_type === "collect") return "[鼻纹采集]";
+  return "无描述";
 }
 
 function formatEventAddress(item: any) {
-  if (item.address) return item.address
+  if (item.address) return item.address;
   if (item.location_lat && item.location_lng) {
-    return `${Number(item.location_lat).toFixed(4)}, ${Number(item.location_lng).toFixed(4)}`
+    return `${Number(item.location_lat).toFixed(4)}, ${Number(item.location_lng).toFixed(4)}`;
   }
-  return '未知地点'
+  return "未知地点";
 }
 
-// 图片加载失败时降级为 SVG 占位（前端缓存标记，下次渲染走 v-else 分支）
 function onThumbError(item: any) {
   if (item && Array.isArray(item.photos) && item.photos.length > 0) {
-    item.photos = []  // 强制重新渲染走 v-else 分支
+    item.photos = [];
   }
 }
 
+// 修复返回逻辑：如果无法返回则跳转到首页
 function goBack() {
-  uni.navigateBack({ delta: 1 })
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack({ delta: 1 });
+  } else {
+    // 如果没有上一页，跳转到首页（tabBar 页面）
+    uni.switchTab({
+      url: "/pages/home/index",
+    });
+  }
 }
 
 function goToAnimal(animalId: string) {
-  if (!animalId) return
+  if (!animalId) return;
   uni.navigateTo({
-    url: `/pages/animal-detail/index?animal_id=${animalId}`
-  })
+    url: `/pages/animal-detail/index?animal_id=${animalId}`,
+  });
 }
 
-// 阶段 3 (2026-07-06): 动物选择器状态
-const pickerVisible = ref(false)
-const pickerAnimals = ref<any[]>([])
-const linkingEventId = ref('')
-const pickerLoading = ref(false)
+// 阶段 3 (2026-07-06): 关联到动物 — 待审事件自助 link 到现有动物
+const pickerVisible = ref(false);
+const pickerAnimals = ref<any[]>([]);
+const linkingEventId = ref("");
+const pickerLoading = ref(false);
 
 async function openAnimalPicker(eventId: string) {
   linkingEventId.value = eventId
@@ -250,21 +271,22 @@ async function confirmLink(animalId: string) {
 }
 
 function closePicker() {
-  pickerVisible.value = false
+  pickerVisible.value = false;
+  linkingEventId.value = "";
 }
 </script>
 
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: #F5F5F5;
+  background: #f5f5f5;
   padding: 24rpx;
   padding-top: 0;
 }
 
 /* 自定义 navbar（custom 模式：子页面，纯白底 + 左侧返回 + 中间标题） */
 .navbar {
-  background: #FFFFFF;
+  background: #ffffff;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -302,7 +324,7 @@ function closePicker() {
   text-align: center;
   font-size: 32rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
   margin-right: 40rpx; /* 视觉居中补偿左侧返回按钮宽度 */
 }
 
@@ -336,7 +358,7 @@ function closePicker() {
 
 .report-card {
   position: relative;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 16rpx;
   padding: 24rpx 24rpx 24rpx 30rpx;
   margin-bottom: 20rpx;
@@ -356,14 +378,30 @@ function closePicker() {
   border-radius: 16rpx 0 0 16rpx;
 }
 
-.accent-pending    { background: linear-gradient(180deg, #FF9F00 0%, rgba(255,159,0,0) 100%); }
-.accent-confirmed  { background: linear-gradient(180deg, #0FBF9F 0%, rgba(15,191,159,0) 100%); }
-.accent-resolved   { background: linear-gradient(180deg, #0FBF9F 0%, rgba(15,191,159,0) 100%); }
-.accent-linked     { background: linear-gradient(180deg, #9B7BFF 0%, rgba(155,123,255,0) 100%); }
-.accent-duplicated { background: linear-gradient(180deg, #999999 0%, rgba(153,153,153,0) 100%); }
-.accent-rejected   { background: linear-gradient(180deg, #FF6B6B 0%, rgba(255,107,107,0) 100%); }
-.accent-processing { background: linear-gradient(180deg, #4C90E6 0%, rgba(76,144,230,0) 100%); }
-.accent-default    { background: linear-gradient(180deg, #CCCCCC 0%, rgba(204,204,204,0) 100%); }
+.accent-pending {
+  background: linear-gradient(180deg, #ff9f00 0%, rgba(255, 159, 0, 0) 100%);
+}
+.accent-confirmed {
+  background: linear-gradient(180deg, #0fbf9f 0%, rgba(15, 191, 159, 0) 100%);
+}
+.accent-resolved {
+  background: linear-gradient(180deg, #0fbf9f 0%, rgba(15, 191, 159, 0) 100%);
+}
+.accent-linked {
+  background: linear-gradient(180deg, #9b7bff 0%, rgba(155, 123, 255, 0) 100%);
+}
+.accent-duplicated {
+  background: linear-gradient(180deg, #999999 0%, rgba(153, 153, 153, 0) 100%);
+}
+.accent-rejected {
+  background: linear-gradient(180deg, #ff6b6b 0%, rgba(255, 107, 107, 0) 100%);
+}
+.accent-processing {
+  background: linear-gradient(180deg, #4c90e6 0%, rgba(76, 144, 230, 0) 100%);
+}
+.accent-default {
+  background: linear-gradient(180deg, #cccccc 0%, rgba(204, 204, 204, 0) 100%);
+}
 
 /* 缩略图区 */
 .report-thumb-wrap {
@@ -373,7 +411,7 @@ function closePicker() {
   margin-right: 20rpx;
   border-radius: 12rpx;
   overflow: hidden;
-  background: #F5F5F5;
+  background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -409,25 +447,46 @@ function closePicker() {
 .report-type {
   font-size: 26rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
 }
 
 .report-status {
   font-size: 22rpx;
   padding: 4rpx 16rpx;
   border-radius: 12rpx;
-  background: #F0F0F0;
+  background: #f0f0f0;
   color: #666666;
   flex-shrink: 0;
 }
 
-.status-pending    { background: #FFF8E8; color: #FF9F00; }
-.status-confirmed  { background: #E8FDF8; color: #07C160; }
-.status-resolved   { background: #E8FDF8; color: #07C160; }
-.status-rejected   { background: #FFF0F0; color: #FF6B6B; }
-.status-duplicated { background: #F0F0F0; color: #999999; }
-.status-linked     { background: #F2EDFF; color: #9B7BFF; }
-.status-processing { background: #E8F2FD; color: #4C90E6; }
+.status-pending {
+  background: #fff8e8;
+  color: #ff9f00;
+}
+.status-confirmed {
+  background: #e8fdf8;
+  color: #07c160;
+}
+.status-resolved {
+  background: #e8fdf8;
+  color: #07c160;
+}
+.status-rejected {
+  background: #fff0f0;
+  color: #ff6b6b;
+}
+.status-duplicated {
+  background: #f0f0f0;
+  color: #999999;
+}
+.status-linked {
+  background: #f2edff;
+  color: #9b7bff;
+}
+.status-processing {
+  background: #e8f2fd;
+  color: #4c90e6;
+}
 
 /* 事件号副标题 */
 .report-event-id {
@@ -493,7 +552,7 @@ function closePicker() {
 
 .report-created {
   font-size: 20rpx;
-  color: #BBBBBB;
+  color: #bbbbbb;
   margin-top: 2rpx;
   font-variant-numeric: tabular-nums;
 }
@@ -509,8 +568,8 @@ function closePicker() {
 .report-link-action {
   margin-top: 12rpx;
   padding: 12rpx 20rpx;
-  background: #E8FDF8;
-  color: #0FBF9F;
+  background: #e8fdf8;
+  color: #0fbf9f;
   font-size: 24rpx;
   border-radius: 8rpx;
   align-self: flex-start;
@@ -528,7 +587,7 @@ function closePicker() {
 .picker-panel {
   width: 100%;
   max-height: 70vh;
-  background: #FFFFFF;
+  background: #ffffff;
   border-top-left-radius: 20rpx;
   border-top-right-radius: 20rpx;
   padding: 24rpx;
@@ -541,7 +600,8 @@ function closePicker() {
   margin-bottom: 16rpx;
   text-align: center;
 }
-.picker-loading, .picker-empty {
+.picker-loading,
+.picker-empty {
   text-align: center;
   padding: 40rpx 0;
   color: #999999;
@@ -552,7 +612,7 @@ function closePicker() {
 }
 .picker-item {
   padding: 20rpx 16rpx;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid #f0f0f0;
 }
 .picker-item-title {
   display: block;
@@ -569,7 +629,7 @@ function closePicker() {
   margin-top: 16rpx;
   padding: 24rpx 0;
   text-align: center;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   color: #666666;
   font-size: 28rpx;

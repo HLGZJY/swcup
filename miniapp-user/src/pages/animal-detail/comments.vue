@@ -203,14 +203,16 @@ onMounted(() => {
 .navbar {
   display: flex;
   align-items: center;
-  height: 88rpx;
+  height: 200rpx;
   background: #ffffff;
   border-bottom: 1rpx solid #e5e7eb;
-  padding: 0 24rpx;
+  /* 拆分padding：左右24rpx，顶部叠加安全区高度 */
+  padding: calc(env(safe-area-inset-top) + 0rpx) 24rpx 0;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
 }
 
 .back {

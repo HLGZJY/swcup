@@ -2,37 +2,54 @@
   <view class="page">
     <!-- 顶部占位(关掉系统胶囊后,需要 88rpx 让内容不顶到状态栏) -->
     <view class="navbar-placeholder" />
-
     <!-- 位置选择(始终可见,可点击重新选) -->
     <view class="location-box" @click="onManualSelectLocation">
       <view class="location-icon-wrap">
-        <image class="location-icon" src="/static/mock/location-icon.png" mode="aspectFit" @error="onLocationIconError" />
+        <!-- 已修正路径：增加 src/ 层级 -->
+        <image
+          class="location-icon"
+          src="/static/mock/location-icon.png"
+          mode="aspectFit"
+          @error="onLocationIconError"
+        />
       </view>
       <view class="location-info">
         <text class="location-text">{{ locationText }}</text>
         <text class="location-tip">点击重新选择位置</text>
       </view>
     </view>
-
     <!-- 顶部品牌区(照抄 report 页:paw logo + 副标题) -->
     <view class="guide-header">
       <view class="guide-brand">
         <view class="guide-logo">
-          <image class="logo-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" @error="onImageError" />
+          <image
+            class="logo-icon"
+            src="/static/icons/icon-paw-filled.svg"
+            mode="aspectFit"
+            @error="onImageError"
+          />
         </view>
         <view class="guide-title">
-          <text class="title-main">{{ animalId ? '鼻纹补录' : '鼻纹采集' }}</text>
-          <text class="title-sub">{{ animalId ? '为已建档的动物补录鼻纹数据' : '为你的宠物建立唯一身份档案' }}</text>
+          <text class="title-main">{{
+            animalId ? "鼻纹补录" : "鼻纹采集"
+          }}</text>
+          <text class="title-sub">{{
+            animalId
+              ? "为已建档的动物补录鼻纹数据"
+              : "为你的宠物建立唯一身份档案"
+          }}</text>
         </view>
       </view>
     </view>
-
     <!-- 步骤指示(照抄 report 页:5 圆点 + 连线 + 步骤计数) -->
     <view class="steps-indicator">
       <view class="steps-progress">
         <template v-for="(s, i) in steps" :key="i">
           <view
-            :class="['steps-dot', { done: i < currentStep, active: i === currentStep }]"
+            :class="[
+              'steps-dot',
+              { done: i < currentStep, active: i === currentStep },
+            ]"
           />
           <view
             v-if="i < steps.length - 1"
@@ -41,11 +58,12 @@
         </template>
       </view>
       <view class="steps-info">
-        <text class="steps-counter">步骤 {{ currentStep + 1 }} / {{ steps.length }}</text>
+        <text class="steps-counter"
+          >步骤 {{ currentStep + 1 }} / {{ steps.length }}</text
+        >
         <text class="steps-name">{{ steps[currentStep] }}</text>
       </view>
     </view>
-
     <!-- 物种选择 -->
     <view class="section" v-show="currentStep === 0">
       <text class="section-title">选择物种</text>
@@ -53,7 +71,10 @@
         <view
           v-for="spec in speciesList"
           :key="spec.value"
-          :class="['species-card', { selected: selectedSpecies === spec.value }]"
+          :class="[
+            'species-card',
+            { selected: selectedSpecies === spec.value },
+          ]"
           @click="onSelectSpecies(spec.value)"
         >
           <image class="species-icon" :src="spec.icon" mode="aspectFit" />
@@ -61,19 +82,23 @@
         </view>
       </view>
     </view>
-
     <!-- 拍摄全身照 -->
     <view class="section" v-show="currentStep === 1">
       <text class="section-title">拍摄全身照</text>
-
       <view class="camera-area" @click="onOpenBodyCamera">
+        <!-- 已改后缀 png → jpg + 增加 src/ 路径 -->
         <image
           v-if="!bodyPhoto"
           class="camera-placeholder"
-          src="/static/mock/body-guide.png"
+          src="/src/static/mock/body-guide.jpg"
           mode="aspectFit"
         />
-        <image v-else class="captured-photo" :src="bodyPhoto" mode="aspectFill" />
+        <image
+          v-else
+          class="captured-photo"
+          :src="bodyPhoto"
+          mode="aspectFill"
+        />
         <view class="camera-overlay" v-if="!bodyPhoto">
           <text class="camera-text">点击拍摄全身照</text>
           <text class="camera-hint">请拍摄能看清品种特征的完整照片</text>
@@ -82,23 +107,21 @@
           <text>重新拍摄</text>
         </view>
       </view>
-
       <view class="ai-hint" v-if="aiBreedSuggestion">
         <text class="ai-icon">🤖</text>
         <text>AI 识别为：{{ aiBreedSuggestion }}</text>
       </view>
     </view>
-
     <!-- 拍摄引导 -->
     <view class="section" v-show="currentStep === 2">
       <text class="section-title">拍摄鼻纹</text>
-
       <!-- 相机区域 -->
       <view class="camera-area" @click="onOpenCamera">
+        <!-- 已改后缀 png → jpg + 增加 src/ 路径 -->
         <image
           v-if="!nosePhoto"
           class="camera-placeholder"
-          src="/static/mock/camera-guide.png"
+          src="/src/static/mock/camera-guide.jpg"
           mode="aspectFit"
         />
         <image
@@ -122,7 +145,11 @@
       <!-- 拍摄提示 -->
       <view class="tips-box">
         <view class="tips-title">
-          <image class="tips-title-icon" src="/static/icons/icon-camera.png" mode="aspectFit" />
+          <image
+            class="tips-title-icon"
+            src="/static/icons/icon-camera.png"
+            mode="aspectFit"
+          />
           <text>拍摄技巧</text>
         </view>
         <view class="tip-item" v-for="tip in tips" :key="tip">
@@ -255,21 +282,31 @@
         </view>
         <view class="confirm-item">
           <text class="confirm-label">全身照</text>
-          <image v-if="bodyPhoto" class="confirm-nose-thumb" :src="bodyPhoto" mode="aspectFill" />
+          <image
+            v-if="bodyPhoto"
+            class="confirm-nose-thumb"
+            :src="bodyPhoto"
+            mode="aspectFill"
+          />
           <text v-else class="confirm-value danger">未上传</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">鼻纹照片</text>
-          <image v-if="nosePhoto" class="confirm-nose-thumb" :src="nosePhoto" mode="aspectFill" />
+          <image
+            v-if="nosePhoto"
+            class="confirm-nose-thumb"
+            :src="nosePhoto"
+            mode="aspectFill"
+          />
           <text v-else class="confirm-value danger">未上传</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">品种</text>
-          <text class="confirm-value">{{ breed || '未填写' }}</text>
+          <text class="confirm-value">{{ breed || "未填写" }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">颜色</text>
-          <text class="confirm-value">{{ color || '未填写' }}</text>
+          <text class="confirm-value">{{ color || "未填写" }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">性别</text>
@@ -289,7 +326,7 @@
         </view>
         <view class="confirm-item">
           <text class="confirm-label">补充描述</text>
-          <text class="confirm-value">{{ notes || '未填写' }}</text>
+          <text class="confirm-value">{{ notes || "未填写" }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">位置</text>
@@ -303,14 +340,24 @@
         <view class="quality-row">
           <text>置信度</text>
           <view class="quality-bar-bg">
-            <view class="quality-bar-fill" :style="{ width: (collectResult.confidence_score * 100) + '%' }"></view>
+            <view
+              class="quality-bar-fill"
+              :style="{ width: collectResult.confidence_score * 100 + '%' }"
+            ></view>
           </view>
-          <text class="quality-percent">{{ (collectResult.confidence_score * 100).toFixed(0) }}%</text>
+          <text class="quality-percent"
+            >{{ (collectResult.confidence_score * 100).toFixed(0) }}%</text
+          >
         </view>
         <view class="quality-row">
           <text>活体检测</text>
-          <text :class="['liveness-tag', collectResult.liveness_passed ? 'pass' : 'fail']">
-            {{ collectResult.liveness_passed ? '通过 ✓' : '未通过 ✗' }}
+          <text
+            :class="[
+              'liveness-tag',
+              collectResult.liveness_passed ? 'pass' : 'fail',
+            ]"
+          >
+            {{ collectResult.liveness_passed ? "通过 ✓" : "未通过 ✗" }}
           </text>
         </view>
       </view>
@@ -334,179 +381,198 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { apiNoseCollect, apiClassifyBreed, apiUploadFile, apiGetAnimalDetail } from '@/services/api'
+import { ref, computed, onMounted } from "vue";
+import {
+  apiNoseCollect,
+  apiClassifyBreed,
+  apiUploadFile,
+  apiGetAnimalDetail,
+} from "@/services/api";
 
-const currentStep = ref(0)
-const selectedSpecies = ref('dog')
+const currentStep = ref(0);
+const selectedSpecies = ref("dog");
 // 补录模式:从 animal-detail 跳过来时携带,代表"为这只动物补录鼻纹"
-const animalId = ref('')
-const prefilling = ref(false)
-const bodyPhoto = ref('')
-const bodyPhotoBase64 = ref('')
-const bodyPhotoUrl = ref('') // 上传后的全身照 URL
-const aiBreedSuggestion = ref('')
-const nosePhoto = ref('')
-const nosePhotoBase64 = ref('') // Base64 格式用于上传
-const nosePhotoUrl = ref('') // 上传后的鼻纹照 URL
-const locationText = ref('定位中...')
-const collectResult = ref<any>(null)
-const locationLat = ref<number | null>(null)
-const locationLng = ref<number | null>(null)
+const animalId = ref("");
+const prefilling = ref(false);
+const bodyPhoto = ref("");
+const bodyPhotoBase64 = ref("");
+const bodyPhotoUrl = ref(""); // 上传后的全身照 URL
+const aiBreedSuggestion = ref("");
+const nosePhoto = ref("");
+const nosePhotoBase64 = ref(""); // Base64 格式用于上传
+const nosePhotoUrl = ref(""); // 上传后的鼻纹照 URL
+const locationText = ref("定位中...");
+const collectResult = ref<any>(null);
+const locationLat = ref<number | null>(null);
+const locationLng = ref<number | null>(null);
 // 位置已被用户/预填锁定,GPS 回调不能覆盖
-const locationLocked = ref(false)
+const locationLocked = ref(false);
 // 【Bug 5 防抖 / 2026-07-08】用户手抖 1 秒内连点"开始比对"导致重复提交
 //   后端已有幂等缓存兜底,前端再加 disabled 视觉反馈,提升体验
-const submitting = ref(false)
+const submitting = ref(false);
 
-const breed = ref('')
-const color = ref('')
-const gender = ref('unknown')
+const breed = ref("");
+const color = ref("");
+const gender = ref("unknown");
 const genderOptions = [
-  { value: 'unknown', label: '未知' },
-  { value: 'male', label: '公' },
-  { value: 'female', label: '母' },
-]
+  { value: "unknown", label: "未知" },
+  { value: "male", label: "公" },
+  { value: "female", label: "母" },
+];
 // 阶段 3 (2026-07-06): 用户意图 — 走失/捡到 (供后续事件透传使用)
-const intent = ref<'lost' | 'found'>('lost')
+const intent = ref<"lost" | "found">("lost");
 const genderLabel = computed(() => {
-  return genderOptions.find(g => g.value === gender.value)?.label || '未知'
-})
+  return genderOptions.find((g) => g.value === gender.value)?.label || "未知";
+});
 
 // 补充属性(本地存储,后端接口暂不接收,功能 0 改动)
-const age = ref('')
+const age = ref("");
 const ageOptions = [
-  { value: 'junior', label: '幼年' },
-  { value: 'adult', label: '成年' },
-  { value: 'senior', label: '老年' },
-  { value: 'unknown', label: '未知' },
-]
-const ageLabel = computed(() => ageOptions.find(a => a.value === age.value)?.label || '未填写')
+  { value: "junior", label: "幼年" },
+  { value: "adult", label: "成年" },
+  { value: "senior", label: "老年" },
+  { value: "unknown", label: "未知" },
+];
+const ageLabel = computed(
+  () => ageOptions.find((a) => a.value === age.value)?.label || "未填写",
+);
 
-const health = ref('')
+const health = ref("");
 const healthOptions = [
-  { value: 'healthy', label: '健康' },
-  { value: 'injured', label: '受伤' },
-  { value: 'sick', label: '生病' },
-  { value: 'unknown', label: '未知' },
-]
-const healthLabel = computed(() => healthOptions.find(h => h.value === health.value)?.label || '未填写')
+  { value: "healthy", label: "健康" },
+  { value: "injured", label: "受伤" },
+  { value: "sick", label: "生病" },
+  { value: "unknown", label: "未知" },
+];
+const healthLabel = computed(
+  () => healthOptions.find((h) => h.value === health.value)?.label || "未填写",
+);
 
-const sterilized = ref('')
+const sterilized = ref("");
 const sterilizedOptions = [
-  { value: 'yes', label: '已绝育' },
-  { value: 'no', label: '未绝育' },
-  { value: 'unknown', label: '未知' },
-]
-const sterilizedLabel = computed(() => sterilizedOptions.find(s => s.value === sterilized.value)?.label || '未填写')
+  { value: "yes", label: "已绝育" },
+  { value: "no", label: "未绝育" },
+  { value: "unknown", label: "未知" },
+];
+const sterilizedLabel = computed(
+  () =>
+    sterilizedOptions.find((s) => s.value === sterilized.value)?.label ||
+    "未填写",
+);
 
-const notes = ref('')
+const notes = ref("");
 
-const steps = ['选择物种', '拍摄全身照', '拍摄鼻纹', '填写信息', '确认提交']
+const steps = ["选择物种", "拍摄全身照", "拍摄鼻纹", "填写信息", "确认提交"];
 const tips = [
-  '保持光线充足，避免强烈反光',
-  '鼻头正对镜头，距离10-20cm',
-  '确保鼻纹纹路清晰可见',
-  '避免拍摄到嘴唇或毛发干扰'
-]
+  "保持光线充足，避免强烈反光",
+  "鼻头正对镜头，距离10-20cm",
+  "确保鼻纹纹路清晰可见",
+  "避免拍摄到嘴唇或毛发干扰",
+];
 
 const speciesList = [
-  { value: 'dog', label: '狗狗', icon: '/static/mock/dog-icon.svg' },
-  { value: 'cat', label: '猫咪', icon: '/static/mock/cat-icon.svg' },
-  { value: 'other', label: '其他', icon: '/static/mock/other-icon.svg' }
-]
+  { value: "dog", label: "狗狗", icon: "/static/mock/dog-icon.svg" },
+  { value: "cat", label: "猫咪", icon: "/static/mock/cat-icon.svg" },
+  { value: "other", label: "其他", icon: "/static/mock/other-icon.svg" },
+];
 
 const speciesLabel = computed(() => {
-  return speciesList.find(s => s.value === selectedSpecies.value)?.label || ''
-})
+  return (
+    speciesList.find((s) => s.value === selectedSpecies.value)?.label || ""
+  );
+});
 
 const canNext = computed(() => {
-  if (currentStep.value === 0) return true
-  if (currentStep.value === 1) return !!bodyPhoto.value
-  if (currentStep.value === 2) return true  // 【Defect 1 / 2026-07-08】鼻纹步骤可跳过 — 后端 collect 已支持无鼻纹 (ask_user_confirm)
-  if (currentStep.value === 3) return true
-  return true
-})
+  if (currentStep.value === 0) return true;
+  if (currentStep.value === 1) return !!bodyPhoto.value;
+  if (currentStep.value === 2) return true; // 【Defect 1 / 2026-07-08】鼻纹步骤可跳过 — 后端 collect 已支持无鼻纹 (ask_user_confirm)
+  if (currentStep.value === 3) return true;
+  return true;
+});
 
 // 补录模式:加载已有动物信息并预填
 async function loadAnimalForPrefill(id: string) {
-  prefilling.value = true
+  prefilling.value = true;
   try {
-    const res: any = await apiGetAnimalDetail(id)
-    const data = res?.data
-    if (!data) return
-    if (data.species) selectedSpecies.value = data.species
-    if (data.breed) breed.value = data.breed
-    if (data.color) color.value = data.color
-    if (data.gender) gender.value = data.gender
-    if (data.location_lat != null) locationLat.value = Number(data.location_lat)
-    if (data.location_lng != null) locationLng.value = Number(data.location_lng)
-    if (data.address) locationText.value = data.address
+    const res: any = await apiGetAnimalDetail(id);
+    const data = res?.data;
+    if (!data) return;
+    if (data.species) selectedSpecies.value = data.species;
+    if (data.breed) breed.value = data.breed;
+    if (data.color) color.value = data.color;
+    if (data.gender) gender.value = data.gender;
+    if (data.location_lat != null)
+      locationLat.value = Number(data.location_lat);
+    if (data.location_lng != null)
+      locationLng.value = Number(data.location_lng);
+    if (data.address) locationText.value = data.address;
     // 补录预填了位置:锁定,后续 GPS 回调不能覆盖
     if (data.location_lat != null && data.location_lng != null) {
-      locationLocked.value = true
+      locationLocked.value = true;
     }
   } catch (e) {
-    console.error('[collect] 加载动物信息失败', e)
+    console.error("[collect] 加载动物信息失败", e);
   } finally {
-    prefilling.value = false
+    prefilling.value = false;
   }
 }
 
 onMounted(() => {
   // 拿 query 参数(uni-app 小程序环境下 getCurrentPages 可用;测试环境下安全降级)
-  let animal_id = ''
+  let animal_id = "";
   try {
-    const pages = getCurrentPages()
-    const currentPage = pages[pages.length - 1] as any
-    animal_id = currentPage?.options?.animal_id || ''
+    const pages = getCurrentPages();
+    const currentPage = pages[pages.length - 1] as any;
+    animal_id = currentPage?.options?.animal_id || "";
   } catch {
     // 单元测试或非小程序环境:无 query
   }
   if (animal_id) {
-    animalId.value = animal_id
-    loadAnimalForPrefill(animal_id)
+    animalId.value = animal_id;
+    loadAnimalForPrefill(animal_id);
   }
-})
+});
 
 // 获取位置（gcj02 坐标系，与腾讯/高德地图一致）
 function getLocation() {
   uni.getLocation({
-    type: 'gcj02',
+    type: "gcj02",
     success: (res) => {
       // 已锁定(用户手动选了/补录预填了)则不覆盖
-      if (locationLocked.value) return
-      locationLat.value = res.latitude
-      locationLng.value = res.longitude
-      locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+      if (locationLocked.value) return;
+      locationLat.value = res.latitude;
+      locationLng.value = res.longitude;
+      locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`;
     },
     fail: (err) => {
-      console.error('GPS 获取失败', err)
+      console.error("GPS 获取失败", err);
       // 静默降级:location-box 仍可点击,用户手动选位置
       if (!locationLocked.value) {
-        locationText.value = '未定位,点击选择位置'
+        locationText.value = "未定位,点击选择位置";
       }
-    }
-  })
+    },
+  });
 }
 
 // 手动选择位置(微信原生 chooseLocation,弹窗带搜索栏)
 function onManualSelectLocation() {
   uni.chooseLocation({
     success: (res) => {
-      locationLat.value = res.latitude
-      locationLng.value = res.longitude
-      locationText.value = res.address || `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+      locationLat.value = res.latitude;
+      locationLng.value = res.longitude;
+      locationText.value =
+        res.address ||
+        `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`;
       // 锁定:用户已选位置,后续 GPS 回调不能覆盖
-      locationLocked.value = true
+      locationLocked.value = true;
     },
     fail: (err) => {
       // 用户主动取消不报错;其他错误给提示
-      if (err.errMsg && !err.errMsg.includes('cancel')) {
-        uni.showToast({ title: '位置选择失败', icon: 'none' })
+      if (err.errMsg && !err.errMsg.includes("cancel")) {
+        uni.showToast({ title: "位置选择失败", icon: "none" });
       }
-    }
-  })
+    },
+  });
 }
 
 // 占位图加载失败时静默忽略
@@ -514,11 +580,11 @@ function onLocationIconError() {
   // no-op
 }
 
-getLocation()
+getLocation();
 
 function onSelectSpecies(value: string) {
-  selectedSpecies.value = value
-  uni.setStorageSync('selectedSpecies', value)
+  selectedSpecies.value = value;
+  uni.setStorageSync("selectedSpecies", value);
 }
 
 function onImageError(e: any) {
@@ -528,38 +594,38 @@ function onImageError(e: any) {
 function onOpenBodyCamera() {
   uni.chooseImage({
     count: 1,
-    sourceType: ['camera'],
+    sourceType: ["camera"],
     success: async (res) => {
-      const filePath = res.tempFilePaths[0]
-      bodyPhoto.value = filePath
-      uni.showLoading({ title: '上传中...' })
+      const filePath = res.tempFilePaths[0];
+      bodyPhoto.value = filePath;
+      uni.showLoading({ title: "上传中..." });
       try {
         // 上传获得 URL
-        bodyPhotoUrl.value = await apiUploadFile(filePath)
+        bodyPhotoUrl.value = await apiUploadFile(filePath);
         // AI 识别使用 Base64
-        bodyPhotoBase64.value = await fileToBase64(filePath)
+        bodyPhotoBase64.value = await fileToBase64(filePath);
         const aiRes: any = await apiClassifyBreed({
-          image: bodyPhotoBase64.value
-        })
+          image: bodyPhotoBase64.value,
+        });
         if (aiRes.data?.breed_cn) {
-          aiBreedSuggestion.value = aiRes.data.breed_cn
-          breed.value = aiRes.data.breed_cn
+          aiBreedSuggestion.value = aiRes.data.breed_cn;
+          breed.value = aiRes.data.breed_cn;
         }
       } catch (e) {
         // AI 失败不阻止流程
-        console.error('[onOpenBodyCamera]', e)
+        console.error("[onOpenBodyCamera]", e);
       } finally {
-        uni.hideLoading()
+        uni.hideLoading();
       }
-    }
-  })
+    },
+  });
 }
 
 function onRetakeBody() {
-  bodyPhoto.value = ''
-  bodyPhotoBase64.value = ''
-  bodyPhotoUrl.value = ''
-  aiBreedSuggestion.value = ''
+  bodyPhoto.value = "";
+  bodyPhotoBase64.value = "";
+  bodyPhotoUrl.value = "";
+  aiBreedSuggestion.value = "";
 }
 
 /**
@@ -571,17 +637,17 @@ function fileToBase64(filePath: string): Promise<string> {
     uni.getFileInfo({
       filePath,
       success: (info) => {
-        const sizeMB = info.size / 1024 / 1024
+        const sizeMB = info.size / 1024 / 1024;
         if (sizeMB <= 5) {
           // 不超过5MB，直接转 Base64
           uni.getFileSystemManager().readFile({
             filePath,
-            encoding: 'base64',
+            encoding: "base64",
             success: (res) => {
-              resolve('data:image/jpeg;base64,' + res.data)
+              resolve("data:image/jpeg;base64," + res.data);
             },
-            fail: reject
-          })
+            fail: reject,
+          });
         } else {
           // 超过5MB，需要压缩
           uni.compressImage({
@@ -590,84 +656,89 @@ function fileToBase64(filePath: string): Promise<string> {
             success: (compressRes) => {
               uni.getFileSystemManager().readFile({
                 filePath: compressRes.tempFilePath,
-                encoding: 'base64',
+                encoding: "base64",
                 success: (res2) => {
-                  resolve('data:image/jpeg;base64,' + res2.data)
+                  resolve("data:image/jpeg;base64," + res2.data);
                 },
-                fail: reject
-              })
+                fail: reject,
+              });
             },
-            fail: reject
-          })
+            fail: reject,
+          });
         }
       },
-      fail: reject
-    })
-  })
+      fail: reject,
+    });
+  });
 }
 
 function onOpenCamera() {
   uni.chooseImage({
     count: 1,
-    sourceType: ['camera'],
+    sourceType: ["camera"],
     success: async (res) => {
-      const filePath = res.tempFilePaths[0]
-      nosePhoto.value = filePath // 用于本地预览
+      const filePath = res.tempFilePaths[0];
+      nosePhoto.value = filePath; // 用于本地预览
 
-      uni.showLoading({ title: '上传鼻纹照...' })
+      uni.showLoading({ title: "上传鼻纹照..." });
       try {
         // 上传鼻纹照获得 URL
-        nosePhotoUrl.value = await apiUploadFile(filePath)
+        nosePhotoUrl.value = await apiUploadFile(filePath);
         // 保留 Base64 供 AI 提取向量
-        nosePhotoBase64.value = await fileToBase64(filePath)
+        nosePhotoBase64.value = await fileToBase64(filePath);
       } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: '图片上传失败', icon: 'none' })
-        return
+        uni.hideLoading();
+        uni.showToast({ title: "图片上传失败", icon: "none" });
+        return;
       }
-      uni.hideLoading()
+      uni.hideLoading();
     },
     fail: () => {
-      uni.showToast({ title: '请允许相机权限', icon: 'none' })
-    }
-  })
+      uni.showToast({ title: "请允许相机权限", icon: "none" });
+    },
+  });
 }
 
 function onRetake() {
-  nosePhoto.value = ''
-  nosePhotoBase64.value = ''
-  nosePhotoUrl.value = ''
+  nosePhoto.value = "";
+  nosePhotoBase64.value = "";
+  nosePhotoUrl.value = "";
 }
 
 function onBack() {
   if (currentStep.value > 0) {
-    currentStep.value--
+    currentStep.value--;
   }
 }
 
 async function onNext() {
   if (currentStep.value < 3) {
-    currentStep.value++
-    return
+    currentStep.value++;
+    return;
   }
 
   // 【Bug 5 防抖 / 2026-07-08】采集步骤且正在提交中 → 拦截重复点击
   //   防止 1.66s 内连点产生两次 vector_id(后端有幂等缓存兜底,这里是 UX 提升)
-  if (submitting.value) return
-  submitting.value = true
+  if (submitting.value) return;
+  submitting.value = true;
 
   // 【Defect 1 / 2026-07-08】鼻纹可选,后端 collect 已支持缺失鼻纹返回 ask_user_confirm
   //   不再前置拦截 "请先拍摄鼻纹照片"
 
   // GPS 校验：禁止使用 (0,0) 默认值
-  if (!locationLat.value || !locationLng.value || locationLat.value === 0 || locationLng.value === 0) {
-    submitting.value = false
-    uni.showToast({ title: '请提供有效的位置信息', icon: 'none' })
-    return
+  if (
+    !locationLat.value ||
+    !locationLng.value ||
+    locationLat.value === 0 ||
+    locationLng.value === 0
+  ) {
+    submitting.value = false;
+    uni.showToast({ title: "请提供有效的位置信息", icon: "none" });
+    return;
   }
 
   // 提交采集
-  uni.showLoading({ title: '采集中...' })
+  uni.showLoading({ title: "采集中..." });
 
   try {
     const collectRes: any = await apiNoseCollect({
@@ -676,46 +747,49 @@ async function onNext() {
       animal_id: animalId.value || null,
       location_lat: locationLat.value ?? 0,
       location_lng: locationLng.value ?? 0,
-      device_id: 'miniapp_user',
+      device_id: "miniapp_user",
       timestamp: new Date().toISOString(),
       breed: breed.value,
       color: color.value,
       gender: gender.value,
       body_photo_url: bodyPhotoUrl.value,
       nose_photo_url: nosePhotoUrl.value,
-    })
+    });
 
-    collectResult.value = collectRes.data
+    collectResult.value = collectRes.data;
     // 阶段 4 (2026-07-07 低分鼻纹人工审核): 后端返回 under_review 时,前端拦截,不去比对页
     // 场景: 后端在 collect 阶段发现向量相似度 < 0.75,已写入 pending_nose_records,
     //       等待 Admin 审核。这条 vector_id 不该进比对流程,直接给用户"审核中"提示
-    if (collectRes.data?.next_action === 'under_review') {
-      uni.hideLoading()
+    if (collectRes.data?.next_action === "under_review") {
+      uni.hideLoading();
       uni.showModal({
-        title: '鼻纹审核中',
-        content: '鼻纹质量评分较低,已提交管理员人工审核,请耐心等待。审核通过后会通知您。',
+        title: "鼻纹审核中",
+        content:
+          "鼻纹质量评分较低,已提交管理员人工审核,请耐心等待。审核通过后会通知您。",
         showCancel: false,
-        confirmText: '返回首页',
+        confirmText: "返回首页",
         success: (modalRes) => {
           if (modalRes.confirm) {
-            uni.switchTab({ url: '/pages/index/index' })
+            uni.switchTab({ url: "/pages/index/index" });
           }
         },
-      })
-      return  // 阻断后续的 result 页跳转
+      });
+      return; // 阻断后续的 result 页跳转
     }
     // 后端返回 vector_id，前端用 nose_id 作参数名（后端已兼容）
-    const noseId = collectRes.data.vector_id || collectRes.data.nose_id
+    const noseId = collectRes.data.vector_id || collectRes.data.nose_id;
     // 【Defect 2 / 2026-07-08】透传 next_action 到 result 页
     //   无鼻纹场景后端返回 next_action=ask_user_confirm,result 页据此跳过比对直接走 Plan B
-    const passedNextAction = collectRes.data?.next_action || ''
-    const isDuplicate = collectRes.data.is_duplicate ? String(collectRes.data.is_duplicate) : 'false'
-    const matchedAnimalId = collectRes.data.matched_animal_id || ''
-    const similarity = collectRes.data.similarity || 0
-    uni.setStorageSync('vector_id', noseId)
+    const passedNextAction = collectRes.data?.next_action || "";
+    const isDuplicate = collectRes.data.is_duplicate
+      ? String(collectRes.data.is_duplicate)
+      : "false";
+    const matchedAnimalId = collectRes.data.matched_animal_id || "";
+    const similarity = collectRes.data.similarity || 0;
+    uni.setStorageSync("vector_id", noseId);
 
-    uni.hideLoading()
-    uni.showToast({ title: '采集成功', icon: 'success' })
+    uni.hideLoading();
+    uni.showToast({ title: "采集成功", icon: "success" });
 
     // 跳转到结果页
     // 阶段 3 (2026-07-06 BUG-FIX): 透传 intent (走失/捡到) 到 result 页,
@@ -724,18 +798,18 @@ async function onNext() {
     // 【Defect 2 / 2026-07-08】再透传 next_action,result 页用它判断是否跳过比对
     setTimeout(() => {
       uni.navigateTo({
-        url: `/pages/collect/result?nose_id=${noseId}&next_action=${encodeURIComponent(passedNextAction)}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ''}&location_lng=${locationLng.value ?? ''}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}&intent=${intent.value}`
-      })
-    }, 1000)
+        url: `/pages/collect/result?nose_id=${noseId}&next_action=${encodeURIComponent(passedNextAction)}&species=${selectedSpecies.value}&breed=${encodeURIComponent(breed.value)}&color=${encodeURIComponent(color.value)}&gender=${encodeURIComponent(gender.value)}&age=${age.value}&health=${health.value}&sterilized=${sterilized.value}&notes=${encodeURIComponent(notes.value)}&location_lat=${locationLat.value ?? ""}&location_lng=${locationLng.value ?? ""}&location_text=${encodeURIComponent(locationText.value)}&is_duplicate=${isDuplicate}&matched_animal_id=${matchedAnimalId}&similarity=${similarity}&body_photo_url=${encodeURIComponent(bodyPhotoUrl.value)}&nose_photo_url=${encodeURIComponent(nosePhotoUrl.value)}&intent=${intent.value}`,
+      });
+    }, 1000);
   } catch (e: any) {
-    uni.hideLoading()
+    uni.hideLoading();
     // 错误已由拦截器处理，这里只做兜底提示
     if (!e.code) {
-      uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+      uni.showToast({ title: "网络异常，请稍后重试", icon: "none" });
     }
   } finally {
     // 注意: 成功路径会 navigateTo 跳页,这里设 false 主要给 catch 路径兜底
-    submitting.value = false
+    submitting.value = false;
   }
 }
 </script>
@@ -743,19 +817,19 @@ async function onNext() {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: #F5F5F5;
+  background: #f5f5f5;
   padding-bottom: 280rpx;
 }
 
 /* 顶部占位(关掉系统胶囊后,需要 88rpx 让内容不顶到状态栏) */
 .navbar-placeholder {
   height: 88rpx;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   flex-shrink: 0;
 }
 
 .guide-header {
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   padding: 24rpx 32rpx 28rpx;
   display: flex;
   align-items: center;
@@ -765,13 +839,17 @@ async function onNext() {
 }
 
 .guide-header::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -60rpx;
   right: -40rpx;
   width: 240rpx;
   height: 240rpx;
-  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.18),
+    transparent 70%
+  );
   border-radius: 50%;
   pointer-events: none;
 }
@@ -806,7 +884,7 @@ async function onNext() {
 .title-main {
   font-size: 36rpx;
   font-weight: 700;
-  color: #FFFFFF;
+  color: #ffffff;
   display: block;
   line-height: 1.2;
 }
@@ -823,7 +901,7 @@ async function onNext() {
 /* 步骤指示(照抄 report 页:5 圆点 + 连线 + 步骤计数) */
 .steps-indicator {
   padding: 32rpx 32rpx 24rpx;
-  background: #FFFFFF;
+  background: #ffffff;
 }
 
 .steps-progress {
@@ -838,7 +916,7 @@ async function onNext() {
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #E5E7EB;
+  background: #e5e7eb;
   position: relative;
   z-index: 2;
   flex-shrink: 0;
@@ -846,28 +924,28 @@ async function onNext() {
 }
 
 .steps-dot.done {
-  background: #0FBF9F;
+  background: #0fbf9f;
 }
 
 .steps-dot.active {
   width: 20rpx;
   height: 20rpx;
-  background: #FFFFFF;
-  border: 4rpx solid #0FBF9F;
+  background: #ffffff;
+  border: 4rpx solid #0fbf9f;
   box-shadow: 0 0 0 6rpx rgba(15, 191, 159, 0.15);
 }
 
 .steps-line {
   flex: 1;
   height: 4rpx;
-  background: #E5E7EB;
+  background: #e5e7eb;
   margin: 0 -2rpx;
   position: relative;
   z-index: 1;
 }
 
 .steps-line.done {
-  background: linear-gradient(90deg, #0FBF9F, #07C160);
+  background: linear-gradient(90deg, #0fbf9f, #07c160);
 }
 
 .steps-info {
@@ -878,18 +956,18 @@ async function onNext() {
 
 .steps-counter {
   font-size: 24rpx;
-  color: #6B7280;
+  color: #6b7280;
 }
 
 .steps-name {
   font-size: 32rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
 }
 
 .section {
   margin: 16rpx 24rpx 24rpx;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 16rpx;
   padding: 28rpx;
 }
@@ -897,7 +975,7 @@ async function onNext() {
 .section-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
   display: block;
   margin-bottom: 24rpx;
 }
@@ -920,7 +998,7 @@ async function onNext() {
   flex-direction: column;
   align-items: center;
   padding: 24rpx;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 16rpx;
   border: 4rpx solid transparent;
   transition: all 0.2s;
@@ -929,8 +1007,8 @@ async function onNext() {
 }
 
 .species-card.selected {
-  border-color: #0FBF9F;
-  background: linear-gradient(135deg, #E8FDF8 0%, #F5FBFA 100%);
+  border-color: #0fbf9f;
+  background: linear-gradient(135deg, #e8fdf8 0%, #f5fbfa 100%);
   box-shadow: 0 6rpx 20rpx rgba(15, 191, 159, 0.2);
   transform: translateY(-2rpx);
 }
@@ -939,18 +1017,18 @@ async function onNext() {
   width: 80rpx;
   height: 80rpx;
   margin-bottom: 12rpx;
-  background: #E8FDF8;
+  background: #e8fdf8;
   border-radius: 50%;
 }
 
 .species-card.selected .species-icon {
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
 }
 
 .species-name {
   font-size: 26rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
 }
 
@@ -960,7 +1038,7 @@ async function onNext() {
   right: -8rpx;
   width: 36rpx;
   height: 36rpx;
-  background: #0FBF9F;
+  background: #0fbf9f;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -977,25 +1055,25 @@ async function onNext() {
   margin-top: 24rpx;
   padding: 16rpx 24rpx;
   background: rgba(15, 191, 159, 0.06);
-  border-left: 6rpx solid #0FBF9F;
+  border-left: 6rpx solid #0fbf9f;
   border-radius: 8rpx;
 }
 
 .camera-area {
   position: relative;
   height: 400rpx;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 4rpx dashed #CCCCCC;
+  border: 4rpx dashed #cccccc;
 }
 
 .camera-placeholder {
-  width: 200rpx;
-  height: 200rpx;
+  width: 100%;
+  height: 100%;
   opacity: 0.6;
 }
 
@@ -1016,7 +1094,7 @@ async function onNext() {
 
 .camera-text {
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   background: rgba(15, 191, 159, 0.1);
   padding: 12rpx 24rpx;
   border-radius: 40rpx;
@@ -1032,7 +1110,7 @@ async function onNext() {
 .outline-ring {
   width: 180rpx;
   height: 180rpx;
-  border: 4rpx dashed #0FBF9F;
+  border: 4rpx dashed #0fbf9f;
   border-radius: 50%;
 }
 
@@ -1046,8 +1124,8 @@ async function onNext() {
   position: absolute;
   bottom: 24rpx;
   right: 24rpx;
-  background: rgba(0,0,0,0.6);
-  color: #FFFFFF;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
   font-size: 24rpx;
   padding: 12rpx 24rpx;
   border-radius: 40rpx;
@@ -1056,7 +1134,7 @@ async function onNext() {
 .tips-box {
   margin-top: 24rpx;
   background: rgba(15, 191, 159, 0.06);
-  border-left: 6rpx solid #0FBF9F;
+  border-left: 6rpx solid #0fbf9f;
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
 }
@@ -1064,7 +1142,7 @@ async function onNext() {
 .tips-title {
   font-size: 26rpx;
   font-weight: 600;
-  color: #0FBF9F;
+  color: #0fbf9f;
   display: flex;
   align-items: center;
   margin-bottom: 12rpx;
@@ -1084,18 +1162,18 @@ async function onNext() {
 }
 
 .tip-bullet {
-  color: #0FBF9F;
+  color: #0fbf9f;
   margin-right: 8rpx;
 }
 
 .tip-text {
   font-size: 24rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   flex: 1;
 }
 
 .confirm-card {
-  background: #FAFAFA;
+  background: #fafafa;
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -1105,7 +1183,7 @@ async function onNext() {
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid #f0f0f0;
 }
 
 .confirm-item:last-child {
@@ -1119,12 +1197,12 @@ async function onNext() {
 
 .confirm-value {
   font-size: 26rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
 }
 
 .confirm-value.danger {
-  color: #E53A3A;
+  color: #e53a3a;
 }
 
 .confirm-nose-thumb {
@@ -1135,7 +1213,7 @@ async function onNext() {
 
 .quality-card {
   margin-top: 24rpx;
-  background: #E8FDF8;
+  background: #e8fdf8;
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -1143,7 +1221,7 @@ async function onNext() {
 .quality-title {
   font-size: 26rpx;
   font-weight: 600;
-  color: #0FBF9F;
+  color: #0fbf9f;
   display: block;
   margin-bottom: 16rpx;
 }
@@ -1153,7 +1231,7 @@ async function onNext() {
   align-items: center;
   margin-bottom: 12rpx;
   font-size: 24rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
 }
 
 .quality-row text:first-child {
@@ -1170,14 +1248,14 @@ async function onNext() {
 
 .quality-bar-fill {
   height: 100%;
-  background: #0FBF9F;
+  background: #0fbf9f;
   border-radius: 6rpx;
 }
 
 .quality-percent {
   width: 80rpx;
   text-align: right;
-  color: #0FBF9F;
+  color: #0fbf9f;
   font-weight: 600;
 }
 
@@ -1188,31 +1266,36 @@ async function onNext() {
 }
 
 .liveness-tag.pass {
-  background: #07C160;
-  color: #FFFFFF;
+  background: #07c160;
+  color: #ffffff;
 }
 
 .liveness-tag.fail {
-  background: #E53A3A;
-  color: #FFFFFF;
+  background: #e53a3a;
+  color: #ffffff;
 }
 
 .bottom-bar {
   position: fixed;
-  bottom: 120rpx;
+  bottom: 0;
+  /* 适配ios底部安全区，自动避开小黑条 */
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   display: flex;
   gap: 24rpx;
-  padding: 24rpx 32rpx;
-  background: #FFFFFF;
-  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  padding-top: 24rpx;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+  background: #ffffff;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
   z-index: 998;
+  box-sizing: border-box;
 }
 
 .btn-back {
   flex: 1;
-  background: #F5F5F5;
+  background: #f5f5f5;
   color: #666666;
   text-align: center;
   padding: 28rpx;
@@ -1223,8 +1306,8 @@ async function onNext() {
 
 .btn-next {
   flex: 2;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
+  color: #ffffff;
   text-align: center;
   padding: 28rpx;
   border-radius: 40rpx;
@@ -1234,7 +1317,7 @@ async function onNext() {
 }
 
 .btn-next.disabled {
-  background: #CCCCCC;
+  background: #cccccc;
   box-shadow: none;
 }
 
@@ -1254,11 +1337,11 @@ async function onNext() {
 }
 
 .form-input {
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   padding: 24rpx 28rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   width: 100%;
   box-sizing: border-box;
   min-height: 96rpx;
@@ -1266,11 +1349,11 @@ async function onNext() {
 }
 
 .form-textarea {
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   min-height: 160rpx;
   width: 100%;
   box-sizing: border-box;
@@ -1279,14 +1362,14 @@ async function onNext() {
 
 .char-count {
   font-size: 22rpx;
-  color: #AAAAAA;
+  color: #aaaaaa;
   text-align: right;
   display: block;
   margin-top: 8rpx;
 }
 
 .input-placeholder {
-  color: #AAAAAA;
+  color: #aaaaaa;
 }
 
 .gender-options {
@@ -1298,19 +1381,19 @@ async function onNext() {
   flex: 1;
   text-align: center;
   padding: 20rpx;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   border: 4rpx solid transparent;
   box-sizing: border-box;
   transition: all 0.2s;
 }
 
 .gender-btn.selected {
-  border-color: #0FBF9F;
-  background: #E8FDF8;
-  color: #0FBF9F;
+  border-color: #0fbf9f;
+  background: #e8fdf8;
+  color: #0fbf9f;
   font-weight: 600;
 }
 
@@ -1319,16 +1402,16 @@ async function onNext() {
   align-items: center;
   justify-content: center;
   padding: 16rpx;
-  background: #E8F4FF;
+  background: #e8f4ff;
   border-radius: 12rpx;
   margin-top: 16rpx;
   font-size: 26rpx;
-  color: #007AFF;
+  color: #007aff;
 }
 
 .camera-hint {
   font-size: 22rpx;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   margin-top: 8rpx;
 }
 
@@ -1336,7 +1419,7 @@ async function onNext() {
 .location-box {
   display: flex;
   align-items: center;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   margin: 24rpx;
   padding: 24rpx;
@@ -1345,7 +1428,7 @@ async function onNext() {
 .location-icon-wrap {
   width: 80rpx;
   height: 80rpx;
-  background: #E8FDF8;
+  background: #e8fdf8;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1364,14 +1447,14 @@ async function onNext() {
 
 .location-text {
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
   display: block;
 }
 
 .location-tip {
   font-size: 22rpx;
-  color: #AAAAAA;
+  color: #aaaaaa;
   display: block;
   margin-top: 4rpx;
 }

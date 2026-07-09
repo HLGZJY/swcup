@@ -7,7 +7,12 @@
     <view class="guide-header">
       <view class="guide-brand">
         <view class="guide-logo">
-          <image class="logo-icon" src="/static/icons/icon-paw-filled.svg" mode="aspectFit" @error="onImageError" />
+          <image
+            class="logo-icon"
+            src="/static/icons/icon-paw-filled.svg"
+            mode="aspectFit"
+            @error="onImageError"
+          />
         </view>
         <text class="title-sub">提供线索，帮助它们回家</text>
       </view>
@@ -18,7 +23,10 @@
       <view class="steps-progress">
         <template v-for="(s, i) in steps" :key="i">
           <view
-            :class="['steps-dot', { done: i < currentStep, active: i === currentStep }]"
+            :class="[
+              'steps-dot',
+              { done: i < currentStep, active: i === currentStep },
+            ]"
           />
           <view
             v-if="i < steps.length - 1"
@@ -27,7 +35,9 @@
         </template>
       </view>
       <view class="steps-info">
-        <text class="steps-counter">步骤 {{ currentStep + 1 }} / {{ steps.length }}</text>
+        <text class="steps-counter"
+          >步骤 {{ currentStep + 1 }} / {{ steps.length }}</text
+        >
         <text class="steps-name">{{ steps[currentStep] }}</text>
       </view>
     </view>
@@ -39,7 +49,10 @@
         <view
           v-for="spec in speciesList"
           :key="spec.value"
-          :class="['species-card', { selected: selectedSpecies === spec.value }]"
+          :class="[
+            'species-card',
+            { selected: selectedSpecies === spec.value },
+          ]"
           @click="onSelectSpecies(spec.value)"
         >
           <image class="species-icon" :src="spec.icon" mode="aspectFit" />
@@ -60,21 +73,13 @@
       <text class="section-hint">请上传 1-3 张照片</text>
 
       <view class="photo-grid">
-        <view
-          v-for="(photo, index) in photos"
-          :key="index"
-          class="photo-item"
-        >
+        <view v-for="(photo, index) in photos" :key="index" class="photo-item">
           <image class="photo-img" :src="photo" mode="aspectFill" />
           <view class="photo-remove" @click="onRemovePhoto(index)">
             <text class="remove-icon">×</text>
           </view>
         </view>
-        <view
-          v-if="photos.length < 3"
-          class="photo-add"
-          @click="onAddPhoto"
-        >
+        <view v-if="photos.length < 3" class="photo-add" @click="onAddPhoto">
           <text class="add-icon">+</text>
           <text class="add-text">添加照片</text>
         </view>
@@ -88,7 +93,12 @@
 
       <view class="location-box" @click="onManualSelect">
         <view class="location-icon-wrap">
-          <image class="location-icon" src="/static/mock/location-icon.png" mode="aspectFit" @error="onLocationIconError" />
+          <image
+            class="location-icon"
+            src="/static/mock/location-icon.png"
+            mode="aspectFit"
+            @error="onLocationIconError"
+          />
         </view>
         <view class="location-info">
           <text class="location-text">{{ locationText }}</text>
@@ -100,7 +110,9 @@
     <!-- Step 3: 填写信息 (结构化字段 + 文字描述) -->
     <view class="section" v-if="currentStep === 3">
       <text class="section-title">填写信息</text>
-      <text class="section-hint">补充结构化信息可显著提高匹配准确度（选填）</text>
+      <text class="section-hint"
+        >补充结构化信息可显著提高匹配准确度（选填）</text
+      >
 
       <view class="form-item">
         <text class="form-label">品种</text>
@@ -206,11 +218,11 @@
         </view>
         <view class="confirm-item">
           <text class="confirm-label">品种</text>
-          <text class="confirm-value">{{ breed || '未填写' }}</text>
+          <text class="confirm-value">{{ breed || "未填写" }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">颜色</text>
-          <text class="confirm-value">{{ color || '未填写' }}</text>
+          <text class="confirm-value">{{ color || "未填写" }}</text>
         </view>
         <view class="confirm-item">
           <text class="confirm-label">性别</text>
@@ -218,7 +230,7 @@
         </view>
         <view class="confirm-item">
           <text class="confirm-label">补充描述</text>
-          <text class="confirm-value">{{ description || '未填写' }}</text>
+          <text class="confirm-value">{{ description || "未填写" }}</text>
         </view>
       </view>
 
@@ -240,11 +252,7 @@
       >
         <text>下一步</text>
       </view>
-      <view
-        v-else
-        class="btn-submit"
-        @click="handleReportSubmit"
-      >
+      <view v-else class="btn-submit" @click="handleReportSubmit">
         <text>提交上报</text>
       </view>
     </view>
@@ -274,141 +282,175 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
-import { apiUploadFile, apiReportEvent } from '@/services/api'
+import { ref, computed } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
+import { apiUploadFile, apiReportEvent } from "@/services/api";
 
-const currentStep = ref(0)
-const selectedSpecies = ref('dog')
-const photos = ref<string[]>([])
-const photoUrls = ref<string[]>([])
-const description = ref('')
-const locationText = ref('定位中...')
-const locationLat = ref<number | null>(null)
-const locationLng = ref<number | null>(null)
-const showSuccess = ref(false)
+const currentStep = ref(0);
+const selectedSpecies = ref("dog");
+const photos = ref<string[]>([]);
+const photoUrls = ref<string[]>([]);
+const description = ref("");
+const locationText = ref("定位中...");
+const locationLat = ref<number | null>(null);
+const locationLng = ref<number | null>(null);
+const showSuccess = ref(false);
 // 阶段 3 (2026-07-06): 从 animal-detail 跳过来时携带,代表"为该动物追加观察"
-const linkedAnimalId = ref('')
+const linkedAnimalId = ref("");
 
 onLoad((query: any) => {
   if (query && query.animal_id) {
-    linkedAnimalId.value = String(query.animal_id)
+    linkedAnimalId.value = String(query.animal_id);
   }
-})
+});
 
 // BUG-018 (2026-07-06): tabBar 页面 switchTab 不支持 query,用 storage 透传 animal_id
 // animal-detail.onSighting 会 setStorageSync 写入 'pending_sighting_animal_id',
 // 此处 onShow 读出后立即 remove,避免下一次进入误带
 onShow(() => {
-  const pending = uni.getStorageSync('pending_sighting_animal_id')
+  const pending = uni.getStorageSync("pending_sighting_animal_id");
   if (pending) {
-    linkedAnimalId.value = String(pending)
-    uni.removeStorageSync('pending_sighting_animal_id')
+    linkedAnimalId.value = String(pending);
+    uni.removeStorageSync("pending_sighting_animal_id");
   }
-})
+});
 
 // 结构化字段 (提高文本匹配分数)
-const breed = ref('')
-const color = ref('')
-const gender = ref('unknown')
+const breed = ref("");
+const color = ref("");
+const gender = ref("unknown");
 const genderOptions = [
-  { value: 'unknown', label: '未知' },
-  { value: 'male', label: '公' },
-  { value: 'female', label: '母' },
-]
+  { value: "unknown", label: "未知" },
+  { value: "male", label: "公" },
+  { value: "female", label: "母" },
+];
 const genderLabel = computed(() => {
-  return genderOptions.find(g => g.value === gender.value)?.label || '未知'
-})
+  return genderOptions.find((g) => g.value === gender.value)?.label || "未知";
+});
 
 // 快捷品种（按当前 species 切换）
 const breedPresets = computed(() => {
-  if (selectedSpecies.value === 'cat') {
-    return ['中华田园猫', '橘猫', '三花', '英短', '美短', '狸花猫', '布偶', '其他']
+  if (selectedSpecies.value === "cat") {
+    return [
+      "中华田园猫",
+      "橘猫",
+      "三花",
+      "英短",
+      "美短",
+      "狸花猫",
+      "布偶",
+      "其他",
+    ];
   }
-  return ['中华田园犬', '柴犬', '金毛', '拉布拉多', '柯基', '泰迪', '哈士奇', '其他']
-})
+  return [
+    "中华田园犬",
+    "柴犬",
+    "金毛",
+    "拉布拉多",
+    "柯基",
+    "泰迪",
+    "哈士奇",
+    "其他",
+  ];
+});
 
 // 常用颜色预设（按你说的"前提得是纯色"做单色 + 双拼）
 const colorPresets = [
-  { label: '纯黑', hex: '#1A1A1A' },
-  { label: '纯白', hex: '#FFFFFF' },
-  { label: '棕色', hex: '#8B5A3C' },
-  { label: '黄色', hex: '#D4A857' },
-  { label: '灰色', hex: '#9CA3AF' },
-  { label: '橘色', hex: '#FF8C42' },
-  { label: '黑白', hex: 'linear-gradient(90deg, #1A1A1A 50%, #FFFFFF 50%)' },
-  { label: '黄白', hex: 'linear-gradient(90deg, #D4A857 50%, #FFFFFF 50%)' },
-]
+  { label: "纯黑", hex: "#1A1A1A" },
+  { label: "纯白", hex: "#FFFFFF" },
+  { label: "棕色", hex: "#8B5A3C" },
+  { label: "黄色", hex: "#D4A857" },
+  { label: "灰色", hex: "#9CA3AF" },
+  { label: "橘色", hex: "#FF8C42" },
+  { label: "黑白", hex: "linear-gradient(90deg, #1A1A1A 50%, #FFFFFF 50%)" },
+  { label: "黄白", hex: "linear-gradient(90deg, #D4A857 50%, #FFFFFF 50%)" },
+];
 
 // 常见特征标签（点一下追加到描述，避免手打）
 const featurePresets = [
-  '亲人', '怕人', '受伤', '怀孕/哺乳', '有项圈',
-  '幼年', '老年', '行动不便', '左耳缺', '右耳缺'
-]
+  "亲人",
+  "怕人",
+  "受伤",
+  "怀孕/哺乳",
+  "有项圈",
+  "幼年",
+  "老年",
+  "行动不便",
+  "左耳缺",
+  "右耳缺",
+];
 
 function onPickColor(label: string) {
-  color.value = label
+  color.value = label;
 }
 
 function onAddFeature(feature: string) {
-  if (description.value.length >= 500) return
+  if (description.value.length >= 500) return;
   if (description.value.length === 0) {
-    description.value = feature
+    description.value = feature;
   } else if (!description.value.includes(feature)) {
-    description.value = description.value + '，' + feature
+    description.value = description.value + "，" + feature;
   }
-  uni.showToast({ title: `已添加：${feature}`, icon: 'none', duration: 800 })
+  uni.showToast({ title: `已添加：${feature}`, icon: "none", duration: 800 });
 }
 
-const steps = ['选择物种', '拍摄照片', '获取位置', '填写信息', '确认提交']
+const steps = ["选择物种", "拍摄照片", "获取位置", "填写信息", "确认提交"];
 
 const speciesList = [
-  { value: 'dog', label: '狗狗', icon: '/static/mock/dog-icon.svg' },
-  { value: 'cat', label: '猫咪', icon: '/static/mock/cat-icon.svg' },
-  { value: 'other', label: '其他', icon: '/static/mock/other-icon.svg' }
-]
+  { value: "dog", label: "狗狗", icon: "/static/mock/dog-icon.svg" },
+  { value: "cat", label: "猫咪", icon: "/static/mock/cat-icon.svg" },
+  { value: "other", label: "其他", icon: "/static/mock/other-icon.svg" },
+];
 
 const speciesLabel = computed(() => {
-  return speciesList.find(s => s.value === selectedSpecies.value)?.label || ''
-})
+  return (
+    speciesList.find((s) => s.value === selectedSpecies.value)?.label || ""
+  );
+});
 
 const canNext = computed(() => {
-  if (currentStep.value === 0) return true
-  if (currentStep.value === 1) return photos.value.length > 0
+  if (currentStep.value === 0) return true;
+  if (currentStep.value === 1) return photos.value.length > 0;
   if (currentStep.value === 2) {
-    return locationLat.value !== null && locationLng.value !== null
-      && locationLat.value !== 0 && locationLng.value !== 0
+    return (
+      locationLat.value !== null &&
+      locationLng.value !== null &&
+      locationLat.value !== 0 &&
+      locationLng.value !== 0
+    );
   }
-  if (currentStep.value === 3) return true
-  return true
-})
+  if (currentStep.value === 3) return true;
+  return true;
+});
 
 function getLocation() {
   uni.getLocation({
-    type: 'gcj02',
+    type: "gcj02",
     success: (res) => {
-      locationLat.value = res.latitude
-      locationLng.value = res.longitude
-      locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+      locationLat.value = res.latitude;
+      locationLng.value = res.longitude;
+      locationText.value = `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`;
     },
     fail: () => {
-      locationText.value = '定位失败，请手动选择位置'
-      uni.showToast({ title: '定位失败，请手动选择位置', icon: 'none' })
-    }
-  })
+      locationText.value = "定位失败，请手动选择位置";
+      uni.showToast({ title: "定位失败，请手动选择位置", icon: "none" });
+    },
+  });
 }
 
 function onManualSelect() {
   uni.chooseLocation({
     success: (res) => {
-      locationLat.value = res.latitude
-      locationLng.value = res.longitude
-      locationText.value = res.address || `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`
+      locationLat.value = res.latitude;
+      locationLng.value = res.longitude;
+      locationText.value =
+        res.address ||
+        `${res.latitude.toFixed(4)}, ${res.longitude.toFixed(4)}`;
     },
     fail: () => {
-      uni.showToast({ title: '请允许位置权限', icon: 'none' })
-    }
-  })
+      uni.showToast({ title: "请允许位置权限", icon: "none" });
+    },
+  });
 }
 
 function onLocationIconError() {
@@ -420,70 +462,70 @@ function onImageError(e: any) {
 }
 
 function onSelectSpecies(value: string) {
-  selectedSpecies.value = value
+  selectedSpecies.value = value;
 }
 
 async function onAddPhoto() {
-  const remaining = 3 - photos.value.length
-  if (remaining <= 0) return
+  const remaining = 3 - photos.value.length;
+  if (remaining <= 0) return;
 
   uni.chooseImage({
     count: remaining,
-    sourceType: ['camera', 'album'],
+    sourceType: ["camera", "album"],
     success: async (res) => {
       for (const filePath of res.tempFilePaths) {
         try {
-          const uploadedUrl = await apiUploadFile(filePath)
-          photos.value = [...photos.value, filePath]
-          photoUrls.value = [...photoUrls.value, uploadedUrl]
+          const uploadedUrl = await apiUploadFile(filePath);
+          photos.value = [...photos.value, filePath];
+          photoUrls.value = [...photoUrls.value, uploadedUrl];
         } catch (e) {
-          uni.showToast({ title: '图片上传失败', icon: 'none' })
+          uni.showToast({ title: "图片上传失败", icon: "none" });
         }
       }
     },
     fail: () => {
-      uni.showToast({ title: '请允许相机/相册权限', icon: 'none' })
-    }
-  })
+      uni.showToast({ title: "请允许相机/相册权限", icon: "none" });
+    },
+  });
 }
 
 function onRemovePhoto(index: number) {
-  photos.value = photos.value.filter((_, i) => i !== index)
-  photoUrls.value = photoUrls.value.filter((_, i) => i !== index)
+  photos.value = photos.value.filter((_, i) => i !== index);
+  photoUrls.value = photoUrls.value.filter((_, i) => i !== index);
 }
 
 function onBack() {
   if (currentStep.value > 0) {
-    currentStep.value--
+    currentStep.value--;
   }
 }
 
 async function onNext() {
   if (!canNext.value) {
     if (currentStep.value === 1) {
-      uni.showToast({ title: '请至少上传一张照片', icon: 'none' })
+      uni.showToast({ title: "请至少上传一张照片", icon: "none" });
     } else if (currentStep.value === 2) {
-      uni.showToast({ title: '请先获取位置', icon: 'none' })
+      uni.showToast({ title: "请先获取位置", icon: "none" });
     }
-    return
+    return;
   }
 
   if (currentStep.value < 4) {
-    currentStep.value++
-    return
+    currentStep.value++;
+    return;
   }
 }
 
 // 阶段 3 (2026-07-06): UnifiedReportForm 提交处理,透传 intent + animal_id
 async function handleReportSubmit(_payload: Record<string, any>) {
-  uni.showLoading({ title: '提交中...' })
+  uni.showLoading({ title: "提交中..." });
 
   try {
     // 2026-07-01: 颜色由用户自由文本描述, 直接发 color 字段; 不再携带 body_colors
     // 阶段 3 (2026-07-06): 透传 intent + animal_id (从 animal-detail 跳过来时存在)
     await apiReportEvent({
-      event_type: 'report',
-      intent: 'stray_sighting',
+      event_type: "report",
+      intent: "stray_sighting",
       species: selectedSpecies.value,
       breed: breed.value || undefined,
       color: color.value || undefined,
@@ -494,47 +536,47 @@ async function handleReportSubmit(_payload: Record<string, any>) {
       description: description.value,
       photos: photoUrls.value,
       animal_id: linkedAnimalId.value || undefined,
-    })
+    });
 
-    uni.hideLoading()
-    showSuccess.value = true
+    uni.hideLoading();
+    showSuccess.value = true;
   } catch (e: any) {
-    uni.hideLoading()
+    uni.hideLoading();
     if (!e.code) {
-      uni.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+      uni.showToast({ title: "网络异常，请稍后重试", icon: "none" });
     }
   }
 }
 
 // 成功弹窗按钮跳转
 function goToMyReports() {
-  uni.reLaunch({ url: '/pages/my-reports/index' })
+  uni.reLaunch({ url: "/pages/my-reports/index" });
 }
 
 function goHome() {
-  uni.switchTab({ url: '/pages/index/index' })
+  uni.switchTab({ url: "/pages/index/index" });
 }
 
 // 初始化定位
-getLocation()
+getLocation();
 </script>
 
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: #F5F5F5;
+  background: #f5f5f5;
   padding-bottom: 240rpx;
 }
 
 /* 顶部占位（关掉系统胶囊后，留 88rpx 让内容不顶到状态栏） */
 .navbar-placeholder {
   height: 88rpx;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   flex-shrink: 0;
 }
 
 .guide-header {
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   padding: 24rpx 32rpx 28rpx;
   display: flex;
   align-items: center;
@@ -544,13 +586,17 @@ getLocation()
 }
 
 .guide-header::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -60rpx;
   right: -40rpx;
   width: 240rpx;
   height: 240rpx;
-  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.18),
+    transparent 70%
+  );
   border-radius: 50%;
   pointer-events: none;
 }
@@ -586,7 +632,7 @@ getLocation()
 
 .steps-indicator {
   padding: 32rpx 32rpx 24rpx;
-  background: #FFFFFF;
+  background: #ffffff;
 }
 
 /* 进度条：Dribbble 风（5 圆点 + 连线，当前步骤实心+发光） */
@@ -602,7 +648,7 @@ getLocation()
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #E5E7EB;
+  background: #e5e7eb;
   position: relative;
   z-index: 2;
   flex-shrink: 0;
@@ -610,28 +656,28 @@ getLocation()
 }
 
 .steps-dot.done {
-  background: #0FBF9F;
+  background: #0fbf9f;
 }
 
 .steps-dot.active {
   width: 20rpx;
   height: 20rpx;
-  background: #FFFFFF;
-  border: 4rpx solid #0FBF9F;
+  background: #ffffff;
+  border: 4rpx solid #0fbf9f;
   box-shadow: 0 0 0 6rpx rgba(15, 191, 159, 0.15);
 }
 
 .steps-line {
   flex: 1;
   height: 4rpx;
-  background: #E5E7EB;
+  background: #e5e7eb;
   margin: 0 -2rpx;
   position: relative;
   z-index: 1;
 }
 
 .steps-line.done {
-  background: linear-gradient(90deg, #0FBF9F, #07C160);
+  background: linear-gradient(90deg, #0fbf9f, #07c160);
 }
 
 .steps-info {
@@ -642,18 +688,18 @@ getLocation()
 
 .steps-counter {
   font-size: 24rpx;
-  color: #6B7280;
+  color: #6b7280;
 }
 
 .steps-name {
   font-size: 32rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
 }
 
 .section {
   margin: 16rpx 24rpx 24rpx;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 16rpx;
   padding: 28rpx;
 }
@@ -661,7 +707,7 @@ getLocation()
 .section-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
   display: block;
   margin-bottom: 24rpx;
 }
@@ -684,7 +730,7 @@ getLocation()
   flex-direction: column;
   align-items: center;
   padding: 24rpx;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 16rpx;
   border: 4rpx solid transparent;
   transition: all 0.2s;
@@ -693,8 +739,8 @@ getLocation()
 }
 
 .species-card.selected {
-  border-color: #0FBF9F;
-  background: linear-gradient(135deg, #E8FDF8 0%, #F5FBFA 100%);
+  border-color: #0fbf9f;
+  background: linear-gradient(135deg, #e8fdf8 0%, #f5fbfa 100%);
   box-shadow: 0 6rpx 20rpx rgba(15, 191, 159, 0.2);
   transform: translateY(-2rpx);
 }
@@ -703,18 +749,18 @@ getLocation()
   width: 80rpx;
   height: 80rpx;
   margin-bottom: 12rpx;
-  background: #E8FDF8;
+  background: #e8fdf8;
   border-radius: 50%;
 }
 
 .species-card.selected .species-icon {
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.3);
 }
 
 .species-name {
   font-size: 26rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
 }
 
@@ -724,7 +770,7 @@ getLocation()
   right: -8rpx;
   width: 36rpx;
   height: 36rpx;
-  background: #0FBF9F;
+  background: #0fbf9f;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -741,13 +787,13 @@ getLocation()
   margin-top: 24rpx;
   padding: 16rpx 24rpx;
   background: rgba(15, 191, 159, 0.06);
-  border-left: 6rpx solid #0FBF9F;
+  border-left: 6rpx solid #0fbf9f;
   border-radius: 8rpx;
 }
 
 .step-hint text {
   font-size: 22rpx;
-  color: #6B7280;
+  color: #6b7280;
   line-height: 1.6;
 }
 
@@ -775,7 +821,7 @@ getLocation()
   right: 8rpx;
   width: 40rpx;
   height: 40rpx;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -783,16 +829,16 @@ getLocation()
 }
 
 .remove-icon {
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 32rpx;
   line-height: 1;
 }
 
 .photo-add {
   aspect-ratio: 1;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
-  border: 4rpx dashed #CCCCCC;
+  border: 4rpx dashed #cccccc;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -801,20 +847,20 @@ getLocation()
 
 .add-icon {
   font-size: 48rpx;
-  color: #CCCCCC;
+  color: #cccccc;
   line-height: 1;
 }
 
 .add-text {
   font-size: 22rpx;
-  color: #AAAAAA;
+  color: #aaaaaa;
   margin-top: 8rpx;
 }
 
 .location-box {
   display: flex;
   align-items: center;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -822,7 +868,7 @@ getLocation()
 .location-icon-wrap {
   width: 80rpx;
   height: 80rpx;
-  background: #E8FDF8;
+  background: #e8fdf8;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -841,24 +887,24 @@ getLocation()
 
 .location-text {
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
   display: block;
 }
 
 .location-tip {
   font-size: 22rpx;
-  color: #AAAAAA;
+  color: #aaaaaa;
   display: block;
   margin-top: 4rpx;
 }
 
 .description-input {
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   padding: 20rpx 24rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   min-height: 160rpx;
   width: 100%;
   box-sizing: border-box;
@@ -880,11 +926,11 @@ getLocation()
 }
 
 .form-input {
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   padding: 24rpx 28rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   width: 100%;
   box-sizing: border-box;
   min-height: 96rpx;
@@ -892,7 +938,7 @@ getLocation()
 }
 
 .input-placeholder {
-  color: #AAAAAA;
+  color: #aaaaaa;
 }
 
 .gender-options {
@@ -904,29 +950,29 @@ getLocation()
   flex: 1;
   text-align: center;
   padding: 20rpx;
-  background: #F5F5F5;
+  background: #f5f5f5;
   border-radius: 12rpx;
   font-size: 28rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   border: 4rpx solid transparent;
   box-sizing: border-box;
   transition: all 0.2s;
 }
 
 .gender-btn.selected {
-  background: #E8FDF8;
-  border-color: #0FBF9F;
-  color: #0FBF9F;
+  background: #e8fdf8;
+  border-color: #0fbf9f;
+  color: #0fbf9f;
   font-weight: 600;
 }
 
 .textarea-placeholder {
-  color: #AAAAAA;
+  color: #aaaaaa;
 }
 
 .char-count {
   font-size: 22rpx;
-  color: #AAAAAA;
+  color: #aaaaaa;
   text-align: right;
   display: block;
   margin-top: 8rpx;
@@ -955,7 +1001,7 @@ getLocation()
 
 .quick-tag text {
   font-size: 24rpx;
-  color: #0FBF9F;
+  color: #0fbf9f;
   font-weight: 500;
 }
 
@@ -969,25 +1015,25 @@ getLocation()
 
 .feature-tag {
   padding: 10rpx 18rpx;
-  background: #FFFFFF;
-  border: 2rpx solid #E5E7EB;
+  background: #ffffff;
+  border: 2rpx solid #e5e7eb;
   border-radius: 24rpx;
   transition: all 0.15s;
 }
 
 .feature-tag:active {
   background: rgba(15, 191, 159, 0.08);
-  border-color: #0FBF9F;
+  border-color: #0fbf9f;
   transform: scale(0.95);
 }
 
 .feature-tag text {
   font-size: 24rpx;
-  color: #4B5563;
+  color: #4b5563;
 }
 
 .confirm-card {
-  background: #FAFAFA;
+  background: #fafafa;
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -997,7 +1043,7 @@ getLocation()
   align-items: flex-start;
   justify-content: space-between;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid #f0f0f0;
 }
 
 .confirm-item:last-child {
@@ -1012,7 +1058,7 @@ getLocation()
 
 .confirm-value {
   font-size: 26rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
   margin-left: 16rpx;
   text-align: right;
@@ -1035,20 +1081,21 @@ getLocation()
 
 .bottom-bar {
   position: fixed;
-  bottom: 120rpx;
+  bottom: 160rpx; /* 增大数值，给下方Tab留出空间，按需微调 */
   left: 0;
   right: 0;
   display: flex;
   gap: 24rpx;
   padding: 24rpx 32rpx;
-  background: #FFFFFF;
-  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  background: #ffffff;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
   z-index: 998;
+  box-sizing: border-box;
 }
 
 .btn-back {
   flex: 1;
-  background: #F5F5F5;
+  background: #f5f5f5;
   color: #666666;
   text-align: center;
   padding: 28rpx;
@@ -1059,8 +1106,8 @@ getLocation()
 
 .btn-next {
   flex: 2;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
+  color: #ffffff;
   text-align: center;
   padding: 28rpx;
   border-radius: 40rpx;
@@ -1070,15 +1117,15 @@ getLocation()
 }
 
 .btn-next.disabled {
-  background: #CCCCCC;
+  background: #cccccc;
   box-shadow: none;
 }
 
 /* BUG-019 (2026-07-06): 步骤 4 的"提交上报"按钮,与"上一步"50/50 对半排 */
 .btn-submit {
   flex: 1;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
+  color: #ffffff;
   text-align: center;
   padding: 28rpx;
   border-radius: 40rpx;
@@ -1090,7 +1137,7 @@ getLocation()
 /* BUG-019 (2026-07-06): 追加观察提示 (从 animal-detail 跳过来时) */
 .sighting-hint {
   margin: 16rpx 0;
-  color: #0FBF9F;
+  color: #0fbf9f;
   font-size: 26rpx;
   text-align: center;
 }
@@ -1098,7 +1145,7 @@ getLocation()
 .success-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1107,7 +1154,7 @@ getLocation()
 
 .success-content {
   width: 600rpx;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 24rpx;
   padding: 48rpx 32rpx;
   display: flex;
@@ -1118,7 +1165,7 @@ getLocation()
 .success-icon-wrap {
   width: 120rpx;
   height: 120rpx;
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1128,13 +1175,13 @@ getLocation()
 
 .success-icon {
   font-size: 60rpx;
-  color: #FFFFFF;
+  color: #ffffff;
 }
 
 .success-title {
   font-size: 36rpx;
   font-weight: 700;
-  color: #1A1A1A;
+  color: #1a1a1a;
   display: block;
   margin-bottom: 12rpx;
 }
@@ -1155,8 +1202,8 @@ getLocation()
 }
 
 .btn-view-reports {
-  background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #0fbf9f 0%, #07c160 100%);
+  color: #ffffff;
   text-align: center;
   padding: 28rpx;
   border-radius: 40rpx;
@@ -1165,7 +1212,7 @@ getLocation()
 }
 
 .btn-go-home {
-  background: #F5F5F5;
+  background: #f5f5f5;
   color: #666666;
   text-align: center;
   padding: 28rpx;
@@ -1173,7 +1220,4 @@ getLocation()
   font-size: 30rpx;
   font-weight: 600;
 }
-
 </style>
-
-
