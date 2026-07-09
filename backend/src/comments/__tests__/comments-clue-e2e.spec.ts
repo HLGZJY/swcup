@@ -16,16 +16,20 @@ import { ClueBridgeService } from '../clue-bridge.service';
 import { Comment } from '../entities/comment.entity';
 import { Animal } from '../../animals/entities/animal.entity';
 import { RescueEvent } from '../../events/entities/event.entity';
+import { DictionaryLoader } from '../dictionary.loader';
 
 describe('ClueBridgeService P3 e2e', () => {
   let svc: ClueBridgeService;
   let tmpState: string;
+  let tmpDicts: string;
 
   beforeAll(async () => {
     tmpState = fs.mkdtempSync(path.join(os.tmpdir(), 'clue_e2e_'));
+    tmpDicts = fs.mkdtempSync(path.join(os.tmpdir(), 'clue_dicts_e2e_'));
     const cfg: Partial<ConfigService> = {
       get: jest.fn((key: string) => {
         if (key === 'CLUE_STATE_DIR') return tmpState;
+        if (key === 'CLUE_DICTS_DIR') return tmpDicts;
         return undefined as any;
       }),
     };
@@ -37,6 +41,12 @@ describe('ClueBridgeService P3 e2e', () => {
       update: jest.fn(async () => ({ affected: 1 })),
       create: jest.fn((dto: any) => dto),
     };
+    // 【2026-07-09 阶段 B】DictionaryLoader 实例指向空 tmpdir,
+    // 触发 BUILTIN_DEFAULTS 回退, 不影响现有测试
+    const dict = new DictionaryLoader(cfg as ConfigService);
+    // 【2026-07-09 阶段 C】FileStateStore 指向空 tmpState
+    const { FileStateStore } = require('../file-state-store');
+    const store = new FileStateStore(cfg as ConfigService);
     const mod: TestingModule = await Test.createTestingModule({
       providers: [
         ClueBridgeService,
@@ -44,6 +54,8 @@ describe('ClueBridgeService P3 e2e', () => {
         { provide: getRepositoryToken(Comment), useValue: emptyRepo },
         { provide: getRepositoryToken(Animal), useValue: emptyRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: emptyRepo },
+        { provide: DictionaryLoader, useValue: dict },
+        { provide: FileStateStore, useValue: store },
       ],
     }).compile();
     svc = mod.get(ClueBridgeService);

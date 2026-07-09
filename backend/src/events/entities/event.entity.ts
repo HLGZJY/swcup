@@ -5,6 +5,7 @@
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Animal, Gender } from '../../animals/entities/animal.entity';
@@ -50,6 +51,7 @@ export enum EventSource {
 }
 
 @Entity('rescue_events')
+@Index('idx_occurred_at', ['occurred_at'])
 export class RescueEvent {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'event_id' })
   event_id: string;

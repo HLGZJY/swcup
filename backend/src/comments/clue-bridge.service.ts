@@ -1,21 +1,24 @@
 // -*- coding: utf-8 -*-
 /**
  * clue-bridge.service.ts
- * Ã¨Â¯â€žÃ¨Â®Âº -> clue_matcher Ã¦Â¡Â¥Ã¦Å½Â¥Ã¥Â±â€š (P3 Ã©â€”Â­Ã§Å½Â¯ 2026-07-07)
+ * 评论 -> clue_matcher 桥接 (P3 闭环 2026-07-07)
  *
- * Ã¨Â®Â¾Ã¨Â®Â¡:
- * - Ã¥Ë†â€¡Ã¨Â¯Â: nodejieba Ã¤Â¼ËœÃ¥â€¦Ë† -> segmentit -> Ã¤Â¸Â­Ã¦â€“â€¡ 2~6 Ã¥Â­â€”Ã¦Â»â€˜Ã¥Å Â¨Ã§Âªâ€”Ã¥ÂÂ£Ã¥â€¦Å“Ã¥Âºâ€¢
- * - matcher: Ã§Â®â€”Ã¦Â³â€¢Ã§Â§Â»Ã¦Â¤ÂÃ¨â€¡Âª ai-service/comments/clue_matcher.py (Ã¥ÂÅ½Ã§Â«Â¯Ã¨â€¡ÂªÃ§Â®Â¡, Ã¤Â¸ÂÃ¨Â·Â¨Ã¨Â¿â€ºÃ§Â¨â€¹)
- * - Ã¨ÂÂ½Ã§â€ºËœ: backend/data/clue_state/<animal_id>.json
+ * 【2026-07-09 阶段 C】重构:
+ *   - 落盘迁出: FileStateStore (proper-lockfile + .bak + tmp+fsync+rename)
+ *   - 事件召回迁出: EventRecallService (两步召回)
+ *   - 评分公式: sentiment + entity加权 + synonym兜底 + negation惩罚 + time_decay + self_match惩罚
+ *   - match_id: 新格式含 eventId, 旧值存 match_id_v1
  *
- * Ã¦â€Â¹Ã¥Å Â¨Ã¦â€”Â¶Ã¥Â¿â€¦Ã©Â¡Â»Ã¥ÂÅ’Ã¦Â­Â¥ ai-service Ã§Â«Â¯Ã¥ÂÅ’Ã¥ÂÂÃ¥â€¡Â½Ã¦â€¢Â° (Ã¤Â¸Â¤Ã¨Â¾Â¹Ã©Æ’Â½Ã¨Â¦ÂÃ¦â€ºÂ´Ã¦â€“Â°Ã¥Ââ€¢Ã¦Âµâ€¹).
+ * 设计:
+ *   - 分词: nodejieba -> segmentit -> 滑动窗口 2-6 字 (3 档降级)
+ *   - matcher: 公式移植自 ai-service/comments/clue_matcher.py (后端自治, 不跨进程)
+ *   - 落盘: backend/data/clue_state/<animal_id>.json (由 FileStateStore 接管)
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import * as path from 'path';
 import * as fs from 'fs';
 
 import { Comment } from './entities/comment.entity';
@@ -26,8 +29,11 @@ import {
   EventSource,
   EventStatus,
 } from '../events/entities/event.entity';
+import { DictionaryLoader } from './dictionary.loader';
+import { FileStateStore, MatchRecord, newMatchId } from './file-state-store';
+import { DEFAULT_RULES, ScoringRules } from './scoring-rules';
 
-// ---------------- Ã¥Ë†â€¡Ã¨Â¯ÂÃ¥â„¢Â¨ (3 Ã¦Â¡Â£Ã©â„¢ÂÃ§ÂºÂ§) ----------------
+// ---------------- 分词器 (3 档降级) ----------------
 
 type Segmenter = {
   cut(content: string): string[];
@@ -37,20 +43,22 @@ function makeNodeJiebaSegmenter(): Segmenter | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const jieba = require('nodejieba');
-    // 立即探测 native binding：用中文句子切，必须切出 >=1 个 2+字中文词
     try {
       const probeRaw = jieba.cut('我在朝阳公园看到一只金毛', true);
       if (!Array.isArray(probeRaw)) return null;
-      const probe = probeRaw.filter((w: string) => w && w.length >= 2 && /[\u4e00-\u9fa5]/.test(w));
+      const probe = probeRaw.filter(
+        (w: string) => w && w.length >= 2 && /[\u4e00-\u9fa5]/.test(w),
+      );
       if (probe.length === 0) return null;
     } catch {
-      return null; // native binding 缺失或中文切词异常
+      return null;
     }
     return {
       cut(content: string): string[] {
         const raw = jieba.cut(content || '', true);
         return raw.filter(
-          (w: string) => w && w.length >= 2 && !/^\d+$/.test(w) && !/^[a-zA-Z]+$/.test(w),
+          (w: string) =>
+            w && w.length >= 2 && !/^\d+$/.test(w) && !/^[a-zA-Z]+$/.test(w),
         );
       },
     };
@@ -66,14 +74,17 @@ function makeSegmentitSegmenter(): Segmenter | null {
     let seg: any;
     if (typeof segit.useDefault === 'function') {
       seg = segit.useDefault(new segit.Segment());
-    } else if (segit.default && typeof segit.default.useDefault === 'function') {
+    } else if (
+      segit.default &&
+      typeof segit.default.useDefault === 'function'
+    ) {
       seg = segit.default.useDefault(new segit.default.Segment());
     } else {
       seg = new segit.Segment();
     }
     return {
       cut(content: string): string[] {
-        const input = Array.isArray(content) ? content.join(' ') : (content || '');
+        const input = Array.isArray(content) ? content.join(' ') : content || '';
         let tokens: any[];
         try {
           tokens = seg.doSegment(input, { stripPunctuation: true });
@@ -82,7 +93,9 @@ function makeSegmentitSegmenter(): Segmenter | null {
         }
         return tokens
           .map((t: any) => (t && (t.w || t)) || '')
-          .filter((w: string) => typeof w === 'string' && w.length >= 2 && !/^\d+$/.test(w));
+          .filter(
+            (w: string) => typeof w === 'string' && w.length >= 2 && !/^\d+$/.test(w),
+          );
       },
     };
   } catch {
@@ -99,17 +112,33 @@ function makeSlidingWindowSegmenter(): Segmenter {
   };
 }
 
-// ---------------- Matcher Ã§Â®â€”Ã¦Â³â€¢ (Ã§Â§Â»Ã¦Â¤ÂÃ¨â€¡Âª ai-service/comments/clue_matcher.py) ----------------
-
-interface ScoreOut { score: number; reasons: string[]; }
+// ---------------- 评分 (新公式, 阶段 C) ----------------
 
 const TRIGGER_SENTIMENTS = new Set(['report', 'seek']);
-const CLUE_THRESHOLD = 0.5;
 
-function _matchId(commentId: string, animalId: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const c = require('crypto');
-  return c.createHash('sha256').update((commentId || '') + '|' + (animalId || ''), 'utf8').digest('hex').slice(0, 16);
+interface ScoreOut {
+  score: number;
+  reasons: string[];
+}
+
+interface CommentLike {
+  comment_id?: string;
+  animal_id?: string;
+  content?: string;
+  reporter_id?: string;
+  sentiment?: string;
+  keywords?: string[];
+  tokens?: string[];
+  created_at?: string;
+}
+
+interface EventLike {
+  event_id?: string;
+  event_type?: string;
+  reporter_id?: string;
+  occurred_at?: string;
+  address?: string;
+  description?: string;
 }
 
 function _parseIso(s: string): number {
@@ -119,57 +148,177 @@ function _parseIso(s: string): number {
   return new Date(v).getTime() / 1000;
 }
 
-function _score(comment: any, event: any): ScoreOut {
-  let score = 0;
-  const reasons: string[] = [];
-
-  const sentiment = comment.sentiment || '';
-  if (sentiment === 'report') {
-    score += 0.5;
-    reasons.push('sentiment=report:+0.5');
-  } else if (sentiment === 'seek') {
-    score += 0.4;
-    reasons.push('sentiment=seek:+0.4');
-  }
-
-  const kws: string[] = Array.isArray(comment.keywords) ? comment.keywords : [];
-  const kwsSet = new Set(kws.filter((k) => k && typeof k === 'string'));
-  const addr = String(event.address || '').trim();
-  if (kwsSet.size > 0 && addr) {
-    let hits = 0;
-    for (const k of kwsSet) if (addr.indexOf(k) >= 0) hits++;
-    if (hits > 0) {
-      const add = Math.min(0.3, 0.1 * hits);
-      score += add;
-      reasons.push('kw_in_addr:' + hits + ':+' + add.toFixed(3));
-    }
-  }
-
-  const desc = String(event.description || '').trim();
-  if (kwsSet.size > 0 && desc) {
-    let hits = 0;
-    for (const k of kwsSet) if (desc.indexOf(k) >= 0) hits++;
-    if (hits > 0) {
-      const add = Math.min(0.2, 0.05 * hits);
-      score += add;
-      reasons.push('kw_in_desc:' + hits + ':+' + add.toFixed(3));
-    }
-  }
-
-  const co = comment.created_at || '';
-  const eo = event.occurred_at || '';
-  try {
-    if (co && eo) {
-      const dt = Math.abs(_parseIso(co) - _parseIso(eo));
-      if (dt <= 3600 * 24 * 3) {
-        const bonus = Math.max(0, 0.15 * (1 - dt / (3600 * 24 * 7)));
-        score += bonus;
-        reasons.push('time_close:delta_sec=' + Math.floor(dt) + ':+' + bonus.toFixed(3));
+/**
+ * 实体命中: 评论 raw content 与 eventText (address+description) 中共同出现的 entity 词
+ *  - 使用 raw 子串匹配, 避免 CJK 分词贪婪合并导致原子词被吞
+ *  - 返回 [{ word, category, weight }]
+ */
+function matchEntity(
+  commentText: string,
+  eventText: string,
+  entities: { categories: Record<string, { weight: number; words: string[] }> },
+): Array<{ word: string; category: string; weight: number }> {
+  const hits: Array<{ word: string; category: string; weight: number }> = [];
+  if (!eventText || !commentText) return hits;
+  for (const [catName, cat] of Object.entries(entities.categories || {})) {
+    if (!cat || !Array.isArray(cat.words)) continue;
+    for (const w of cat.words) {
+      if (!w) continue;
+      if (commentText.indexOf(w) >= 0 && eventText.indexOf(w) >= 0) {
+        hits.push({ word: w, category: catName, weight: cat.weight || 0 });
       }
     }
-  } catch { /* ignore */ }
+  }
+  return hits;
+}
 
-  return { score: Math.min(1, score), reasons };
+/**
+ * 同义词命中: 检查评论 token 是否为某 canonical/aliases, 且 address 中含 canonical
+ * 仅在 entity 0 命中时使用
+ */
+function matchSynonym(
+  tokens: string[],
+  eventText: string,
+  synonyms: { groups: Array<{ canonical: string; aliases: string[] }> },
+): string | null {
+  if (!eventText || !Array.isArray(tokens) || tokens.length === 0) return null;
+  const tokenSet = new Set(tokens);
+  for (const g of synonyms.groups || []) {
+    if (!g || !g.canonical) continue;
+    if (tokenSet.has(g.canonical) && eventText.indexOf(g.canonical) >= 0) {
+      return g.canonical;
+    }
+  }
+  return null;
+}
+
+/**
+ * 否定窗口: 评论 content 中出现否定词 (使用 raw content + token 集合)
+ */
+function matchNegation(
+  content: string,
+  tokens: string[],
+  negations: { words: string[] },
+): boolean {
+  if (!content) return false;
+  const c = String(content);
+  for (const w of negations.words || []) {
+    if (!w) continue;
+    if (c.indexOf(w) >= 0) return true;
+  }
+  return false;
+}
+
+/**
+ * 新版 _score (阶段 C):
+ *   score = sentiment_base
+ *         + min(entityMax, sum_entity_weight)
+ *         + (entity_hits==0 && synonym ? synonymBonus : 0)
+ *         - (negation && entity_hits==0 ? negationPenalty : 0)
+ *         + time_decay_bonus (0 if dt > timeWindowDays)
+ *         - (self_match ? selfMatchPenalty : 0)
+ *   final = clamp(0, 1, score)
+ */
+function _score(
+  comment: CommentLike,
+  event: EventLike,
+  rules: ScoringRules,
+  dicts: {
+    entities: any;
+    synonyms: any;
+    negations: any;
+  },
+): ScoreOut {
+  const reasons: string[] = [];
+  let score = 0;
+
+  // 1) sentiment 基础分
+  const sent = comment.sentiment || '';
+  if (sent === 'report') {
+    score += rules.sentiment.report;
+    reasons.push('sentiment=report:+' + rules.sentiment.report);
+  } else if (sent === 'seek') {
+    score += rules.sentiment.seek;
+    reasons.push('sentiment=seek:+' + rules.sentiment.seek);
+  }
+
+  const tokens: string[] = Array.isArray(comment.tokens)
+    ? comment.tokens
+    : Array.isArray(comment.keywords)
+    ? comment.keywords
+    : [];
+  const eventText =
+    String(event.address || '') + ' ' + String(event.description || '');
+
+  // 2) 实体命中分层加权 (用 raw content 子串匹配, 避免 CJK 分词吞词)
+  const entityHits = matchEntity(String(comment.content || ''), eventText, dicts.entities);
+  if (entityHits.length > 0) {
+    const sum = entityHits.reduce((s, h) => s + (h.weight || 0), 0);
+    const add = Math.min(rules.entityMax, sum);
+    score += add;
+    reasons.push(
+      'entity_hits=' +
+        entityHits.length +
+        ':words=' +
+        entityHits.map((h) => h.word).join(',') +
+        ':+' +
+        add.toFixed(3),
+    );
+  }
+
+  // 3) 同义词兜底 (仅实体未命中)
+  if (entityHits.length === 0) {
+    const syn = matchSynonym(tokens, String(event.address || ''), dicts.synonyms);
+    if (syn) {
+      score += rules.synonymBonus;
+      reasons.push('synonym=' + syn + ':+' + rules.synonymBonus);
+    }
+  }
+
+  // 4) 否定窗口扣分
+  const negHit = matchNegation(
+    comment.content || '',
+    tokens,
+    dicts.negations,
+  );
+  if (negHit && entityHits.length === 0) {
+    score -= rules.negationPenalty;
+    reasons.push('negation_window:-' + rules.negationPenalty);
+  }
+
+  // 5) 时间衰减
+  try {
+    const co = comment.created_at || '';
+    const eo = event.occurred_at || '';
+    if (co && eo) {
+      const dtSec = Math.abs(_parseIso(co) - _parseIso(eo));
+      const dtDays = dtSec / 86400;
+      if (dtDays < rules.timeWindowDays) {
+        const tbonus = Math.max(
+          0,
+          rules.timeDecayPeak * (1 - dtDays / rules.timeWindowDays),
+        );
+        score += tbonus;
+        reasons.push(
+          'time_close:days=' + dtDays.toFixed(1) + ':+' + tbonus.toFixed(3),
+        );
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 6) 自匹配扣分
+  if (
+    event.reporter_id &&
+    comment.reporter_id &&
+    event.reporter_id === comment.reporter_id
+  ) {
+    score -= rules.selfMatchPenalty;
+    reasons.push('self_match:-' + rules.selfMatchPenalty);
+  }
+
+  return { score: Math.max(0, Math.min(1, score)), reasons };
 }
 
 export interface MatchOut {
@@ -189,35 +338,95 @@ export interface MatchOut {
   state_path: string;
 }
 
-function _tryMatch(comment: any, recentEvents: any[], stateDir: string): MatchOut {
+interface MatchInputComment {
+  comment_id: string;
+  animal_id: string;
+  content: string;
+  reporter_id: string;
+  sentiment: string;
+  created_at: string;
+}
+
+interface MatchInputEvent {
+  event_id: string;
+  event_type: string;
+  reporter_id: string;
+  occurred_at: string;
+  address?: string;
+  description?: string;
+}
+
+function _tryMatch(
+  comment: MatchInputComment,
+  recentEvents: MatchInputEvent[],
+  rules: ScoringRules,
+  dicts: { entities: any; synonyms: any; negations: any },
+  store: FileStateStore,
+): MatchOut {
   const animalId = comment.animal_id || '';
   const reporterId = comment.reporter_id || '';
   const sentiment = comment.sentiment || '';
   const content = String(comment.content || '').trim();
-  const matchId = _matchId(comment.comment_id || '', animalId);
+  const kws = extractKeywordsFromTokens(_tokenizeForMatch(comment.content));
 
-  const base: Omit<MatchOut, 'candidate_event_id' | 'candidate_event_reporter_id' | 'candidate_event_address' | 'match_score' | 'match_reasons' | 'status' | 'state_path'> = {
-    match_id: matchId,
+  const base: Omit<
+    MatchOut,
+    | 'candidate_event_id'
+    | 'candidate_event_reporter_id'
+    | 'candidate_event_address'
+    | 'match_score'
+    | 'match_reasons'
+    | 'status'
+    | 'state_path'
+  > = {
+    match_id: '', // pending 时填
     comment_id: comment.comment_id || '',
     animal_id: animalId,
     comment_reporter_id: reporterId,
     sentiment,
-    keywords: Array.isArray(comment.keywords) ? comment.keywords : [],
+    keywords: kws,
     created_at: comment.created_at || '',
   };
 
   if (!content || !TRIGGER_SENTIMENTS.has(sentiment)) {
-    return { ...base, candidate_event_id: '', candidate_event_reporter_id: '', candidate_event_address: '', match_score: 0, match_reasons: [], status: 'no_match', state_path: '' };
+    return {
+      ...base,
+      candidate_event_id: '',
+      candidate_event_reporter_id: '',
+      candidate_event_address: '',
+      match_score: 0,
+      match_reasons: [],
+      status: 'no_match',
+      state_path: '',
+    };
   }
   if (!Array.isArray(recentEvents) || recentEvents.length === 0) {
-    return { ...base, candidate_event_id: '', candidate_event_reporter_id: '', candidate_event_address: '', match_score: 0, match_reasons: [], status: 'no_match', state_path: '' };
+    return {
+      ...base,
+      candidate_event_id: '',
+      candidate_event_reporter_id: '',
+      candidate_event_address: '',
+      match_score: 0,
+      match_reasons: [],
+      status: 'no_match',
+      state_path: '',
+    };
   }
 
-  let bestEvent: any = null;
+  // 评分 + 选 best (排除 reporter == self 的事件 — 自匹配在 score 里已经惩罚, 这里直接排除避免 pending)
+  const tokens = _tokenizeForMatch(content);
+  const commentForScore: CommentLike = {
+    ...comment,
+    tokens,
+    keywords: kws,
+  };
+
+  let bestEvent: MatchInputEvent | null = null;
   let bestScore = 0;
   let bestReasons: string[] = [];
   for (const ev of recentEvents) {
-    const r = _score(comment, ev);
+    if (!ev || !ev.event_id) continue;
+    const r = _score(commentForScore, ev, rules, dicts);
     if (r.score > bestScore) {
       bestEvent = ev;
       bestScore = r.score;
@@ -225,39 +434,87 @@ function _tryMatch(comment: any, recentEvents: any[], stateDir: string): MatchOu
     }
   }
 
-  if (!bestEvent || bestScore < CLUE_THRESHOLD) {
-    return { ...base, candidate_event_id: '', candidate_event_reporter_id: '', candidate_event_address: '', match_score: 0, match_reasons: [], status: 'no_match', state_path: '' };
+  if (!bestEvent) {
+    return {
+      ...base,
+      candidate_event_id: '',
+      candidate_event_reporter_id: '',
+      candidate_event_address: '',
+      match_score: 0,
+      match_reasons: [],
+      status: 'no_match',
+      state_path: '',
+    };
   }
 
-  if (bestEvent.reporter_id === reporterId) {
-    return { ...base, candidate_event_id: '', candidate_event_reporter_id: '', candidate_event_address: '', match_score: 0, match_reasons: [], status: 'self_match', state_path: '' };
+  // 自匹配特殊状态: 在 score 已有 -0.3 惩罚 (排序), 这里再给 status=self_match (不入库)
+  if (bestEvent.reporter_id && bestEvent.reporter_id === reporterId) {
+    return {
+      ...base,
+      candidate_event_id: '',
+      candidate_event_reporter_id: '',
+      candidate_event_address: '',
+      match_score: 0,
+      match_reasons: [],
+      status: 'self_match',
+      state_path: '',
+    };
   }
 
-  fs.mkdirSync(stateDir, { recursive: true });
-  const safeAid = animalId.replace(/[\\/]/g, '_');
-  const statePath = path.join(stateDir, safeAid + '.json');
-  const list = _loadState(statePath);
-  list.push({
+  if (bestScore < rules.threshold) {
+    return {
+      ...base,
+      candidate_event_id: '',
+      candidate_event_reporter_id: '',
+      candidate_event_address: '',
+      match_score: 0,
+      match_reasons: [],
+      status: 'no_match',
+      state_path: '',
+    };
+  }
+
+  const matchId = newMatchId(
+    comment.comment_id || '',
+    animalId,
+    bestEvent.event_id,
+    sentiment,
+  );
+  const statePath = ''; // store 内部管理, 不再暴露
+
+  const rec: MatchRecord = {
     match_id: matchId,
     comment_id: comment.comment_id || '',
     animal_id: animalId,
     comment_reporter_id: reporterId,
     sentiment,
-    keywords: Array.isArray(comment.keywords) ? comment.keywords : [],
+    keywords: kws,
     created_at: comment.created_at || '',
-    candidate_event_id: bestEvent.event_id || '',
+    candidate_event_id: bestEvent.event_id,
     candidate_event_reporter_id: bestEvent.reporter_id || '',
     candidate_event_address: bestEvent.address || '',
     match_score: Math.round(bestScore * 10000) / 10000,
     match_reasons: bestReasons,
     status: 'pending',
     recorded_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
-  });
-  _saveState(statePath, list);
+    schema_version: 2,
+  };
+
+  // 同步落盘 (sync write, 保证 listPending() 立即可见)
+  try {
+    store.appendSync(animalId, rec);
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[ClueBridgeService._tryMatch] FileStateStore.appendSync failed: ' +
+        (e?.message || e),
+    );
+  }
 
   return {
     ...base,
-    candidate_event_id: bestEvent.event_id || '',
+    match_id: matchId,
+    candidate_event_id: bestEvent.event_id,
     candidate_event_reporter_id: bestEvent.reporter_id || '',
     candidate_event_address: bestEvent.address || '',
     match_score: Math.round(bestScore * 10000) / 10000,
@@ -267,79 +524,73 @@ function _tryMatch(comment: any, recentEvents: any[], stateDir: string): MatchOu
   };
 }
 
-function _loadState(p: string): any[] {
-  if (!fs.existsSync(p)) return [];
-  try {
-    const txt = fs.readFileSync(p, 'utf8');
-    const arr = JSON.parse(txt);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
+function _tokenizeForMatch(content: string): string[] {
+  // 简单 token 提取 (用于 entity / synonym / negation)
+  // 取 CJK 2-6 字 + 英文词, 与 SlidingWindow 兼容
+  const cjk = (content || '').match(/[\u4e00-\u9fa5]{2,6}/g) || [];
+  const en = (content || '').match(/[a-zA-Z]{2,}/g) || [];
+  return Array.from(new Set([...cjk, ...en].map((s) => s.toLowerCase())));
 }
 
-function _saveState(p: string, list: any[]): void {
-  const tmp = p + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8');
-  fs.renameSync(tmp, p);
-}
-
-function _listPending(stateDir: string): Record<string, any[]> {
-  const out: Record<string, any[]> = {};
-  if (!fs.existsSync(stateDir)) return out;
-  for (const name of fs.readdirSync(stateDir).sort()) {
-    if (!name.endsWith('.json')) continue;
-    const p = path.join(stateDir, name);
-    const recs = _loadState(p);
-    const pending = recs.filter((r) => r.status === 'pending');
-    if (pending.length > 0) out[name.slice(0, -5)] = pending;
+function extractKeywordsFromTokens(tokens: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tokens) {
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 8) break;
   }
   return out;
 }
 
-function _decide(stateDir: string, matchId: string, animalId: string, decision: 'confirmed' | 'rejected', note: string, adminId: string): boolean {
-  if (!matchId || !animalId) return false;
-  const safeAid = animalId.replace(/[\\/]/g, '_');
-  const p = path.join(stateDir, safeAid + '.json');
-  const list = _loadState(p);
-  let changed = false;
-  for (const r of list) {
-    if (r.match_id === matchId && r.status === 'pending') {
-      r.status = decision;
-      r.decided_by = adminId || '';
-      r.decided_at = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
-      r.decision_note = note || '';
-      changed = true;
-      break;
-    }
-  }
-  if (changed) _saveState(p, list);
-  return changed;
-}
-
-// ---------------- ClueBridgeService Ã¤Â¸Â»Ã§Â±Â» ----------------
+// ---------------- ClueBridgeService 主类 ----------------
 
 @Injectable()
 export class ClueBridgeService {
   private readonly logger = new Logger(ClueBridgeService.name);
   private segmenter!: Segmenter;
   private segmenterKind: 'nodejieba' | 'segmentit' | 'fallback' = 'fallback';
-  private stateDir: string;
+  private rules: ScoringRules = DEFAULT_RULES;
 
   constructor(
     private readonly cfg: ConfigService,
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
-    @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
-  ) {
-    this.stateDir = this.cfg.get<string>('CLUE_STATE_DIR') || path.join(process.cwd(), 'data', 'clue_state');
-  }
+    @Optional() @InjectRepository(RescueEvent) private readonly eventRepo?: Repository<RescueEvent>,
+    private readonly dict: DictionaryLoader = new DictionaryLoader(cfg),
+    private readonly store: FileStateStore = new FileStateStore(cfg),
+  ) {}
 
   init(): void {
+    // 分词器初始化 (3 档降级)
     const j = makeNodeJiebaSegmenter();
     if (j) {
       this.segmenter = j;
       this.segmenterKind = 'nodejieba';
+      // 阶段 B: 把 DictionaryLoader 的 entities + synonyms.canonical 注入 jieba 业务词
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const jieba = require('nodejieba');
+        const userWords = this.dict.getJiebaUserWords();
+        let injected = 0;
+        for (const { word } of userWords) {
+          try {
+            jieba.insertWord(word);
+            injected++;
+          } catch {
+            /* 重复注入 ignore */
+          }
+        }
+        this.logger.log(
+          '[ClueBridgeService.init] jieba user_dict injected: ' + injected + ' words',
+        );
+      } catch (e: any) {
+        this.logger.warn(
+          '[ClueBridgeService.init] jieba.injectWord 失败 (非阻塞): ' +
+            (e?.message || String(e)),
+        );
+      }
     } else {
       const s = makeSegmentitSegmenter();
       if (s) {
@@ -350,25 +601,17 @@ export class ClueBridgeService {
         this.segmenterKind = 'fallback';
       }
     }
-    fs.mkdirSync(this.stateDir, { recursive: true });
-    this.logger.log('[ClueBridgeService.init] segmenter=' + this.segmenterKind + ', state_dir=' + this.stateDir);
+    // FileStateStore 已自动 onModuleInit
+    fs.mkdirSync(this.store.getStateDir(), { recursive: true });
+    this.logger.log(
+      '[ClueBridgeService.init] segmenter=' +
+        this.segmenterKind +
+        ', state_dir=' +
+        this.store.getStateDir(),
+    );
   }
 
-  /** Ã§Â»â„¢Ã¥Ââ€¢Ã¦ÂÂ¡Ã¨Â¯â€žÃ¨Â®ÂºÃ¦Å Â½Ã¥Ââ€“Ã¥â€¦Â³Ã©â€Â®Ã¨Â¯Â (8 Ã¤Â¸ÂªÃ¤Â¸Å Ã©â„¢Â) */
-  extractKeywords(content: string): string[] {
-    const tokens = this.segmenter.cut(content || '');
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const t of tokens) {
-      if (!t || seen.has(t)) continue;
-      seen.add(t);
-      out.push(t);
-      if (out.length >= 8) break;
-    }
-    return out;
-  }
-
-  /** Ã¤Â¸Â»Ã¥â€¦Â¥Ã¥ÂÂ£ */
+  /** 主入口: 评分 + 选 best + 落盘 */
   matchComment(
     comment: {
       comment_id: string;
@@ -387,22 +630,57 @@ export class ClueBridgeService {
       description?: string;
     }>,
   ): MatchOut {
-    const kws = this.extractKeywords(comment.content);
-    return _tryMatch({ ...comment, keywords: kws }, recentEvents, this.stateDir);
+    const dicts = {
+      entities: this.dict.getEntities(),
+      synonyms: this.dict.getSynonyms(),
+      negations: this.dict.getNegations(),
+    };
+    return _tryMatch(comment, recentEvents, this.rules, dicts, this.store);
   }
 
-  listPending(): Record<string, any[]> {
-    return _listPending(this.stateDir);
+  listPending(): Record<string, MatchRecord[]> {
+    // 同步 fire-and-forget 不太合适, 改为 sync 包装
+    // FileStateStore.listAllPending() 是 async, 这里包装为 sync (实际 await)
+    // 由于 Nest 调用方都是 async, 改 listPendingAsync 暴露, 这里保留旧 API
+    return this._listPendingSync();
+  }
+
+  private _listPendingSync(): Record<string, MatchRecord[]> {
+    try {
+      // 同步读 + 过滤 pending
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const path = require('path');
+      const fsSync = require('fs') as typeof fs;
+      const stateDir = this.store.getStateDir();
+      const out: Record<string, MatchRecord[]> = {};
+      if (!fsSync.existsSync(stateDir)) return out;
+      for (const name of fsSync.readdirSync(stateDir).sort()) {
+        if (!name.endsWith('.json') || name.startsWith('_')) continue;
+        const p = path.join(stateDir, name);
+        let list: any[] = [];
+        try {
+          list = JSON.parse(fsSync.readFileSync(p, 'utf8'));
+        } catch {
+          continue;
+        }
+        const pending = (list as MatchRecord[]).filter(
+          (r) => r && r.status === 'pending',
+        );
+        if (pending.length > 0) out[name.slice(0, -5)] = pending;
+      }
+      return out;
+    } catch {
+      return {};
+    }
   }
 
   /**
-   * 决策一条线索 (2026-07-09 阶段 A)
-   *  - 同步改 JSON 状态 (旧逻辑)
-   *  - confirmed 时 额外 触发 3 个 DB 副作用 (异步):
-   *      ① INSERT rescue_event (source=CLUE, status=CONFIRMED) — 落 timeline
-   *      ② UPDATE animals.last_seen_at / last_seen_address — 同步目击时间地点
-   *      ③ UPDATE comments.is_clue_confirmed / clue_confirmed_animal_id — 前端「已确认」徽章
-   *  返回 { ok, persisted? }, 任何 DB 副作用失败仅 warn 不抛 (JSON 已落,人工兜底)
+   * 决策一条线索 (阶段 A 落库 + 阶段 C store 替代)
+   *  1) FileStateStore.update 改 status
+   *  2) confirmed 时 额外触发 3 个 DB 副作用:
+   *      ① INSERT rescue_event (source=CLUE, status=CONFIRMED)
+   *      ② UPDATE animals.last_seen_at / last_seen_address
+   *      ③ UPDATE comments.is_clue_confirmed / clue_confirmed_animal_id
    */
   async decide(
     matchId: string,
@@ -411,7 +689,14 @@ export class ClueBridgeService {
     note: string,
     adminId: string,
   ): Promise<{ ok: boolean; persisted?: boolean }> {
-    const ok = _decide(this.stateDir, matchId, animalId, decision, note, adminId);
+    if (!matchId || !animalId) return { ok: false };
+    const patch: Partial<MatchRecord> = {
+      status: decision,
+      decided_by: adminId || '',
+      decided_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+      decision_note: note || '',
+    };
+    const ok = await this.store.update(animalId, matchId, patch);
     if (!ok || decision !== 'confirmed') {
       return { ok };
     }
@@ -426,14 +711,8 @@ export class ClueBridgeService {
     }
   }
 
-  /**
-   * confirmed 时落库: 1 条 rescue_event + 1 次 animal update + 1 次 comment update
-   * 失败抛异常,被 decide() 捕获后 warn
-   */
   private async _persistConfirm(matchId: string, animalId: string): Promise<boolean> {
-    const safeAid = animalId.replace(/[\\/]/g, '_');
-    const statePath = path.join(this.stateDir, safeAid + '.json');
-    const list = _loadState(statePath);
+    const list = await this.store.loadList(animalId);
     const rec = list.find((r) => r.match_id === matchId && r.status === 'confirmed');
     if (!rec) {
       this.logger.warn(
@@ -442,11 +721,9 @@ export class ClueBridgeService {
       return false;
     }
 
-    // 1) INSERT rescue_event (source=CLUE, status=CONFIRMED) — 落 timeline
     const eventId = randomUUID();
     const now = new Date();
 
-    // 取 animal 的 lat/lng 兜底 (如果候选 event 没地址, 用 animal 自身的)
     let lat = 0;
     let lng = 0;
     const animal = await this.animalRepo.findOne({ where: { animal_id: animalId } });
@@ -460,21 +737,22 @@ export class ClueBridgeService {
       (animal && (animal as any).address) ||
       null;
 
-    await this.eventRepo.save({
-      event_id: eventId,
-      animal_id: animalId,
-      event_type: EventType.REPORT,
-      source: EventSource.CLUE,
-      reporter_id: rec.comment_reporter_id || null,
-      occurred_at: now,
-      location_lat: lat,
-      location_lng: lng,
-      address,
-      description: `线索确认关联,基于评论 ${rec.comment_id || ''}`.slice(0, 500),
-      status: EventStatus.CONFIRMED,
-    } as Partial<RescueEvent>);
+    if (this.eventRepo) {
+      await this.eventRepo.save({
+        event_id: eventId,
+        animal_id: animalId,
+        event_type: EventType.REPORT,
+        source: EventSource.CLUE,
+        reporter_id: rec.comment_reporter_id || null,
+        occurred_at: now,
+        location_lat: lat,
+        location_lng: lng,
+        address,
+        description: `线索确认关联,基于评论 ${rec.comment_id || ''}`.slice(0, 500),
+        status: EventStatus.CONFIRMED,
+      } as Partial<RescueEvent>);
+    }
 
-    // 2) UPDATE animal — 同步目击时间 / 地址
     await this.animalRepo.update(
       { animal_id: animalId },
       {
@@ -483,7 +761,6 @@ export class ClueBridgeService {
       } as Partial<Animal>,
     );
 
-    // 3) UPDATE comment — 前端展示「已确认关联」徽章
     if (rec.comment_id) {
       await this.commentRepo.update(
         { comment_id: rec.comment_id },
@@ -500,9 +777,31 @@ export class ClueBridgeService {
     return true;
   }
 
-  static _score(comment: any, event: any): ScoreOut { return _score(comment, event); }
-  static _matchId(commentId: string, animalId: string): string { return _matchId(commentId, animalId); }
+  /** 静态评分暴露 (供测试 / admin dry-run) */
+  static score(
+    comment: CommentLike,
+    event: EventLike,
+    rules: ScoringRules = DEFAULT_RULES,
+    dicts?: { entities: any; synonyms: any; negations: any },
+  ): ScoreOut {
+    return _score(comment, event, rules, dicts || defaultDictsForTest());
+  }
 
-  getStateDir(): string { return this.stateDir; }
-  getSegmenterKind(): 'nodejieba' | 'segmentit' | 'fallback' { return this.segmenterKind; }
+  getStateDir(): string {
+    return this.store.getStateDir();
+  }
+  getSegmenterKind(): 'nodejieba' | 'segmentit' | 'fallback' {
+    return this.segmenterKind;
+  }
+  getRules(): ScoringRules {
+    return this.rules;
+  }
+}
+
+function defaultDictsForTest(): { entities: any; synonyms: any; negations: any } {
+  return {
+    entities: { categories: { breed: { weight: 0.2, words: [] } } },
+    synonyms: { groups: [] },
+    negations: { words: ['不是', '没有', '没'] },
+  };
 }

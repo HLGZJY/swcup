@@ -18,6 +18,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ClueBridgeService } from '../clue-bridge.service';
+import { DictionaryLoader } from '../dictionary.loader';
+import { FileStateStore } from '../file-state-store';
 import { Comment } from '../entities/comment.entity';
 import { Animal } from '../../animals/entities/animal.entity';
 import { RescueEvent, EventSource, EventStatus, EventType } from '../../events/entities/event.entity';
@@ -93,13 +95,27 @@ describe('ClueBridgeService _persistConfirm (阶段 A)', () => {
     const cfg: Partial<ConfigService> = {
       get: jest.fn((key: string) => (key === 'CLUE_STATE_DIR' ? tmpState : undefined as any)),
     };
+    // 【2026-07-09 阶段 B】DictionaryLoader 实例指向空 tmpdir,
+    // 触发 BUILTIN_DEFAULTS 回退, 不影响现有测试
+    const tmpDicts = fs.mkdtempSync(path.join(os.tmpdir(), 'clue_dicts_persist_'));
+    const cfgWithDicts: Partial<ConfigService> = {
+      get: jest.fn((key: string) => {
+        if (key === 'CLUE_STATE_DIR') return tmpState;
+        if (key === 'CLUE_DICTS_DIR') return tmpDicts;
+        return undefined as any;
+      }),
+    };
+    const dict = new DictionaryLoader(cfgWithDicts as ConfigService);
+    const store = new FileStateStore(cfgWithDicts as ConfigService);
     const mod: TestingModule = await Test.createTestingModule({
       providers: [
         ClueBridgeService,
-        { provide: ConfigService, useValue: cfg },
+        { provide: ConfigService, useValue: cfgWithDicts },
         { provide: getRepositoryToken(Comment), useValue: commentRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
+        { provide: DictionaryLoader, useValue: dict },
+        { provide: FileStateStore, useValue: store },
       ],
     }).compile();
     svc = mod.get(ClueBridgeService);

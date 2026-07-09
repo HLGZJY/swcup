@@ -16,11 +16,13 @@ import { AiBridgeService, CommentSummary } from './ai-bridge.service';
 
 import { ClueBridgeService } from './clue-bridge.service';
 
+import { TextNormalizer } from './text-normalizer';
+
 
 
 import { Animal, AnimalStatus } from '../animals/entities/animal.entity';
 
-import { RescueEvent, EventStatus } from '../events/entities/event.entity';
+import { EventRecallService } from './event-recall.service';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function uuid(): string {
@@ -40,9 +42,10 @@ export class CommentsService {
   constructor(
     @InjectRepository(Comment) private readonly repo: Repository<Comment>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
-    @Optional() @InjectRepository(RescueEvent) private readonly eventRepo?: Repository<RescueEvent>,
     private readonly ai: AiBridgeService,
-    private readonly clue: ClueBridgeService,
+    private readonly clue?: ClueBridgeService,
+    @Optional() private readonly normalizer?: TextNormalizer,
+    @Optional() private readonly recall?: EventRecallService,
   ) {}
 
   /** ÃƒÂ¥Ã‹â€ Ã¢â‚¬ÂºÃƒÂ¥Ã‚Â»Ã‚ÂºÃƒÂ¨Ã‚Â¯Ã¢â‚¬Å¾ÃƒÂ¨Ã‚Â®Ã‚Âº: ÃƒÂ§Ã…Â Ã‚Â¶ÃƒÂ¦Ã¢â€šÂ¬Ã‚ÂÃƒÂ¨Ã‚ÂÃ¢â‚¬ÂÃƒÂ¥Ã…Â Ã‚Â¨ + AI ÃƒÂ¥Ã‚Â®Ã‚Â¡ÃƒÂ¦Ã‚Â Ã‚Â¸ + ÃƒÂ¥Ã¢â‚¬Â Ã¢â€žÂ¢ÃƒÂ¥Ã‚ÂºÃ¢â‚¬Å“ */
@@ -61,7 +64,19 @@ export class CommentsService {
     }
 
     // ÃƒÂ¥Ã‚Â»Ã‚ÂºÃƒÂ¨Ã‚Â®Ã‚Â® #3: 60s ÃƒÂ¥Ã…Â½Ã‚Â»ÃƒÂ©Ã¢â‚¬Â¡Ã‚Â
-    const content = dto.content.trim();
+    let content = dto.content.trim();
+    // 阶段 B: 文本清洗前置 (URL/emoji/全角/简繁/空白归一)
+    // 失败容忍: 清洗异常时 logger.warn + 继续用原 content, 不让清洗成单点故障
+    if (this.normalizer) {
+      try {
+        const cleaned = this.normalizer.normalize(content);
+        if (cleaned && cleaned.length > 0) content = cleaned;
+      } catch (e: any) {
+        this.logger.warn(
+          '[CommentsService.create] normalizer 失败, 用原 content: ' + (e?.message || String(e)),
+        );
+      }
+    }
     const dedupKey = reporterId + '|' + content;
     const now = Date.now();
     for (const [k, v] of this.recentByReporter) {
@@ -98,7 +113,14 @@ export class CommentsService {
         m.primary_sentiment === CommentSentiment.SEEK)
     ) {
       try {
-        const events = await this._loadRecentEvents(saved.animal_id);
+        const events = this.recall
+          ? await this.recall.recall(
+              saved.animal_id,
+              saved.created_at instanceof Date
+                ? saved.created_at
+                : new Date(saved.created_at as any),
+            )
+          : [];
         const clueOut = this.clue.matchComment(
           {
             comment_id: saved.comment_id,
@@ -131,34 +153,6 @@ export class CommentsService {
    * ÃƒÂ¥Ã…Â Ã‚Â ÃƒÂ¨Ã‚Â½Ã‚Â½ÃƒÂ¦Ã…â€œÃ¢â€šÂ¬ÃƒÂ¨Ã‚Â¿Ã¢â‚¬Ëœ 5 ÃƒÂ¦Ã‚ÂÃ‚Â¡ÃƒÂ¤Ã‚ÂºÃ¢â‚¬Â¹ÃƒÂ¤Ã‚Â»Ã‚Â¶ÃƒÂ§Ã‚Â»Ã¢â€žÂ¢ clue matcher ÃƒÂ¥Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÂ©Ã¢â€šÂ¬Ã¢â‚¬Â°
    * ÃƒÂ¦Ã…Â½Ã¢â‚¬â„¢ÃƒÂ©Ã¢â€žÂ¢Ã‚Â¤ REJECTED/DUPLICATED
    */
-  private async _loadRecentEvents(animalId: string): Promise<
-    Array<{
-      event_id: string;
-      event_type: string;
-      reporter_id: string;
-      occurred_at: string;
-      address?: string;
-      description?: string;
-    }>
-  > {
-    if (!this.eventRepo) return [];
-    const rows = await this.eventRepo.find({
-      where: { animal_id: animalId },
-      order: { created_at: 'DESC' },
-      take: 5,
-    });
-    return rows
-      .filter((e) => e.status !== EventStatus.REJECTED && e.status !== EventStatus.DUPLICATED)
-      .map((e) => ({
-        event_id: e.event_id,
-        event_type: e.event_type,
-        reporter_id: e.reporter_id || '',
-        occurred_at: e.occurred_at ? e.occurred_at.toISOString() : '',
-        address: e.address || undefined,
-        description: e.description || undefined,
-      }));
-  }
-
   async findByAnimal(animalId: string, query: QueryCommentDto): Promise<{ total: number; items: Comment[] }> {
     if (!UUID_RE.test(animalId)) {
       throw new HttpException('animal_id ÃƒÂ¤Ã‚Â¸Ã‚ÂÃƒÂ¥Ã‚ÂÃ‹â€ ÃƒÂ¦Ã‚Â³Ã¢â‚¬Â¢', HttpStatus.BAD_REQUEST);

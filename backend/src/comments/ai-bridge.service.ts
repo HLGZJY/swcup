@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { Comment, CommentSentiment } from './entities/comment.entity';
 
-
+import { DictionaryLoader } from './dictionary.loader';
 
 export interface ModerateReason { layer: string; detail: string; }
 export interface ModerateResult {
@@ -23,11 +23,9 @@ export interface CommentSummary {
   auto_summary: string;
 }
 
-const BLACKLIST_BAD = new Set(['打死它','打死','弄死','虐待','傻逼','智障','脑残','废物']);
-const BLACKLIST_FAKE = new Set(['加微信','加我微信','微商','代购','纯种','便宜出','免费送']);
-const POSITIVE = new Set(['可怜','心疼','希望','保佑','加油','挺住','平安','回家']);
-const REWARD = new Set(['找到','谢谢','感谢','已找回','团聚']);
-const REPORT = new Set(['看到','见到','目击','刚发现']);
+// 阶段 B: 5 个 Set 已迁出到 dictionary.loader.ts BUILTIN_DEFAULTS,
+// ai-bridge 通过 DictionaryLoader 读取. 这样运营改 BUILTIN_DEFAULTS
+// (或后续把这些 Set 抽到 JSON) 不用改 ai-bridge 业务逻辑.
 
 @Injectable()
 export class AiBridgeService {
@@ -36,7 +34,10 @@ export class AiBridgeService {
   private baseUrl = 'http://localhost:8000';
   private http: any = null;
 
-  constructor(private readonly cfg: ConfigService) {}
+  constructor(
+    private readonly cfg: ConfigService,
+    private readonly dict: DictionaryLoader,
+  ) {}
 
   /** 在容器启动时(在 comments.module 里调用)配置 mode/http。 */
   init(): void {
@@ -85,8 +86,8 @@ export class AiBridgeService {
       reasons.push({ layer: 'L0', detail: 'too_long:' + s.length });
       return { verdict: 'hide', suggested_action: 'hide', reasons, primary_sentiment: CommentSentiment.NEUTRAL, is_hidden: true };
     }
-    for (const w of BLACKLIST_BAD) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'badword:' + w });
-    for (const w of BLACKLIST_FAKE) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'fake:' + w });
+    for (const w of this.dict.getBuiltinBlacklistBad()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'badword:' + w });
+    for (const w of this.dict.getBuiltinBlacklistFake()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'fake:' + w });
     if (recentViolationsCount >= 3) reasons.push({ layer: 'L4', detail: 'repeat_offender:' + recentViolationsCount });
     let verdict: ModerateResult['verdict'] = 'allow';
     let action: ModerateResult['suggested_action'] = 'allow';
@@ -96,9 +97,9 @@ export class AiBridgeService {
     if (hasBad || recentViolationsCount >= 3) { verdict = 'hide'; action = 'hide'; is_hidden = true; }
     else if (hasFake) { verdict = 'review'; action = 'needs_review'; }
     let primary: CommentSentiment = CommentSentiment.NEUTRAL;
-    if (Array.from(REWARD).some((w) => s.includes(w))) primary = CommentSentiment.THANKS;
-    else if (Array.from(REPORT).some((w) => s.includes(w))) primary = CommentSentiment.REPORT;
-    else if (Array.from(POSITIVE).some((w) => s.includes(w))) primary = CommentSentiment.CARE;
+    if (Array.from(this.dict.getBuiltinReward()).some((w) => s.includes(w))) primary = CommentSentiment.THANKS;
+    else if (Array.from(this.dict.getBuiltinReport()).some((w) => s.includes(w))) primary = CommentSentiment.REPORT;
+    else if (Array.from(this.dict.getBuiltinPositive()).some((w) => s.includes(w))) primary = CommentSentiment.CARE;
     return { verdict, suggested_action: action, reasons, primary_sentiment: primary, is_hidden };
   }
 

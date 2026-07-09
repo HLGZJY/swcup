@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, UseGuards, Body, Version, Request } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Put, Delete, Param, Query, UseGuards, Body, Version, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -183,6 +183,9 @@ export class AdminController {
     @Body() body: { decision: 'confirmed' | 'rejected'; note?: string },
     @Request() req: any,
   ) {
+    if (body.decision !== 'confirmed' && body.decision !== 'rejected') {
+      throw new BadRequestException('decision must be confirmed or rejected');
+    }
     const adminId = (req && req.user && req.user.user_id) || '';
     const r = await this.clueAdmin.decide(
       matchId,
@@ -200,6 +203,30 @@ export class AdminController {
       animal_id: animalId,
       decision: body.decision,
     };
+  }
+
+  @Post('clues/dry-run')
+  @ApiOperation({ summary: 'dry-run clue matching without persistence' })
+  async dryRunClue(@Body() body: { content?: string; animal_id?: string; reporter_id?: string; comment_time?: string }) {
+    return this.clueAdmin.dryRun(body);
+  }
+
+  @Get('dicts')
+  @ApiOperation({ summary: 'get clue dictionaries' })
+  getClueDicts() {
+    return this.clueAdmin.getDicts();
+  }
+
+  @Put('dicts/:category')
+  @ApiOperation({ summary: 'replace one clue dictionary json' })
+  putClueDict(@Param('category') category: string, @Body() body: unknown) {
+    return this.clueAdmin.putDict(category, body);
+  }
+
+  @Post('dicts/reload')
+  @ApiOperation({ summary: 'reload clue dictionaries from disk' })
+  reloadClueDicts() {
+    return this.clueAdmin.reloadDicts();
   }
 
   // 【2026-07-09 重构】低分鼻纹审核 5 个端点已废弃
