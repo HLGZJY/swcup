@@ -6,7 +6,6 @@ import { createHash } from 'crypto';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
-import { PendingNoseRecord, PendingNoseStatus, PendingNoseSource } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species, Gender, AgeEstimate, HealthStatus } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus, EventSource } from '../events/entities/event.entity';
 import { MatchingService } from '../matching/matching.service';
@@ -41,7 +40,6 @@ export class NoseService {
     @InjectRepository(NoseFeature) private readonly noseRepo: Repository<NoseFeature>,
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
-    @InjectRepository(PendingNoseRecord) private readonly pendingRepo: Repository<PendingNoseRecord>,
     private readonly matchingService: MatchingService,
     private readonly config: ConfigService,
     private readonly idempotency: IdempotencyCache,
@@ -363,43 +361,41 @@ export class NoseService {
       return result;
     }
 
-    // Step 6: 无匹配 / 低分匹配 → 写入 pending_nose_records, 进入人工审核
+    // Step 6: 无匹配 / 低分匹配 → 写入 RescueEvent(source=COLLECT, status=pending), 进事件审核流
     //   业务规则: 向量相似度 < 0.75 或无任何匹配 → 由 admin 决定是否建档/关联/拒绝
     //   高分匹配 (>= 0.88) 在 Step 4 已走 ask_claim_or_new, 孤儿匹配在 Step 5 已走 ask_link_or_new / ask_claim_existing
-    // Bug 1 修复 (2026-07-08): 缺 user_id 时不让进 pending 写入
-    //   场景: /v1/nose/collect 是 @Public(),JwtAuthGuard 跳过 JWT → req.user 永远是 undefined
-    //   之前: pendingRepo.save({collector_id: undefined}) → MySQL 抛 "Field 'collector_id' doesn't have a default value" (500)
-    //   现在: 显式 BadRequestException,前端能拿到明确提示(参 7bbb9eb 修坐标缺失的同款模式)
+    // 【2026-07-09 重构】不再写 pending_nose_records,统一走 rescue_events 审核流
+    //   pending_nose_records 表已在 T2 删除,score 字段全部回填到 event 对应列
     if (!user_id) {
       throw new BadRequestException('请先登录后再采集鼻纹');
     }
     const lowScore = bestMatch === null || bestMatch.cosine_similarity < LOW_SCORE_THRESHOLD;
     if (lowScore) {
-      await this.pendingRepo.save(
-        this.pendingRepo.create({
-          record_id: uuidv4(),
-          vector_id,
-          collector_id: user_id,
-          source: PendingNoseSource.LOW_SCORE_NOSE,
-          vector_similarity: bestMatch?.cosine_similarity ?? null,
-          fusion_score: null,
-          gps_similarity: null,
-          text_match_rate: null,
-          status: PendingNoseStatus.PENDING,
-          animal_id: null,
-          reviewed_by: null,
-          reviewed_at: null,
-          location_lat: dto.location_lat ?? null,
-          location_lng: dto.location_lng ?? null,
-          breed: dto.breed ?? null,
-          color: dto.color ?? null,
-          gender: dto.gender ?? null,
-          species: dto.species ?? null,
-          nose_photo_url: dto.nose_photo_url ?? null,
-          body_photo_url: dto.body_photo_url ?? null,
-        }),
-      );
+      const event = this.eventRepo.create({
+        event_id: uuidv4(),
+        reporter_id: user_id,
+        event_type: EventType.COLLECT,
+        source: EventSource.COLLECT,
+        nose_vector_id: vector_id,
+        nose_photo_url: dto.nose_photo_url ?? null,
+        occurred_at: new Date(),
+        location_lat: Number(dto.location_lat) || 0,
+        location_lng: Number(dto.location_lng) || 0,
+        address: dto.address ?? null,
+        description: null,
+        species: dto.species ?? null,
+        breed: dto.breed ?? null,
+        color: dto.color ?? null,
+        gender: dto.gender ?? null,
+        vector_similarity: bestMatch?.cosine_similarity ?? null,
+        fusion_score: null,
+        gps_similarity: null,
+        text_match_rate: null,
+        status: EventStatus.PENDING,
+      } as Partial<RescueEvent>);
+      await this.eventRepo.save(event);
       const result = {
+        event_id: event.event_id,
         vector_id,
         confidence_score,
         liveness_passed,
@@ -610,11 +606,10 @@ export class NoseService {
   /**
    * Bug 3 修复 (2026-07-08): 用户主动建档走 pending 流程
    *   - 旧: POST /v2/animals 直接落库 animals 表,绕开 admin 审核
-   *   - 新: 写入 pending_nose_records (source=user_create_request),admin 看到新待审队列
-   *         通过 approve_as_new / approve_as_duplicate 决定是建新动物还是关联已有
+   *   - 新: 写入 RescueEvent(source=user_create),admin 走事件审核流 (3 按钮:驳回/同意新建/合并)
    *   - 入参: 用户从 result.vue onCreateAnimal 提交的完整动物档案 + nose_vector_id
-   *   - 校验: user_id/GPS/nose_vector_id 必填,与 collect() 保持同样严格
-   *   - 落库: 复用 pending_nose_records 表,扩展字段存用户提交的 animal 档案
+   *   - 校验: user_id/GPS 必填;nose_vector_id 允许 null (无鼻纹场景, 参 Bug A)
+   *   - 【2026-07-09 重构】不再写 pending_nose_records,统一走 rescue_events 审核流
    */
   async createPendingAnimalRequest(
     dto: {
@@ -649,41 +644,31 @@ export class NoseService {
     }
     // intent 缺省 = "found" — 与 AnimalsService.create 的默认行为对齐
     const intent = dto.intent || 'found';
-    const record_id = uuidv4();
-    await this.pendingRepo.save(
-      this.pendingRepo.create({
-        record_id,
-        vector_id: noseVectorId,
-        collector_id: user_id,
-        source: PendingNoseSource.USER_CREATE_REQUEST,
-        status: PendingNoseStatus.PENDING,
-        species: dto.species ?? null,
-        breed: dto.breed ?? null,
-        color: dto.color ?? null,
-        gender: dto.gender ?? null,
-        age_estimate: dto.age_estimate ?? null,
-        health_status: dto.health_status ?? null,
-        sterilized: dto.sterilized ?? null,
-        location_lat: dto.location_lat ?? null,
-        location_lng: dto.location_lng ?? null,
-        address: dto.address ?? null,
-        notes: dto.notes ?? null,
-        photos: dto.photos ?? null,
-        intent,
-        // 这些字段对 USER_CREATE_REQUEST 场景没意义,但表结构允许,置 null
-        fusion_score: null,
-        vector_similarity: null,
-        gps_similarity: null,
-        text_match_rate: null,
-        animal_id: null,
-        reviewed_by: null,
-        reviewed_at: null,
-        nose_photo_url: null,
-        body_photo_url: null,
-      }),
-    );
+    const event_id = uuidv4();
+    const event = this.eventRepo.create({
+      event_id,
+      reporter_id: user_id,
+      event_type: EventType.COLLECT,
+      source: EventSource.USER_CREATE,
+      nose_vector_id: noseVectorId,
+      nose_photo_url: null,
+      occurred_at: new Date(),
+      location_lat: Number(dto.location_lat),
+      location_lng: Number(dto.location_lng),
+      address: dto.address ?? null,
+      description: dto.notes ?? null,
+      photos: dto.photos ?? null,
+      species: dto.species ?? null,
+      breed: dto.breed ?? null,
+      color: dto.color ?? null,
+      gender: dto.gender ?? null,
+      intent,
+      status: EventStatus.PENDING,
+    } as Partial<RescueEvent>);
+    await this.eventRepo.save(event);
     return {
-      record_id,
+      event_id,
+      record_id: event_id,  // 兼容旧字段名 (前端可能仍读 record_id)
       vector_id: noseVectorId,
       next_action: 'under_review',
     };

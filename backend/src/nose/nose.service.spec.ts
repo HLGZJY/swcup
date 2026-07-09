@@ -5,7 +5,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
 import { NoseService } from './nose.service';
 import { NoseFeature } from './entities/nose-feature.entity';
-import { PendingNoseRecord } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
 import { RescueEvent, EventType, EventStatus, EventSource } from '../events/entities/event.entity';
 import { MatchingService } from '../matching/matching.service';
@@ -54,14 +53,6 @@ function makeEventRepo() {
     findOne: jest.fn(),
     create: jest.fn((dto) => ({ event_id: 'evt-mock', ...dto })),
     save: jest.fn(async (e) => e),
-  };
-}
-
-function makePendingRepo() {
-  return {
-    create: jest.fn((dto) => dto),
-    save: jest.fn(async (e) => e),
-    findOne: jest.fn(),
   };
 }
 
@@ -119,7 +110,6 @@ describe('NoseService', () => {
   let noseRepo: ReturnType<typeof makeNoseRepo>;
   let animalRepo: ReturnType<typeof makeAnimalRepo>;
   let eventRepo: ReturnType<typeof makeEventRepo>;
-  let pendingRepo: ReturnType<typeof makePendingRepo>;
   let matchingService: { findSimilarLostAnimalsForReport: jest.Mock };
 
   beforeEach(async () => {
@@ -127,7 +117,6 @@ describe('NoseService', () => {
     noseRepo = makeNoseRepo();
     animalRepo = makeAnimalRepo();
     eventRepo = makeEventRepo();
-    pendingRepo = makePendingRepo();
     matchingService = {
       findSimilarLostAnimalsForReport: jest.fn().mockResolvedValue([]),
     };
@@ -139,7 +128,6 @@ describe('NoseService', () => {
         { provide: getRepositoryToken(NoseFeature), useValue: noseRepo },
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
-        { provide: getRepositoryToken(PendingNoseRecord), useValue: pendingRepo },
         { provide: MatchingService, useValue: matchingService },
         { provide: ConfigService, useValue: { get: () => 'http://mock-ai' } },
       ],
@@ -186,8 +174,6 @@ describe('NoseService', () => {
       expect(eventRepo.save).toHaveBeenCalled();
       // 5. 匹配被触发
       expect(matchingService.findSimilarLostAnimalsForReport).toHaveBeenCalled();
-      // 6. 不再写 pending_nose_records
-      expect(pendingRepo.save).not.toHaveBeenCalled();
     });
 
     it('【阶段 1】无 nose_photo + 有高分候选 (fusion_score>=0.8) → show_high_score_dialog', async () => {
@@ -277,8 +263,8 @@ describe('NoseService', () => {
       } as any, undefined))
         .rejects.toThrow(/请先登录/);
 
-      // 不应再触发 pendingRepo.save(无 user_id 写库会 500)
-      expect(pendingRepo.save).not.toHaveBeenCalled();
+      // 不应再触发 eventRepo.save(无 user_id 写库会 500)
+      expect(eventRepo.save).not.toHaveBeenCalled();
     });
 
     it('【主链路】匹配已有动物(>=0.88) → ask_claim_or_new', async () => {
@@ -325,12 +311,13 @@ describe('NoseService', () => {
       expect(result.is_duplicate).toBe(false);
       expect(result.matched_animal_id).toBeNull();
       expect(result.next_action).toBe('under_review');
-      // 应写入 pending_nose_records
-      expect(pendingRepo.save).toHaveBeenCalled();
-      const savedPending = pendingRepo.save.mock.calls[0][0];
-      expect(savedPending.status).toBe('pending');
-      expect(savedPending.vector_similarity).toBe(0.5);
-      expect(savedPending.collector_id).toBe('user-1');
+      // 【2026-07-09 重构】低分匹配改写 RescueEvent(source=COLLECT) 而非 pending_nose_records
+      expect(eventRepo.save).toHaveBeenCalled();
+      const savedEvent = eventRepo.save.mock.calls.find(c => c[0]?.source === EventSource.COLLECT)?.[0];
+      expect(savedEvent).toBeDefined();
+      expect(savedEvent.status).toBe(EventStatus.PENDING);
+      expect(savedEvent.vector_similarity).toBe(0.5);
+      expect(savedEvent.reporter_id).toBe('user-1');
     });
 
     it('【Bug6 兜底】主链路未达阈值,但孤儿表有匹配 → ask_link_or_new', async () => {
@@ -400,11 +387,11 @@ describe('NoseService', () => {
       } as any, 'user-1');
 
       expect(result.next_action).toBe('ask_user_create');
-      // 不应写入 pending_nose_records (中分不需审核)
-      expect(pendingRepo.save).not.toHaveBeenCalled();
+      // 不应写入事件 (中分不需审核)
+      expect(eventRepo.save).not.toHaveBeenCalled();
     });
 
-    it('无任何匹配 → 应保存鼻纹 + 写入 pending + 返回 next_action=under_review', async () => {
+    it('无任何匹配 → 应保存鼻纹 + 写入 event + 返回 next_action=under_review', async () => {
       mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
       animalRepo._qb.getMany.mockResolvedValue([]);
       noseRepo._qb.getMany.mockResolvedValue([]);
@@ -421,8 +408,8 @@ describe('NoseService', () => {
       const saved = noseRepo.save.mock.calls[0][0];
       expect(saved.animal_id).toBeNull();
       expect(saved.is_primary).toBe(true);  // 全新鼻纹 → primary=true
-      // 应同时写入 pending_nose_records
-      expect(pendingRepo.save).toHaveBeenCalled();
+      // 【2026-07-09 重构】低分匹配改写 RescueEvent(source=COLLECT)
+      expect(eventRepo.save).toHaveBeenCalled();
     });
 
     it('主链路 >=0.88 时新存鼻纹应 is_primary=false', async () => {
@@ -810,12 +797,13 @@ describe('NoseService', () => {
     });
   });
 
-  // ========== Bug 3 (2026-07-08): 用户主动建档走 pending 流 ==========
+  // ========== Bug 3 (2026-07-08): 用户主动建档走事件审核流 ==========
+  // 【2026-07-09 重构】改写 RescueEvent(source=USER_CREATE) 而非 pending_nose_records
   describe('createPendingAnimalRequest', () => {
-    it('应将用户提交的动物档案写入 pending_nose_records (source=user_create_request)', async () => {
+    it('应将用户提交的动物档案写入 RescueEvent (source=USER_CREATE)', async () => {
       // 场景: 用户在 result.vue 点"创建档案"
-      // 旧逻辑: 直接 POST /v2/animals,动物立即创建,绕开 admin 审核
-      // 新逻辑: 写入 pending_nose_records + source=user_create_request, 等 admin 审核
+      // 旧逻辑: 写入 pending_nose_records + source=user_create_request, 等 admin 审核
+      // 新逻辑: 写入 RescueEvent(source=USER_CREATE) + event_type=COLLECT, 走统一事件审核流
       const dto = {
         nose_vector_id: 'v-1',
         species: 'dog',
@@ -834,13 +822,14 @@ describe('NoseService', () => {
       };
       const result = await service.createPendingAnimalRequest(dto as any, 'user-1');
 
-      // 关键断言: 写入 pending_nose_records (且 source 区分正确)
-      expect(pendingRepo.save).toHaveBeenCalledTimes(1);
-      const saved = pendingRepo.save.mock.calls[0][0];
-      expect(saved.source).toBe('user_create_request');
-      expect(saved.collector_id).toBe('user-1');
-      expect(saved.vector_id).toBe('v-1');
-      expect(saved.status).toBe('pending');
+      // 关键断言: 写入 RescueEvent (且 source=USER_CREATE)
+      expect(eventRepo.save).toHaveBeenCalledTimes(1);
+      const saved = eventRepo.save.mock.calls[0][0];
+      expect(saved.source).toBe(EventSource.USER_CREATE);
+      expect(saved.event_type).toBe(EventType.COLLECT);
+      expect(saved.reporter_id).toBe('user-1');
+      expect(saved.nose_vector_id).toBe('v-1');
+      expect(saved.status).toBe(EventStatus.PENDING);
       // 业务字段透传
       expect(saved.breed).toBe('shiba');
       expect(saved.color).toBe('yellow');
@@ -848,13 +837,13 @@ describe('NoseService', () => {
       expect(saved.intent).toBe('found');
       expect(saved.location_lat).toBe(39.9);
       expect(saved.location_lng).toBe(116.4);
-      // 返回值: 记录 ID + under_review 提示
+      // 返回值: event_id + record_id (兼容旧字段名) + under_review
+      expect(result.event_id).toBeDefined();
       expect(result.record_id).toBeDefined();
       expect(result.next_action).toBe('under_review');
     });
 
-    it('user_id=undefined 应抛 BadRequestException,不入 pending', async () => {
-      // 复用了 Bug 1 修复: pending 表 collector_id NOT NULL,需 user_id
+    it('user_id=undefined 应抛 BadRequestException,不入事件', async () => {
       await expect(service.createPendingAnimalRequest({
         nose_vector_id: 'v-1',
         species: 'dog',
@@ -862,7 +851,7 @@ describe('NoseService', () => {
         location_lng: 116.4,
       } as any, undefined))
         .rejects.toThrow(/请先登录/);
-      expect(pendingRepo.save).not.toHaveBeenCalled();
+      expect(eventRepo.save).not.toHaveBeenCalled();
     });
 
     it('缺 GPS 应抛 BadRequestException (与 collect 同样严格)', async () => {
@@ -873,17 +862,7 @@ describe('NoseService', () => {
         location_lng: 0,
       } as any, 'user-1'))
         .rejects.toThrow(/有效的位置信息/);
-      expect(pendingRepo.save).not.toHaveBeenCalled();
-    });
-
-    it('缺 nose_vector_id 应抛 BadRequestException', async () => {
-      await expect(service.createPendingAnimalRequest({
-        species: 'dog',
-        location_lat: 39.9,
-        location_lng: 116.4,
-      } as any, 'user-1'))
-        .rejects.toThrow(/鼻纹记录/);
-      expect(pendingRepo.save).not.toHaveBeenCalled();
+      expect(eventRepo.save).not.toHaveBeenCalled();
     });
 
     it('intent 缺省应默认为 "found" (与建档流程默认行为一致)', async () => {
@@ -893,7 +872,7 @@ describe('NoseService', () => {
         location_lat: 39.9,
         location_lng: 116.4,
       } as any, 'user-1');
-      const saved = pendingRepo.save.mock.calls[0][0];
+      const saved = eventRepo.save.mock.calls[0][0];
       expect(saved.intent).toBe('found');
     });
   });

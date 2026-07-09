@@ -194,49 +194,7 @@ export class AdminController {
     return { ok: ok, match_id: matchId, animal_id: animalId, decision: body.decision };
   }
 
-  // ========== 阶段 3 (2026-07-07): 低分鼻纹人工审核路由 ==========
-
-  @Get('pending-nose-records')
-  @ApiOperation({ summary: '低分鼻纹待审核列表' })
-  async getPendingNoseRecords(@Query() query: any) {
-    return this.adminService.getPendingNoseRecords(query);
-  }
-
-  @Get('pending-nose-records/:record_id')
-  @ApiOperation({ summary: '低分鼻纹待审核详情' })
-  async getPendingNoseRecordDetail(@Param('record_id') record_id: string) {
-    return this.adminService.getPendingNoseRecordDetail(record_id);
-  }
-
-  @Post('pending-nose-records/:record_id/approve-as-new')
-  @ApiOperation({ summary: '审核通过: 确认为新动物' })
-  async approveAsNew(
-    @Param('record_id') record_id: string,
-    @Body() dto: any,
-    @Request() req,
-  ) {
-    const admin_id = req?.user?.user_id || 'system';
-    return this.adminService.approvePendingNoseAsNew(record_id, admin_id, dto);
-  }
-
-  @Post('pending-nose-records/:record_id/approve-as-duplicate')
-  @ApiOperation({ summary: '审核通过: 关联已有动物' })
-  async approveAsDuplicate(
-    @Param('record_id') record_id: string,
-    @Body() body: { animal_id: string },
-    @Request() req,
-  ) {
-    const admin_id = req?.user?.user_id || 'system';
-    return this.adminService.approvePendingNoseAsDuplicate(record_id, body.animal_id, admin_id);
-  }
-
-  @Post('pending-nose-records/:record_id/reject')
-  @ApiOperation({ summary: '审核拒绝' })
-  async reject(
-    @Param('record_id') record_id: string,
-    @Request() req,
-  ) {
-    const admin_id = req?.user?.user_id || 'system';
-    return this.adminService.rejectPendingNoseRecord(record_id, admin_id);
-  }
+  // 【2026-07-09 重构】低分鼻纹审核 5 个端点已废弃
+  //   pending_nose_records 表 DROP,所有 collect/上报/建档入口改写 RescueEvent
+  //   admin 审核统一走 /events/:id/action (3 按钮:reject/merge/create_new)
 }

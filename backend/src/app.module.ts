@@ -19,7 +19,6 @@ import { RescueEvent } from './events/entities/event.entity';
 import { Claim } from './claims/entities/claim.entity';
 import { Comment } from './comments/entities/comment.entity';
 import { CommentsModule } from './comments/comments.module';
-import { PendingNoseRecord } from './nose/entities/pending-nose-record.entity';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -44,7 +43,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        entities: [User, Animal, NoseFeature, RescueEvent, Claim, Comment, PendingNoseRecord],
+        entities: [User, Animal, NoseFeature, RescueEvent, Claim, Comment],
         synchronize: true,
         logging: false,
       }),
