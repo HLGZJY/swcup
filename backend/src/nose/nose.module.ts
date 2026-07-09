@@ -6,10 +6,11 @@ import { NoseFeature } from './entities/nose-feature.entity';
 import { PendingNoseRecord } from './entities/pending-nose-record.entity';
 import { Animal } from '../animals/entities/animal.entity';
 import { RescueEvent } from '../events/entities/event.entity';
+import { MatchingModule } from '../matching/matching.module';
 import { IdempotencyCache } from '../common/idempotency/idempotency-cache.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NoseFeature, Animal, RescueEvent, PendingNoseRecord])],
+  imports: [TypeOrmModule.forFeature([NoseFeature, Animal, RescueEvent, PendingNoseRecord]), MatchingModule],
   controllers: [NoseController],
   providers: [NoseService, IdempotencyCache],
   exports: [NoseService, IdempotencyCache],

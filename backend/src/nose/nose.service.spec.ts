@@ -7,7 +7,8 @@ import { NoseService } from './nose.service';
 import { NoseFeature } from './entities/nose-feature.entity';
 import { PendingNoseRecord } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species } from '../animals/entities/animal.entity';
-import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
+import { RescueEvent, EventType, EventStatus, EventSource } from '../events/entities/event.entity';
+import { MatchingService } from '../matching/matching.service';
 import { IdempotencyCache } from '../common/idempotency/idempotency-cache.service';
 
 // Mock axios
@@ -51,6 +52,8 @@ function makeEventRepo() {
   return {
     find: jest.fn(),
     findOne: jest.fn(),
+    create: jest.fn((dto) => ({ event_id: 'evt-mock', ...dto })),
+    save: jest.fn(async (e) => e),
   };
 }
 
@@ -117,6 +120,7 @@ describe('NoseService', () => {
   let animalRepo: ReturnType<typeof makeAnimalRepo>;
   let eventRepo: ReturnType<typeof makeEventRepo>;
   let pendingRepo: ReturnType<typeof makePendingRepo>;
+  let matchingService: { findSimilarLostAnimalsForReport: jest.Mock };
 
   beforeEach(async () => {
     jest.resetAllMocks();  // 关键: 也要清 implementation, 否则 mockResolvedValueOnce 队列会跨测试残留
@@ -124,6 +128,9 @@ describe('NoseService', () => {
     animalRepo = makeAnimalRepo();
     eventRepo = makeEventRepo();
     pendingRepo = makePendingRepo();
+    matchingService = {
+      findSimilarLostAnimalsForReport: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -133,6 +140,7 @@ describe('NoseService', () => {
         { provide: getRepositoryToken(Animal), useValue: animalRepo },
         { provide: getRepositoryToken(RescueEvent), useValue: eventRepo },
         { provide: getRepositoryToken(PendingNoseRecord), useValue: pendingRepo },
+        { provide: MatchingService, useValue: matchingService },
         { provide: ConfigService, useValue: { get: () => 'http://mock-ai' } },
       ],
     }).compile();
@@ -142,9 +150,58 @@ describe('NoseService', () => {
 
   // ========== collect ==========
   describe('collect', () => {
-    it('【阶段 1】无 nose_photo 不抛错,而是返回 ask_user_confirm(场景 A:无鼻纹走失上报)', async () => {
-      // 注意:这是行为变更。doc §6.1 规定 nose_photo 软化,
-      // 缺失时跳过向量化,返回 next_action='ask_user_confirm',让前端决定怎么处理。
+    it('【阶段 1 / 2026-07-09 重构】无 nose_photo 不抛错,创建 source=COLLECT_NO_NOSE 的 RescueEvent,匹配无候选 → show_no_candidate_dialog', async () => {
+      // 行为变更 (2026-07-09):
+      //   旧: 写 pending_nose_records,返回 next_action='ask_user_confirm'
+      //   新: 写 RescueEvent(source=COLLECT_NO_NOSE) + 触发 MatchingService,
+      //       按匹配结果返回 next_action: show_high_score_dialog / show_low_score_dialog / show_no_candidate_dialog
+      matchingService.findSimilarLostAnimalsForReport.mockResolvedValue([]);
+
+      const result = await service.collect({
+        nose_photo: undefined,
+        location_lat: 39.9,
+        location_lng: 116.4,
+        species: 'dog',
+        body_photo_url: '/static/body/1.jpg',
+      } as any, 'user-1');
+
+      // 1. 不抛错,返回 next_action 供前端路由
+      expect(result.next_action).toBe('show_no_candidate_dialog');
+      expect(result.vector_id).toBeNull();
+      expect(result.is_duplicate).toBe(false);
+      // 2. 没向量化 → axios.extract 不该被调
+      expect(mockedAxios.post).not.toHaveBeenCalled();
+      // 3. 鼻纹不该入库(无鼻纹)
+      expect(noseRepo.save).not.toHaveBeenCalled();
+      // 4. 关键断言: 写入了 RescueEvent(source=COLLECT_NO_NOSE) 而非 PendingNoseRecord
+      expect(eventRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: EventType.COLLECT,
+          source: EventSource.COLLECT_NO_NOSE,
+          nose_vector_id: null,
+          reporter_id: 'user-1',
+          status: EventStatus.PENDING,
+        }),
+      );
+      expect(eventRepo.save).toHaveBeenCalled();
+      // 5. 匹配被触发
+      expect(matchingService.findSimilarLostAnimalsForReport).toHaveBeenCalled();
+      // 6. 不再写 pending_nose_records
+      expect(pendingRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('【阶段 1】无 nose_photo + 有高分候选 (fusion_score>=0.8) → show_high_score_dialog', async () => {
+      // 匹配服务返回高分候选 → 前端弹"这是你家宠物吗?"确认 dialog
+      matchingService.findSimilarLostAnimalsForReport.mockResolvedValue([
+        {
+          animal_id: 'animal-1',
+          fusion_score: 0.85,
+          scores: { gps_similarity: 0.9, text_match_rate: 0.8, time_score: 0.7, image_similarity: null },
+          distance_m: 200,
+          is_recommended: true,
+        },
+      ]);
+
       const result = await service.collect({
         nose_photo: undefined,
         location_lat: 39.9,
@@ -152,14 +209,36 @@ describe('NoseService', () => {
         species: 'dog',
       } as any, 'user-1');
 
-      // 不抛错,返回 next_action 供前端路由
-      expect(result.next_action).toBe('ask_user_confirm');
-      expect(result.vector_id).toBeNull();
-      expect(result.is_duplicate).toBe(false);
-      // 没向量化 → axios.extract 不该被调
-      expect(mockedAxios.post).not.toHaveBeenCalled();
-      // 鼻纹也不该入库
-      expect(noseRepo.save).not.toHaveBeenCalled();
+      expect(result.next_action).toBe('show_high_score_dialog');
+      expect(result.candidates).toHaveLength(1);
+      expect(result.fusion_score).toBe(0.85);
+      // 事件应回填 fusion_score 字段(供 admin 审核展示)
+      const savedEvent = eventRepo.save.mock.calls[eventRepo.save.mock.calls.length - 1][0];
+      expect(savedEvent.fusion_score).toBe(0.85);
+      expect(savedEvent.candidates).toHaveLength(1);
+    });
+
+    it('【阶段 1】无 nose_photo + 有低分候选 (fusion_score<0.8) → show_low_score_dialog', async () => {
+      matchingService.findSimilarLostAnimalsForReport.mockResolvedValue([
+        {
+          animal_id: 'animal-2',
+          fusion_score: 0.5,
+          scores: { gps_similarity: 0.5, text_match_rate: 0.5, time_score: 0.5, image_similarity: null },
+          distance_m: 1500,
+          is_recommended: false,
+        },
+      ]);
+
+      const result = await service.collect({
+        nose_photo: undefined,
+        location_lat: 39.9,
+        location_lng: 116.4,
+        species: 'dog',
+      } as any, 'user-1');
+
+      expect(result.next_action).toBe('show_low_score_dialog');
+      expect(result.candidates).toHaveLength(1);
+      expect(result.fusion_score).toBe(0.5);
     });
 
     it('GPS=0 应抛 BadRequestException', async () => {

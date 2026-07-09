@@ -8,7 +8,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { NoseFeature } from './entities/nose-feature.entity';
 import { PendingNoseRecord, PendingNoseStatus, PendingNoseSource } from './entities/pending-nose-record.entity';
 import { Animal, AnimalStatus, Species, Gender, AgeEstimate, HealthStatus } from '../animals/entities/animal.entity';
-import { RescueEvent, EventType, EventStatus } from '../events/entities/event.entity';
+import { RescueEvent, EventType, EventStatus, EventSource } from '../events/entities/event.entity';
+import { MatchingService } from '../matching/matching.service';
 import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
 import { textMatch } from './nose-text-match';
 import { IdempotencyCache } from '../common/idempotency/idempotency-cache.service';
@@ -41,6 +42,7 @@ export class NoseService {
     @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
     @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
     @InjectRepository(PendingNoseRecord) private readonly pendingRepo: Repository<PendingNoseRecord>,
+    private readonly matchingService: MatchingService,
     private readonly config: ConfigService,
     private readonly idempotency: IdempotencyCache,
   ) {
@@ -177,16 +179,94 @@ export class NoseService {
   async collect(dto: CollectNoseDto, user_id: string) {
     // 阶段 1(2026-07-06):nose_photo 软化 — 缺失不抛错
     // 适用场景 A:用户走失时没拍鼻纹,只上传全身照+GPS
-    // 返回 next_action='ask_user_confirm',前端按 intent 走"无鼻纹"分支
+    // 【2026-07-09 重构】无鼻纹分支: 不再写 pending_nose_records,改为写 RescueEvent
+    //   (source=COLLECT_NO_NOSE) + 同步触发 MatchingService.findSimilarLostAnimalsForReport,
+    //   返回 next_action 供前端决定弹哪种 dialog:
+    //     - show_high_score_dialog   : 有高分候选 (fusion_score >= 0.8)
+    //     - show_low_score_dialog    : 有低分候选 (0 < fusion_score < 0.8)
+    //     - show_no_candidate_dialog : 无候选
+    //   旧 pending_nose_records 表会在阶段 2 删除,届时 LOW_SCORE 流程也合并到事件审核流
     if (!dto.nose_photo) {
+      // 必须有 user_id
+      if (!user_id) {
+        throw new BadRequestException('请先登录后再采集鼻纹');
+      }
+      // DTO 类型声明 location_lat/lng 是 number,但运行时 JS 可能传字符串
+      const safeLocationLat = dto.location_lat != null ? Number(dto.location_lat) : null;
+      const safeLocationLng = dto.location_lng != null ? Number(dto.location_lng) : null;
+
+      // 1. 创建 RescueEvent(source=COLLECT_NO_NOSE,event_type=collect,status=pending)
+      const event_id = uuidv4();
+      const event = this.eventRepo.create({
+        event_id,
+        reporter_id: user_id,
+        event_type: EventType.COLLECT,
+        source: EventSource.COLLECT_NO_NOSE,
+        nose_photo_url: null,
+        nose_vector_id: null,
+        occurred_at: new Date(),
+        location_lat: safeLocationLat ?? 0,
+        location_lng: safeLocationLng ?? 0,
+        address: dto.address ?? null,
+        description: dto.notes ?? null,
+        photos: dto.body_photo_url ? [dto.body_photo_url] : null,
+        species: dto.species ?? null,
+        breed: dto.breed ?? null,
+        color: dto.color ?? null,
+        gender: dto.gender ?? null,
+        status: EventStatus.PENDING,
+      } as Partial<RescueEvent>);
+      await this.eventRepo.save(event);
+
+      // 2. 触发后端比对(MatchingService.findSimilarLostAnimalsForReport)
+      let candidates: any[] = [];
+      try {
+        candidates = await this.matchingService.findSimilarLostAnimalsForReport(
+          event as RescueEvent,
+          5,
+        );
+      } catch (e: any) {
+        // 匹配失败不阻塞 collect 响应,前端走无候选分支
+        this.logger.warn(`[NoseService.collect] 无鼻纹分支 matching 失败: ${e.message}`);
+      }
+
+      // 3. 回填 candidates + scores 到 event(供 admin 审核展示)
+      if (candidates.length > 0) {
+        const top = candidates[0];
+        event.candidates = candidates;
+        event.fusion_score = top.fusion_score;
+        event.gps_similarity = top.scores?.gps_similarity ?? null;
+        event.text_match_rate = top.scores?.text_match_rate ?? null;
+        event.time_score = top.scores?.time_score ?? null;
+        await this.eventRepo.save(event);
+      }
+
+      // 4. 计算 next_action
+      let next_action: 'show_high_score_dialog' | 'show_low_score_dialog' | 'show_no_candidate_dialog';
+      if (candidates.length === 0) {
+        next_action = 'show_no_candidate_dialog';
+      } else if (candidates[0].fusion_score >= 0.8) {
+        next_action = 'show_high_score_dialog';
+      } else {
+        next_action = 'show_low_score_dialog';
+      }
+
+      this.logger.log(
+        `[NoseService.collect] 无鼻纹写入 RescueEvent event_id=${event_id}, candidates=${candidates.length}, next_action=${next_action}`,
+      );
+
+      // 返回结构与有鼻纹分支兼容(vector_id/is_duplicate/liveness_passed 等保留)
       return {
+        event_id,
         vector_id: null,
         confidence_score: null,
         liveness_passed: false,
         is_duplicate: false,
         matched_animal_id: null,
         similarity: null,
-        next_action: 'ask_user_confirm',
+        next_action,
+        candidates,
+        fusion_score: candidates[0]?.fusion_score ?? null,
       };
     }
 
