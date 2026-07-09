@@ -29,6 +29,24 @@ export enum EventStatus {
   PROCESSING = 'processing',
 }
 
+// 【2026-07-09】区分事件来源,使审核/统计/匹配可按 source 过滤
+//   COLLECT         : 用户走采集页且成功提取鼻纹
+//   REPORT          : 用户走"我看到"上报事件
+//   COLLECT_NO_NOSE : 采集页无鼻纹(走后端 image 比对 + 用户确认)
+//   USER_CREATE     : 用户主动从结果页"同意新建"
+//   SIGHTING        : 二次目击(POST /animals/:id/sightings 端点不入审核流,但写一份事件留痕)
+//   CLAIM           : 认领流程产生的事件
+//   ADMIN           : admin 后台手动创建
+export enum EventSource {
+  COLLECT = 'collect',
+  REPORT = 'report',
+  COLLECT_NO_NOSE = 'collect_no_nose',
+  USER_CREATE = 'user_create',
+  SIGHTING = 'sighting',
+  CLAIM = 'claim',
+  ADMIN = 'admin',
+}
+
 @Entity('rescue_events')
 export class RescueEvent {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'event_id' })
@@ -132,6 +150,15 @@ export class RescueEvent {
   //   intent='found' 时再额外生成一条 lost 记录
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'intent' })
   intent: string;
+
+  // 【2026-07-09】事件来源 — 区分采集/上报/无鼻纹采集/二次目击/认领/admin
+  @Column({
+    type: 'enum',
+    enum: EventSource,
+    default: EventSource.COLLECT,
+    name: 'source',
+  })
+  source: EventSource;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;

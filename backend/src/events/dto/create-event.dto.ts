@@ -1,7 +1,7 @@
 ﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, IsEnum, ValidateNested, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EventType } from '../entities/event.entity';
+import { EventType, EventSource } from '../entities/event.entity';
 import { BodyColorDto } from '../../animals/dto/create-animal.dto';
 
 export function IsValidCoordinate(validationOptions?: ValidationOptions) {
@@ -35,6 +35,14 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   intent?: string;
+
+  @ApiPropertyOptional({
+    enum: EventSource,
+    description: '事件来源; 默认 collect。可选: collect/report/collect_no_nose/user_create/sighting/claim/admin',
+  })
+  @IsEnum(EventSource, { message: `source 必须是 ${Object.values(EventSource).join(', ')} 之一` })
+  @IsOptional()
+  source?: EventSource;
 
   @ApiPropertyOptional()
   @IsString()
