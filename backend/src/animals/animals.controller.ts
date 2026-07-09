@@ -7,6 +7,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { AnimalsService } from './animals.service';
 import { CreateAnimalDto, UpdateAnimalDto } from './dto/create-animal.dto';
 import { QueryAnimalDto } from './dto/query-animal.dto';
+import { CreateSightingDto } from './dto/create-sighting.dto';
 
 @ApiTags('动物档案')
 @ApiBearerAuth()
@@ -80,5 +81,16 @@ export class AnimalsController {
   @ApiOperation({ summary: '删除动物档案' })
   remove(@Param('animal_id') id: string) {
     return this.animalsService.remove(id);
+  }
+
+  // === 【2026-07-09】二次目击:任意登录用户可调,不入审核流 ===
+  @Version('1')
+  @Post(':animal_id/sightings')
+  @ApiOperation({ summary: '记录二次目击(更新 animal 最近目击位置,不入审核流)' })
+  createSighting(
+    @Param('animal_id') id: string,
+    @Body() dto: CreateSightingDto,
+  ) {
+    return this.animalsService.recordSighting(id, dto);
   }
 }

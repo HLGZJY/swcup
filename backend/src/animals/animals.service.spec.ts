@@ -463,4 +463,52 @@ describe('AnimalsService', () => {
       expect(eventRepo._qb.take).toHaveBeenCalledWith(100);
     });
   });
+
+  // ========== 【2026-07-09】recordSighting: 二次目击端点 (不入审核流) ==========
+  describe('recordSighting', () => {
+    it('应更新 last_seen_at/address,不应创建 rescue_event', async () => {
+      const animal = makeAnimal({ animal_id: 'A1', last_seen_at: null, address: 'old address' });
+      animalRepo.findOne.mockResolvedValue(animal);
+
+      const result = await service.recordSighting('A1', {
+        reporter_lat: 30.5,
+        reporter_lng: 114.3,
+        address: 'new address',
+        photos: ['/p/sighting.jpg'],
+        seen_at: '2026-07-09T10:00:00Z',
+      });
+
+      // animal 应被 save,带新 last_seen_at + address
+      expect(animalRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          animal_id: 'A1',
+          address: 'new address',
+          last_seen_at: expect.any(Date),
+        }),
+      );
+      // 不应创建事件(关键!二次目击不入审核流)
+      expect(eventRepo.create).not.toHaveBeenCalled();
+      expect(result.animal_id).toBe('A1');
+    });
+
+    it('animal 不存在应抛 NotFoundException', async () => {
+      animalRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.recordSighting('MISSING', { reporter_lat: 1, reporter_lng: 2 }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('address 不传时不覆盖原值', async () => {
+      const animal = makeAnimal({ animal_id: 'A1', address: 'original' });
+      animalRepo.findOne.mockResolvedValue(animal);
+      await service.recordSighting('A1', { reporter_lat: 1, reporter_lng: 2 });
+      // 只更新 last_seen_at,不覆盖 address
+      expect(animalRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address: 'original',
+          last_seen_at: expect.any(Date),
+        }),
+      );
+    });
+  });
 });

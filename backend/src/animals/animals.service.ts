@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Animal, AnimalStatus, Species } from './entities/animal.entity';
 import { CreateAnimalDto, UpdateAnimalDto } from './dto/create-animal.dto';
+import { CreateSightingDto } from './dto/create-sighting.dto';
 import { NoseFeature } from '../nose/entities/nose-feature.entity';
 import { RescueEvent, EventType } from '../events/entities/event.entity';
 import { v4 as uuidv4 } from 'uuid';
@@ -216,6 +217,30 @@ export class AnimalsService {
     if (event.event_type === EventType.COLLECT) return 'profile_build';
     if (event.event_type === EventType.REPORT) return 'stray_sighting';
     return 'unknown';
+  }
+
+  /**
+   * 【2026-07-09】二次目击端点 — POST /animals/:animal_id/sightings
+   *
+   * 区别于"上报走失"(POST /events 入审核流):
+   *   - 仅更新 animal.last_seen_at / address 等最近目击信息
+   *   - 不创建 rescue_event,不入审核流,不刷新 admin 审核列表
+   *   - 用户在 animal-detail 详情页点"我看到了它" → 直接调此接口
+   */
+  async recordSighting(animal_id: string, dto: CreateSightingDto): Promise<Animal> {
+    const animal = await this.animalRepo.findOne({ where: { animal_id } });
+    if (!animal) {
+      throw new NotFoundException(`Animal ${animal_id} not found`);
+    }
+    const seenAt = dto.seen_at ? new Date(dto.seen_at) : new Date();
+    animal.last_seen_at = seenAt;
+    if (dto.address) {
+      animal.address = dto.address;
+    }
+    if (dto.photos?.length) {
+      animal.photos = dto.photos;
+    }
+    return this.animalRepo.save(animal);
   }
 }
 
