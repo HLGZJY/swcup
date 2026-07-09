@@ -34,14 +34,6 @@
       }
     },
     {
-      "path": "pages/admin/clues/index",
-      "style": {
-        "navigationBarTitleText": "P3 评论线索审核",
-        "navigationBarBackgroundColor": "#1A1A1A",
-        "navigationBarTextStyle": "white"
-      }
-    },
-    {
       "path": "pages/animals/index",
       "style": {
         "navigationBarTitleText": "动物档案",
