@@ -12,8 +12,20 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
+
+import { Comment } from './entities/comment.entity';
+import { Animal } from '../animals/entities/animal.entity';
+import {
+  RescueEvent,
+  EventType,
+  EventSource,
+  EventStatus,
+} from '../events/entities/event.entity';
 
 // ---------------- Ã¥Ë†â€¡Ã¨Â¯ÂÃ¥â„¢Â¨ (3 Ã¦Â¡Â£Ã©â„¢ÂÃ§ÂºÂ§) ----------------
 
@@ -314,7 +326,12 @@ export class ClueBridgeService {
   private segmenterKind: 'nodejieba' | 'segmentit' | 'fallback' = 'fallback';
   private stateDir: string;
 
-  constructor(private readonly cfg: ConfigService) {
+  constructor(
+    private readonly cfg: ConfigService,
+    @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
+    @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
+    @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
+  ) {
     this.stateDir = this.cfg.get<string>('CLUE_STATE_DIR') || path.join(process.cwd(), 'data', 'clue_state');
   }
 
@@ -378,8 +395,109 @@ export class ClueBridgeService {
     return _listPending(this.stateDir);
   }
 
-  decide(matchId: string, animalId: string, decision: 'confirmed' | 'rejected', note: string, adminId: string): boolean {
-    return _decide(this.stateDir, matchId, animalId, decision, note, adminId);
+  /**
+   * 决策一条线索 (2026-07-09 阶段 A)
+   *  - 同步改 JSON 状态 (旧逻辑)
+   *  - confirmed 时 额外 触发 3 个 DB 副作用 (异步):
+   *      ① INSERT rescue_event (source=CLUE, status=CONFIRMED) — 落 timeline
+   *      ② UPDATE animals.last_seen_at / last_seen_address — 同步目击时间地点
+   *      ③ UPDATE comments.is_clue_confirmed / clue_confirmed_animal_id — 前端「已确认」徽章
+   *  返回 { ok, persisted? }, 任何 DB 副作用失败仅 warn 不抛 (JSON 已落,人工兜底)
+   */
+  async decide(
+    matchId: string,
+    animalId: string,
+    decision: 'confirmed' | 'rejected',
+    note: string,
+    adminId: string,
+  ): Promise<{ ok: boolean; persisted?: boolean }> {
+    const ok = _decide(this.stateDir, matchId, animalId, decision, note, adminId);
+    if (!ok || decision !== 'confirmed') {
+      return { ok };
+    }
+    try {
+      const persisted = await this._persistConfirm(matchId, animalId);
+      return { ok, persisted };
+    } catch (e: any) {
+      this.logger.error(
+        `[ClueBridgeService.decide] _persistConfirm 失败, match_id=${matchId} animal_id=${animalId}: ${e?.message || e}`,
+      );
+      return { ok, persisted: false };
+    }
+  }
+
+  /**
+   * confirmed 时落库: 1 条 rescue_event + 1 次 animal update + 1 次 comment update
+   * 失败抛异常,被 decide() 捕获后 warn
+   */
+  private async _persistConfirm(matchId: string, animalId: string): Promise<boolean> {
+    const safeAid = animalId.replace(/[\\/]/g, '_');
+    const statePath = path.join(this.stateDir, safeAid + '.json');
+    const list = _loadState(statePath);
+    const rec = list.find((r) => r.match_id === matchId && r.status === 'confirmed');
+    if (!rec) {
+      this.logger.warn(
+        `[_persistConfirm] 找不到 status=confirmed 的记录, match_id=${matchId}, animal_id=${animalId}`,
+      );
+      return false;
+    }
+
+    // 1) INSERT rescue_event (source=CLUE, status=CONFIRMED) — 落 timeline
+    const eventId = randomUUID();
+    const now = new Date();
+
+    // 取 animal 的 lat/lng 兜底 (如果候选 event 没地址, 用 animal 自身的)
+    let lat = 0;
+    let lng = 0;
+    const animal = await this.animalRepo.findOne({ where: { animal_id: animalId } });
+    if (animal) {
+      lat = Number(animal.location_lat) || 0;
+      lng = Number(animal.location_lng) || 0;
+    }
+
+    const address =
+      rec.candidate_event_address ||
+      (animal && (animal as any).address) ||
+      null;
+
+    await this.eventRepo.save({
+      event_id: eventId,
+      animal_id: animalId,
+      event_type: EventType.REPORT,
+      source: EventSource.CLUE,
+      reporter_id: rec.comment_reporter_id || null,
+      occurred_at: now,
+      location_lat: lat,
+      location_lng: lng,
+      address,
+      description: `线索确认关联,基于评论 ${rec.comment_id || ''}`.slice(0, 500),
+      status: EventStatus.CONFIRMED,
+    } as Partial<RescueEvent>);
+
+    // 2) UPDATE animal — 同步目击时间 / 地址
+    await this.animalRepo.update(
+      { animal_id: animalId },
+      {
+        last_seen_at: now,
+        address: address || undefined,
+      } as Partial<Animal>,
+    );
+
+    // 3) UPDATE comment — 前端展示「已确认关联」徽章
+    if (rec.comment_id) {
+      await this.commentRepo.update(
+        { comment_id: rec.comment_id },
+        {
+          is_clue_confirmed: true,
+          clue_confirmed_animal_id: animalId,
+        } as Partial<Comment>,
+      );
+    }
+
+    this.logger.log(
+      `[_persistConfirm] OK match_id=${matchId} -> event_id=${eventId} for animal ${animalId}`,
+    );
+    return true;
   }
 
   static _score(comment: any, event: any): ScoreOut { return _score(comment, event); }

@@ -54,6 +54,15 @@ export class Comment {
   @Column({ type: 'boolean', default: false, name: 'is_hidden' })
   is_hidden: boolean;
 
+  // 【2026-07-09】admin 线索审核 confirmed 时回写
+  //   true 表示该评论已成功关联到某动物档案,前端可展示「已确认」徽章
+  @Column({ type: 'boolean', default: false, name: 'is_clue_confirmed' })
+  is_clue_confirmed: boolean;
+
+  // 【2026-07-09】线索 confirmed 时记录被关联的 animal_id,便于回溯
+  @Column({ type: 'char', length: 36, nullable: true, name: 'clue_confirmed_animal_id' })
+  clue_confirmed_animal_id: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 }

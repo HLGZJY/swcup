@@ -36,6 +36,7 @@ export enum EventStatus {
 //   USER_CREATE     : 用户主动从结果页"同意新建"
 //   SIGHTING        : 二次目击(POST /animals/:id/sightings 端点不入审核流,但写一份事件留痕)
 //   CLAIM           : 认领流程产生的事件
+//   CLUE            : 阶段 A — 线索审核 confirmed 时,落一条 rescue_event 留痕
 //   ADMIN           : admin 后台手动创建
 export enum EventSource {
   COLLECT = 'collect',
@@ -44,6 +45,7 @@ export enum EventSource {
   USER_CREATE = 'user_create',
   SIGHTING = 'sighting',
   CLAIM = 'claim',
+  CLUE = 'clue',
   ADMIN = 'admin',
 }
 

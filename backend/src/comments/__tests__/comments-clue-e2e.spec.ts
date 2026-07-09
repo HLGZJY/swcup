@@ -8,10 +8,14 @@
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ClueBridgeService } from '../clue-bridge.service';
+import { Comment } from '../entities/comment.entity';
+import { Animal } from '../../animals/entities/animal.entity';
+import { RescueEvent } from '../../events/entities/event.entity';
 
 describe('ClueBridgeService P3 e2e', () => {
   let svc: ClueBridgeService;
@@ -25,10 +29,21 @@ describe('ClueBridgeService P3 e2e', () => {
         return undefined as any;
       }),
     };
+    // 【2026-07-09 阶段 A】ClueBridgeService 注入 3 个 repo (用于 _persistConfirm 副作用)
+    // 本测试只覆盖切词/匹配/JSON 读写,不触发 confirm 分支,所以 mock 为空壳即可
+    const emptyRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(async () => ({ affected: 1 })),
+      create: jest.fn((dto: any) => dto),
+    };
     const mod: TestingModule = await Test.createTestingModule({
       providers: [
         ClueBridgeService,
         { provide: ConfigService, useValue: cfg },
+        { provide: getRepositoryToken(Comment), useValue: emptyRepo },
+        { provide: getRepositoryToken(Animal), useValue: emptyRepo },
+        { provide: getRepositoryToken(RescueEvent), useValue: emptyRepo },
       ],
     }).compile();
     svc = mod.get(ClueBridgeService);
@@ -112,19 +127,20 @@ describe('ClueBridgeService P3 e2e', () => {
     expect(pending['a001'][0].comment_id).toBe('c001');
   });
 
-  it('decide èƒ½æ”¹ pending â†’ confirmed', () => {
+  it('decide 能改 pending → confirmed', async () => {
     const pending = svc.listPending();
     const target = pending['a001'][0];
-    const ok = svc.decide(target.match_id, 'a001', 'confirmed', 'note', 'admin1');
-    expect(ok).toBe(true);
+    // 【2026-07-09 阶段 A】decide 改为 async, 返回 { ok, persisted? }
+    const r = await svc.decide(target.match_id, 'a001', 'confirmed', 'note', 'admin1');
+    expect(r.ok).toBe(true);
 
-    // å† list åº”è¯¥ç©ºäº†
+    // 再 list 应该空了
     const after = svc.listPending();
     expect(after['a001']).toBeUndefined();
   });
 
-  it('å†æ¬¡ decide åŒä¸€ match_id â†’ false (å¹‚ç­‰)', () => {
-    const ok = svc.decide('5295edaa0e429619', 'a001', 'confirmed', '', 'admin1');
-    expect(ok).toBe(false);
+  it('再次 decide 同一 match_id → false (幂等)', async () => {
+    const r = await svc.decide('5295edaa0e429619', 'a001', 'confirmed', '', 'admin1');
+    expect(r.ok).toBe(false);
   });
 });

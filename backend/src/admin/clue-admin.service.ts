@@ -82,16 +82,17 @@ export class ClueAdminService {
   }
 
   /**
-   * 决策一条线索
-   * 返回 true 表示成功改 status
+   * 决策一条线索 (2026-07-09 阶段 A: 改为 async, 返回 JSON 改写 + DB 副作用结果)
+   *  - ok       : true 表示 JSON 状态已改
+   *  - persisted: confirmed 时是否完成 DB 副作用 (event INSERT + animal UPDATE + comment UPDATE)
    */
-  decide(
+  async decide(
     matchId: string,
     animalId: string,
     decision: 'confirmed' | 'rejected',
     note: string,
     adminId: string,
-  ): boolean {
+  ): Promise<{ ok: boolean; persisted?: boolean }> {
     return this.clue.decide(matchId, animalId, decision, note, adminId);
   }
 

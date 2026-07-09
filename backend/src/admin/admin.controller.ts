@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ClueAdminService } from './clue-admin.service';
-import { AdminService } from './admin.service';
+import { AdminService, AdminEventAction } from './admin.service';
 import { EventsService } from '../events/events.service';
 import { AnimalsService } from '../animals/animals.service';
 import { CreateAnimalDto, UpdateAnimalDto } from '../animals/dto/create-animal.dto';
@@ -66,7 +66,7 @@ export class AdminController {
   })
   dispatchAction(
     @Param('event_id') id: string,
-    @Body() body: { action: 'reject' | 'confirm' | 'merge' | 'create_new'; animal_id?: string },
+    @Body() body: { action: AdminEventAction; animal_id?: string },
   ) {
     return this.adminService.dispatchEventAction(id, body.action, body.animal_id);
   }
@@ -184,14 +184,22 @@ export class AdminController {
     @Request() req: any,
   ) {
     const adminId = (req && req.user && req.user.user_id) || '';
-    const ok = this.clueAdmin.decide(
+    const r = await this.clueAdmin.decide(
       matchId,
       animalId,
       body.decision,
       body.note || '',
       adminId,
     );
-    return { ok: ok, match_id: matchId, animal_id: animalId, decision: body.decision };
+    // 【2026-07-09 阶段 A】confirmed 路径会额外触发 3 个 DB 副作用
+    // (event INSERT / animal UPDATE / comment UPDATE),前端可借此判断是否刷新 timeline
+    return {
+      ok: r.ok,
+      persisted: r.persisted ?? null,
+      match_id: matchId,
+      animal_id: animalId,
+      decision: body.decision,
+    };
   }
 
   // 【2026-07-09 重构】低分鼻纹审核 5 个端点已废弃
