@@ -356,20 +356,14 @@ export class EventsService {
         };
       }
 
+      // ========== 【2026-07-09 重构】机器只算 hint,不自动合段 ==========
+      // 移除旧 Bug6 候选池方案中的 fusion_score>=0.8 自动写 is_duplicate/duplicate_of/animal_id
+      // 新策略:
+      //   - 计算 candidates + fusion_score 写入事件(给 admin 决策提供 hint)
+      //   - 不修改 animal_id / is_duplicate / duplicate_of(保持原值,等 admin 调 dispatchEventAction)
+      //   - 仍剔除 candidates 中的 self-merge(BUG-005/007),仅影响 fusion_score 写入的取值,不自动合段
       let topFusion = scores.fusion;
-
-      // ========== Bug6 修复: 候选池方案 ==========
-      // 当 fusion_score >= 0.8 且 top candidate 有 animal_id,
-      //   自动设置 is_duplicate/duplicate_of/animal_id 入候选池,
-      //   status 保持 PENDING(等 admin 在事件合并页二次确认后调 confirmEvent 转 duplicated)
-      const CANDIDATE_POOL_THRESHOLD = 0.8;
       let topCandidate = candidates[0];
-
-      // ========== BUG-005/007 修复: 排除 self-merge ==========
-      // collect 流程里,事件关联的 animal_id 是刚刚 INSERT 的新动物,
-      // candidates 池里包含该新动物(向量相同),fusion=1.0,duplicate_of 会被写为自身。
-      // 这里把 "候选 animal_id == 事件自身 animal_id" 的项剔除,再取 top1。
-      // 同时更新 topFusion 到新的 top candidate,否则 fusion_score 会保留 self 的 1.0。
       if (event.animal_id) {
         const filtered = candidates.filter(
           (c: any) => c.animal_id && c.animal_id !== event.animal_id,
@@ -382,20 +376,13 @@ export class EventsService {
             `(原 top1=${candidates[0]?.animal_id}),实际 top1=${topCandidate.animal_id}, fusion=${topFusion}`,
           );
         } else {
-          // 全部候选都是自身(数据库里只有自己这一只动物)
           topCandidate = null;
           topFusion = null;
           this.logger.log(
-            `[EventsService.processEvent] 事件 ${event_id} 候选池仅含自身,跳过 auto-merge`,
+            `[EventsService.processEvent] 事件 ${event_id} 候选池仅含自身,跳过 hint 回填`,
           );
         }
       }
-
-      const isMergeCandidate =
-        topFusion != null &&
-        topFusion >= CANDIDATE_POOL_THRESHOLD &&
-        topCandidate?.animal_id &&
-        topCandidate.animal_id !== event.animal_id;  // 二次保护
 
       const updatePayload: any = {
         status: EventStatus.PENDING,
@@ -406,16 +393,9 @@ export class EventsService {
         text_match_rate: scores.text ?? null,
         time_score: (scores as any).time ?? null,  // 仅 report 流程使用
         candidates: candidates as any,
+        // is_duplicate / duplicate_of / animal_id 不再自动设置
+        // admin 通过 dispatchEventAction(action='merge', animal_id) 手动合段
       };
-      if (isMergeCandidate) {
-        updatePayload.is_duplicate = true;
-        updatePayload.duplicate_of = topCandidate.animal_id;
-        updatePayload.animal_id = topCandidate.animal_id;
-        this.logger.log(
-          `[EventsService.processEvent] 事件 ${event_id} 入候选池: ` +
-          `fusion=${topFusion}, target_animal=${topCandidate.animal_id}`
-        );
-      }
 
       await this.eventRepo.update({ event_id }, updatePayload as any);
 
@@ -426,7 +406,8 @@ export class EventsService {
         candidates_count: candidates.length,
         matching_mode: event.nose_vector_id ? 'nose' : 'report',
         message: event.nose_vector_id ? '鼻纹 AI 比对完成' : '上报 AI 比对完成',
-        merge_candidate: isMergeCandidate ? {
+        // 【2026-07-09 重构】merge_candidate 字段废弃:机器不决策,只给 hint
+        hint_candidate: topCandidate ? {
           animal_id: topCandidate.animal_id,
           fusion_score: topFusion,
         } : null,

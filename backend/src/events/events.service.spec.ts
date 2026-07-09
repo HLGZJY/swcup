@@ -424,8 +424,10 @@ describe('EventsService', () => {
       await expect(service.processEvent('event-1')).rejects.toThrow('AI service down');
     });
 
-    // ========== Bug6 修复: 候选池方案 ==========
-    it('【Bug6 候选池】fusion_score >= 0.8 时应自动设置 is_duplicate/duplicate_of/animal_id', async () => {
+    // ========== 【2026-07-09 重构】机器只算 hint,不自动合段 ==========
+    it('【hint】fusion_score >= 0.8 时只回填 fusion_score 与 candidates,不修改 animal_id/is_duplicate', async () => {
+      // 旧 Bug6 候选池:自动写 is_duplicate/duplicate_of/animal_id
+      // 新:机器只算 hint,决策权交给 admin dispatchEventAction
       eventRepo.findOne.mockResolvedValue(makeEvent({ nose_vector_id: 'v-1', animal_id: null }));
       noseService.compare.mockResolvedValue({
         results: [
@@ -441,17 +443,24 @@ describe('EventsService', () => {
         ],
       });
 
-      await service.processEvent('event-1');
+      const result = await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
-      // 候选池标记
-      expect(updateArg.is_duplicate).toBe(true);
-      expect(updateArg.duplicate_of).toBe('animal-target');
-      expect(updateArg.animal_id).toBe('animal-target');
-      // status 保持 PENDING(等 admin 二次确认)
+      // hint 回填
+      expect(updateArg.fusion_score).toBe(0.85);
+      expect(updateArg.candidates.length).toBe(1);
       expect(updateArg.status).toBe(EventStatus.PENDING);
+      // 关键:不再自动合并
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
+      // 返回值有 hint_candidate 提示给 admin(但不自动合段)
+      expect(result.hint_candidate).toEqual({
+        animal_id: 'animal-target',
+        fusion_score: 0.85,
+      });
     });
 
-    it('【Bug6 候选池】fusion_score < 0.8 时不应自动入候选池', async () => {
+    it('【hint】fusion_score < 0.8 时同样回填 fusion_score,不修改 animal_id/is_duplicate', async () => {
       eventRepo.findOne.mockResolvedValue(makeEvent({ nose_vector_id: 'v-1', animal_id: null }));
       noseService.compare.mockResolvedValue({
         results: [
@@ -469,14 +478,15 @@ describe('EventsService', () => {
 
       await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
-      // 不应自动入候选池
-      expect(updateArg.is_duplicate).not.toBe(true);
-      // duplicate_of 字段不进 update payload(数据库字段默认 null)
-      expect(updateArg.duplicate_of).toBeFalsy();
+      // 仍回填 fusion_score,但不修改合段相关字段
+      expect(updateArg.fusion_score).toBe(0.55);
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
       expect(updateArg.status).toBe(EventStatus.PENDING);
     });
 
-    it('【Bug6 候选池】report 流程 fusion_score >= 0.8 也应入候选池', async () => {
+    it('【hint】report 流程 fusion_score >= 0.8 只回填 candidates,不自动合段', async () => {
       eventRepo.findOne.mockResolvedValue(makeEvent({ nose_vector_id: null, animal_id: null }));
       matchingService.findSimilarLostAnimalsForReport.mockResolvedValue([
         {
@@ -496,12 +506,14 @@ describe('EventsService', () => {
 
       await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
-      expect(updateArg.is_duplicate).toBe(true);
-      expect(updateArg.duplicate_of).toBe('animal-report-target');
-      expect(updateArg.animal_id).toBe('animal-report-target');
+      expect(updateArg.fusion_score).toBe(0.82);
+      // 不再自动合并
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
     });
 
-    it('【Bug6 候选池】top candidate 没有 animal_id 时不设 duplicate_of', async () => {
+    it('【hint】top candidate 没有 animal_id 时 fusion_score 仍写入,animal_id 不动', async () => {
       eventRepo.findOne.mockResolvedValue(makeEvent({ nose_vector_id: 'v-1' }));
       noseService.compare.mockResolvedValue({
         results: [
@@ -520,16 +532,17 @@ describe('EventsService', () => {
 
       await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
-      // 没有 animal_id,不能入候选池
-      expect(updateArg.is_duplicate).not.toBe(true);
-      expect(updateArg.duplicate_of).toBeFalsy();
+      // fusion_score 仍写入(给 admin 看)
+      expect(updateArg.fusion_score).toBe(0.9);
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
     });
 
-    // ========== BUG-005/007 回归: 排除 self-merge ==========
-    it('【回归 BUG-005】event.animal_id == top1.animal_id (self-merge, fusion=1.0) 应被剔除', async () => {
+    // ========== BUG-005/007 回归: 排除 self-merge(hint 路径仍适用) ==========
+    it('【回归 BUG-005】event.animal_id == top1.animal_id (self-merge, fusion=1.0) 应被剔除,fusion 取 next-best', async () => {
       // 场景: collect 事件刚 INSERT 新动物 A → processEvent 比对时 candidates[0]=A (向量相同 fusion=1.0)
-      // 旧逻辑: 直接把 duplicate_of=A (自身) 入候选池 → admin 看到 self-merge 合并候选
-      // 新逻辑: 剔除自身后若还有候选,用 next best;若无候选,topCandidate=null,不设 is_duplicate
+      // 新逻辑: 剔除自身后若还有候选,fusion_score 反映 next best;若无候选,fusion_score=null
+      //         不再自动合段,animal_id 字段保持不变
       eventRepo.findOne.mockResolvedValue(
         makeEvent({ nose_vector_id: 'v-1', animal_id: 'animal-self' }),
       );
@@ -558,21 +571,27 @@ describe('EventsService', () => {
         ],
       });
 
-      await service.processEvent('event-1');
+      const result = await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
 
-      // 关键断言: duplicate_of 不能指向自身,应该指向 next best
-      expect(updateArg.duplicate_of).toBe('animal-other');
-      expect(updateArg.duplicate_of).not.toBe('animal-self');
-      expect(updateArg.animal_id).toBe('animal-other');
-      // fusion_score 也应反映 next-best 的 0.85,而不是 self 的 1.0
+      // fusion_score 反映 next-best 的 0.85,而不是 self 的 1.0
       expect(updateArg.fusion_score).toBe(0.85);
+      // candidates 数组原样保留(含 self)
+      expect(updateArg.candidates.length).toBe(2);
+      // 关键:不再自动合段
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
+      // hint_candidate 指向 next-best
+      expect(result.hint_candidate).toEqual({
+        animal_id: 'animal-other',
+        fusion_score: 0.85,
+      });
     });
 
-    it('【回归 BUG-007】事件 animal_id 非空但所有候选都是自身 → 不应入候选池', async () => {
+    it('【回归 BUG-007】事件 animal_id 非空但所有候选都是自身 → fusion_score=null,不写 animal_id', async () => {
       // 极端场景: 数据库里只有自己这一只动物,候选池全是自身
-      // 旧逻辑: 直接 duplicate_of=自身 (self-merge)
-      // 新逻辑: topCandidate=null → 不设 is_duplicate / duplicate_of
+      // 新逻辑: topCandidate=null → fusion_score=null,不写合段相关字段
       eventRepo.findOne.mockResolvedValue(
         makeEvent({ nose_vector_id: 'v-1', animal_id: 'animal-only' }),
       );
@@ -590,18 +609,21 @@ describe('EventsService', () => {
         ],
       });
 
-      await service.processEvent('event-1');
+      const result = await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
 
-      // 关键断言: 不应自合并
-      expect(updateArg.is_duplicate).not.toBe(true);
-      expect(updateArg.duplicate_of).toBeFalsy();
-      expect(updateArg.animal_id).toBeFalsy();
+      // fusion_score 反映 self 被排除后取不到 top
+      expect(updateArg.fusion_score).toBeNull();
+      // 不再自动合段
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.animal_id).toBeUndefined();
+      // hint_candidate 为 null
+      expect(result.hint_candidate).toBeNull();
     });
 
-    it('【回归 BUG-005】event.animal_id 为 null 时不做自合并过滤(原 Bug6 候选池行为)', async () => {
+    it('【回归 BUG-005】event.animal_id 为 null 时不做自合并过滤,正常回填 fusion_score', async () => {
       // 场景: report 事件或 collect 事件 animal_id=null 时不应过滤任何候选
-      // 验证: animal_id=null 时直接走 top1 (无 self-merge 风险)
+      // 验证: animal_id=null 时直接走 top1,hint_candidate 即 animal-report-1
       eventRepo.findOne.mockResolvedValue(
         makeEvent({ nose_vector_id: null, animal_id: null }),
       );
@@ -621,12 +643,20 @@ describe('EventsService', () => {
         },
       ]);
 
-      await service.processEvent('event-1');
+      const result = await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
 
-      // animal_id=null → 不应有 self-merge 顾虑,top1 即 animal-report-1
-      expect(updateArg.is_duplicate).toBe(true);
-      expect(updateArg.duplicate_of).toBe('animal-report-1');
+      // 正常回填 fusion_score + candidates
+      expect(updateArg.fusion_score).toBe(0.85);
+      expect(updateArg.candidates.length).toBe(1);
+      // 不再自动合段
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      // hint_candidate 指向 top1
+      expect(result.hint_candidate).toEqual({
+        animal_id: 'animal-report-1',
+        fusion_score: 0.85,
+      });
     });
 
     // ========== BUG-006 回归: vector_similarity 字段路径 ==========
@@ -771,8 +801,10 @@ describe('EventsService', () => {
       expect(updateCalls.length).toBeGreaterThan(0);
       const updateArg = updateCalls[0][1];
       expect(updateArg.fusion_score).toBe(0.83);
-      expect(updateArg.is_duplicate).toBe(true);
-      expect(updateArg.duplicate_of).toBe('animal-auto-1');
+      expect(updateArg.candidates.length).toBe(1);
+      // 【2026-07-09 重构】不再自动合段
+      expect(updateArg.is_duplicate).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
     });
 
     it('create() 中 processEvent 抛错不应影响 POST /events 响应', async () => {
@@ -800,11 +832,9 @@ describe('EventsService', () => {
       await new Promise((r) => setImmediate(r));
     });
 
-    it('isMergeCandidate=true 时 rescue_events.animal_id 应正确指向目标(BUG-003 修复:report_count 自动 +1)', async () => {
-      // 场景: processEvent 自动合并后,事件 animal_id 指向目标动物
-      // 注意: report_count 是从 rescue_events 表 COUNT(*) 算出来的(animal.entity 无此列)
-      // 所以只要 event.animal_id 设置正确,findAll/findOne 自然算到 count +1
-      // 这里不需要 animalRepo.increment
+    it('【2026-07-09 重构】fusion_score 高分时不再自动设置 animal_id/duplicate_of/is_duplicate', async () => {
+      // 旧 BUG-003 测试:验证自动合段设置 event.animal_id + is_duplicate
+      // 新:机器只算 hint,animal_id/duplicate_of/is_duplicate 不写入,等 admin 决策
       eventRepo.findOne.mockResolvedValue(
         makeEvent({ nose_vector_id: 'v-1', animal_id: null }),
       );
@@ -822,15 +852,23 @@ describe('EventsService', () => {
         ],
       });
 
-      await service.processEvent('event-1');
+      const result = await service.processEvent('event-1');
       const updateArg = eventRepo.update.mock.calls[0][1];
 
-      // 关键断言: event.animal_id 被设为目标
-      expect(updateArg.animal_id).toBe('animal-target-1');
-      expect(updateArg.duplicate_of).toBe('animal-target-1');
-      expect(updateArg.is_duplicate).toBe(true);
+      // hint 回填 fusion_score + candidates
+      expect(updateArg.fusion_score).toBe(0.9);
+      expect(updateArg.candidates.length).toBe(1);
+      // 关键:animal_id/duplicate_of/is_duplicate 不被自动写入
+      expect(updateArg.animal_id).toBeUndefined();
+      expect(updateArg.duplicate_of).toBeUndefined();
+      expect(updateArg.is_duplicate).toBeUndefined();
+      // hint_candidate 仅作为提示
+      expect(result.hint_candidate).toEqual({
+        animal_id: 'animal-target-1',
+        fusion_score: 0.9,
+      });
 
-      // 同时确保 animalRepo.increment 未被调(report_count 不在这里维护)
+      // 同时确保 animalRepo.increment 未被调(历史兼容性检查)
       expect(animalRepo.increment).toBeUndefined();
     });
   });
