@@ -140,10 +140,11 @@ const nosePhotoUrl = ref('')
 //   - 高分走"我要上报" → 提交 sighting 事件, intent='stray_sighting' (路人上报)
 const formIntent = ref<'lost' | 'found'>('lost')
 
-// 【Defect 2 / 2026-07-08】无鼻纹场景专用分支: collect 跳过来时
-//   - next_action === 'ask_user_confirm'
-//   - nose_id 是 'null' 字符串或空 (collect.vector_id 是 null 时 `${null}` 字符串化的产物)
-//   此时直接走 Plan B,不调 apiNoseCompare (否则后端 404 → 空态卡死)
+// 【Defect 2 / 2026-07-08】【2026-07-09 重构】collect 跳过来时,后端 nose.service 透传 next_action:
+//   - show_high_score_dialog  → 高分候选,result 页用户要选"认领"还是"创建档案"
+//   - show_low_score_dialog   → 低分候选,直接显示 Plan B (创建档案)
+//   - show_no_candidate_dialog → 无候选,直接显示 Plan B
+//   不再使用旧名 'ask_user_confirm' / 'ask_user_create'
 const passedNextAction = ref('')
 
 onMounted(async () => {
@@ -151,9 +152,14 @@ onMounted(async () => {
   const currentPage = pages[pages.length - 1] as any
   const { nose_id, species, breed, color, gender, body_photo_url, nose_photo_url, size, coat_length, ear_type, tail_type, age, health, sterilized, notes, location_lat, location_lng, location_text, intent, next_action } = currentPage.options || {}
 
-  // 【Defect 2 / 2026-07-08】先收集透传过来的 next_action(用于后续判断是否走 Plan B)
-  //   必须先 set 再做缺鼻纹校验:合法无鼻纹场景(nose_id='null' + next_action='ask_user_confirm')不能被错误回退
-  if (next_action === 'ask_user_confirm' || next_action === 'ask_user_create') {
+  // 【2026-07-09 重构】接受新 3 命名;旧 'ask_user_confirm'/'ask_user_create' 仍兼容
+  if (
+    next_action === 'show_high_score_dialog' ||
+    next_action === 'show_low_score_dialog' ||
+    next_action === 'show_no_candidate_dialog' ||
+    next_action === 'ask_user_confirm' ||    // 旧名兼容
+    next_action === 'ask_user_create'        // 旧名兼容
+  ) {
     passedNextAction.value = next_action
   }
 
@@ -209,10 +215,16 @@ onMounted(async () => {
     formIntent.value = intent
   }
 
-  // 【Defect 2 / 2026-07-08】无鼻纹场景 → 跳过比对,让 needsConfirmation (Plan B UI) 直接生效
+  // 【Defect 2 / 2026-07-08】【2026-07-09 重构】无鼻纹场景 → 跳过比对,让 needsConfirmation (Plan B UI) 直接生效
   //   旧逻辑始终调 apiNoseCompare → 后端 404 → 空 catch → compareResult=null → 所有按钮不渲染
   //   → WeChat MP 报 navigateTo:fail timeout (页面无 CTA,用户操作卡死)
-  if (passedNextAction.value === 'ask_user_confirm') {
+  // 新逻辑: show_low_score_dialog / show_no_candidate_dialog / 旧 ask_user_confirm 全部跳过比对
+  //   show_high_score_dialog → 仍调 apiNoseCompare 拿完整 candidates (用于高分支)
+  if (
+    passedNextAction.value === 'show_low_score_dialog' ||
+    passedNextAction.value === 'show_no_candidate_dialog' ||
+    passedNextAction.value === 'ask_user_confirm'    // 旧名兼容
+  ) {
     return
   }
 
@@ -291,9 +303,18 @@ const hasMatch = computed(() => {
   return results && results.length > 0 && results[0].fusion_score >= 0.75
 })
 
-// 【Defect 2 / 2026-07-08】无鼻纹场景(collect 透传 next_action=ask_user_confirm)+比对后服务端 ask_user_create,
-//   都应展示 Plan B UI (创建档案 + 取消)
+// 【Defect 2 / 2026-07-08】【2026-07-09 重构】展示 Plan B UI (创建档案 + 取消)
+//   触发条件:
+//   - 旧名 'ask_user_confirm' (无鼻纹透传)
+//   - 新 3 命名: 'show_low_score_dialog' / 'show_no_candidate_dialog'
+//   - 老 compare 结果里 next_action === 'ask_user_create' (历史兼容)
 const needsConfirmation = computed(() => {
+  if (
+    passedNextAction.value === 'show_low_score_dialog' ||
+    passedNextAction.value === 'show_no_candidate_dialog'
+  ) {
+    return true
+  }
   if (passedNextAction.value === 'ask_user_confirm') return true
   if (!compareResult.value) return false
   return compareResult.value.next_action === 'ask_user_create'
@@ -457,9 +478,9 @@ function extractErrorMessage(e: any): string {
 }
 
 async function onCreateAnimal() {
-  // 【Bug A / 2026-07-08】不再阻断无鼻纹场景 — 用户走失没拍鼻纹时,也要能提交待审档案
-  //   后端 nose.service.ts:createPendingAnimalRequest 已放宽 nose_vector_id 可为 null,
-  //   PendingNoseRecord.vector_id 已 nullable
+  // 【2026-07-09 重构】onCreateAnimal 现在调 apiCreatePendingAnimalRequest,
+  //   后端写入 RescueEvent(source=USER_CREATE,event_type=collect),入审核流
+  //   原 pending_nose_records 表已废弃,不再向其写
   uni.showLoading({ title: '提交中...' })
   try {
     // 构建 photos 数组:仅在有有效全身照 URL 时才放进数组
@@ -483,12 +504,9 @@ async function onCreateAnimal() {
       }
     }
 
-    // Bug 3 修复 (2026-07-08): 不再直接 POST /v2/animals,改为提交待审记录
-    //   旧: 动物立即创建,绕开 admin 审核
-    //   新: 写入 pending_nose_records (source=user_create_request) → admin 审核通过后才落库
-    //   提示用户"档案已提交,待管理员审核",不立即跳转 animal-detail(动物还没创建)
-    // 【Bug A / 2026-07-08】nose_vector_id 允许 null — 字符串 'null' (无鼻纹) 显式映射为 undefined,
-    //   防止「鼻纹字段值是字符串 'null' 污染数据库」+ 后端 IsString 校验失败
+    // 【2026-07-09 重构】apiCreatePendingAnimalRequest 已改写为写 RescueEvent(source=USER_CREATE)
+    //   不再操作 pending_nose_records 表
+    // 【Bug A / 2026-07-08】nose_vector_id 允许 null — 字符串 'null' (无鼻纹) 显式映射为 undefined
     const noseVectorIdForRequest = noseId.value && noseId.value !== 'null' && noseId.value !== 'undefined'
       ? noseId.value
       : undefined
