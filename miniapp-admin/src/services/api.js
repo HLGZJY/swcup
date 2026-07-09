@@ -229,56 +229,12 @@ export function apiGetAdminUsers(params = {}) {
 //   - USER_CREATE_REQUEST: 用户在 collect 页点"创建档案"走 /v1/nose/pending-animal-request 写入
 // 两条源都进同一张 pending_nose_records 表,admin 在此处统一审核
 
-/**
- * 待审鼻纹记录列表
- * GET /admin/pending-nose-records?status=pending&page=1&limit=20
- * 响应: { total, list: PendingNoseRecord[] }
- */
-export function apiGetAdminPendingNoseRecords(params = {}) {
-  return request("/admin/pending-nose-records", { params });
-}
-
-/**
- * 待审鼻纹详情
- * GET /admin/pending-nose-records/:record_id
- */
-export function apiGetAdminPendingNoseDetail(recordId) {
-  return request(`/admin/pending-nose-records/${recordId}`);
-}
-
-/**
- * 审核通过 — 视为新动物建档
- * POST /admin/pending-nose-records/:record_id/approve-as-new
- * body: 可选覆盖字段 (species/breed/color/gender/address/photos)
- */
-export function apiPostAdminPendingNoseApprove(recordId, body = {}) {
-  return request(`/admin/pending-nose-records/${recordId}/approve-as-new`, {
-    method: "POST",
-    body,
-  });
-}
-
-/**
- * 审核通过 — 视为某已有动物的重复
- * POST /admin/pending-nose-records/:record_id/approve-as-duplicate
- * body: { animal_id: string }
- */
-export function apiPostAdminPendingNoseApproveAsDuplicate(recordId, animalId) {
-  return request(`/admin/pending-nose-records/${recordId}/approve-as-duplicate`, {
-    method: "POST",
-    body: { animal_id: animalId },
-  });
-}
-
-/**
- * 审核驳回
- * POST /admin/pending-nose-records/:record_id/reject
- */
-export function apiPostAdminPendingNoseReject(recordId) {
-  return request(`/admin/pending-nose-records/${recordId}/reject`, {
-    method: "POST",
-  });
-}
+// 【2026-07-09 重构】pending_nose_records 表已废弃,5 个 API 已删除
+//   原 GET /admin/pending-nose-records/*
+//   原 POST /admin/pending-nose-records/:id/approve-as-new
+//   原 POST /admin/pending-nose-records/:id/approve-as-duplicate
+//   原 POST /admin/pending-nose-records/:id/reject
+// 审核统一走 PUT /admin/events/:id/action (reject | merge | create_new)
 
 /**
  * 获取用户详情

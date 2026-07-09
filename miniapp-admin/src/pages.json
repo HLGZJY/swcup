@@ -26,14 +26,6 @@
       }
     },
     {
-      "path": "pages/admin/audit/pending-nose",
-      "style": {
-        "navigationBarTitleText": "待审鼻纹记录",
-        "navigationBarBackgroundColor": "#1A1A1A",
-        "navigationBarTextStyle": "white"
-      }
-    },
-    {
       "path": "pages/admin/audit-detail/index",
       "style": {
         "navigationBarTitleText": "事件审核详情",

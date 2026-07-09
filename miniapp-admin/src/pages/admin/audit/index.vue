@@ -64,21 +64,7 @@
           pendingClues
         }}</view>
       </view>
-      <!-- Defect 1 (2026-07-08): 加「待审鼻纹」入口,跳到 pending-nose 详情页 -->
-      <view
-        :class="['tab-item', { active: currentTab === 'pending-nose' }]"
-        @click="goPendingNose"
-      >
-        <image
-          class="tab-icon"
-          src="/static/icons/icon-nose-print.svg"
-          mode="aspectFit"
-        />
-        <text class="tab-text">待审鼻纹</text>
-        <view class="tab-badge" v-if="pendingNoseRecords > 0">{{
-          pendingNoseRecords
-        }}</view>
-      </view>
+      <!-- 【2026-07-09 重构】待审鼻纹 tab 已删除:pending_nose_records 表废弃,审核统一走 3 按钮 -->
     </view>
 
     <!-- 事件审核列表 -->
@@ -223,7 +209,6 @@ import {
   apiApproveClaim,
   apiRejectClaim,
   apiUpdateAnimal,
-  apiGetAdminPendingNoseRecords,
   resolveImageUrl,
 } from "@/services/api";
 import { apiGetPendingClues } from "@/services/clue";
@@ -235,16 +220,14 @@ const claims = ref<any[]>([]);
 const pendingEvents = ref(0);
 const pendingClaims = ref(0);
 const loading = ref(true);
-// Defect 1 (2026-07-08): 顶部统计 + tab 入口需要的待审鼻纹计数
-const pendingNoseRecords = ref(0);
+// 【2026-07-09 重构】pendingNoseRecords 已删除
 
 const pendingClues = ref(0);
 const pendingTotal = computed(
   () =>
     pendingEvents.value +
     pendingClaims.value +
-    pendingClues.value +
-    pendingNoseRecords.value,
+    pendingClues.value,
 );
 
 onMounted(() => {
@@ -262,12 +245,9 @@ async function loadAuditData() {
       apiGetAdminEvents({ status: "pending" }),
       apiGetAdminClaims({ status: "pending" }),
       apiGetPendingClues().catch(() => ({ data: { items: [], total: 0 } })),
-      // Defect 1 (2026-07-08): 并发查待审鼻纹,失败兜底为空(避免阻塞其他 tab)
-      apiGetAdminPendingNoseRecords({ status: "pending", limit: 1 })
-        .catch(() => ({ code: 0, data: { list: [], total: 0 } })),
     ]);
 
-    const [eRes, cRes, pRes, nRes] = results;
+    const [eRes, cRes, pRes] = results;
 
     if (eRes.code === 0) {
       events.value = eRes.data?.list || [];
@@ -281,10 +261,6 @@ async function loadAuditData() {
     pendingClues.value =
       (pPayload && pPayload.total) ||
       (pPayload && pPayload.items ? pPayload.items.length : 0);
-    // Defect 1 (2026-07-08): 取待审鼻纹总数,失败时保持 0
-    if (nRes && nRes.code === 0) {
-      pendingNoseRecords.value = nRes.data?.total || 0;
-    }
   } catch (e) {
     console.error("加载审核数据失败", e);
     uni.showToast({ title: "加载失败，请重试", icon: "none" });
@@ -300,10 +276,7 @@ function goClues() {
   uni.navigateTo({ url: "/pages/admin/clues/index" });
 }
 
-// Defect 1 (2026-07-08): 跳到待审鼻纹独立页面 (列表 + 审核操作在 pending-nose.vue)
-function goPendingNose() {
-  uni.navigateTo({ url: "/pages/admin/audit/pending-nose" });
-}
+// 【2026-07-09 重构】goPendingNose 已删除:待审鼻纹 tab 废弃
 
 function formatTime(isoString: string) {
   if (!isoString) return "";
