@@ -51,5 +51,11 @@ Thumbs.db
 # Jest 测试运行临时产物（不入仓）
 /backend/test-results/
 
+# 后端运行时数据 (线索状态 / 词库副本, 由应用启动期自动创建)
+/backend/data/
+
+# 本地一次性 patch 脚本 (不入仓, 保留工作区)
+/_v11patch.py
+
 # AI 服务参考项目目录（不入仓，运行时按需克隆）
 /ai-service/参考项目/
