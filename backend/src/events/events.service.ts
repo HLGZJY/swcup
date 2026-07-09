@@ -49,22 +49,14 @@ export class EventsService {
     const event_id = uuidv4();
     const { lat, lng } = await this.resolveCoords(dto);
 
-    // 阶段 1 (2026-07-06): intent='lost'/'found' + animal_id 缺失 → 自动建档
-    // 场景 A/B: 用户上报走失/捡到的动物但还没建过档案 → 自动建一个 Animal 档,事件直接关联
-    //   intent='stray_sighting' 不自动建档 (可能多只动物,SightingEvent 不专属一只)
-    //   intent='profile_build' 不自动建档 (一般是给已有动物补资料)
+    // 【P0 合规改造 2026-07-09】删除 intent 自动建档
+    // 流程文档第3节:"机器不能自动新建/合并/驳回档案"
+    // 用户上报走失/捡到 → 仅 INSERT RescueEvent(status=PENDING),Animal 落库由 admin 三按钮决策
+    //   intent='stray_sighting' 行为不变 (本就不自动建档)
+    //   intent='profile_build' 行为不变
     //   animal_id 已传 → 不自动建档 (沿用现有 Animal)
-    let resolvedAnimalId = dto.animal_id || undefined;
-    if (!resolvedAnimalId && (dto.intent === 'lost' || dto.intent === 'found')) {
-      const autoAnimal = await this.animalsService.create({
-        ...dto,
-        intent: dto.intent,
-      } as any);
-      resolvedAnimalId = autoAnimal?.animal_id || undefined;
-      this.logger.log(
-        `[EventsService.create] intent="${dto.intent}" 自动建档 → animal_id=${resolvedAnimalId}`,
-      );
-    }
+    //   intent='lost'/'found' 不再自动建档,事件入 admin 审核流,animal.status 由 create_new 按钮决定
+    const resolvedAnimalId = dto.animal_id || undefined;
 
     const event = this.eventRepo.create({
       event_id,
@@ -155,6 +147,11 @@ export class EventsService {
     }
 
     this.logger.log(`[EventsService.createAnimalFromEvent] event=${event_id} → 建档 (intent=${event.intent})`);
+    // 【P0 合规改造 2026-07-09】删除 Defect 4 的"镜像 lost 档"逻辑
+    // 旧: intent=found 时额外 INSERT Animal(intent=lost)
+    // 新: 只 INSERT 1 条 Animal,animal.status 由 event.intent 决定(found/lost)
+    //     如需同时建 found + lost 两条,admin 应再次点"同意新建"显式操作(选 lost)
+    // 流程文档第3节:"机器不能自动新建/合并/驳回档案"
     const newAnimal = await this.animalsService.create({
       species: event.species,
       breed: event.breed ?? undefined,
@@ -176,29 +173,6 @@ export class EventsService {
       //   intent=found → AnimalStatus.FOUND;intent=lost/undefined → AnimalStatus.LOST
       intent: event.intent || undefined,
     } as any);
-
-    // 【Defect 4 / 2026-07-08】intent=found → 主动物 status=found + 额外生成一条 lost 记录
-    //   场景: 发现页上报"我捡到狗",审核建档后,管理员可能后续想用这只动物触发走失匹配
-    //   不重复生成 lost 记录的兜底: 仅 intent=found 时创建
-    if (event.intent === 'found') {
-      await this.animalsService.create({
-        species: event.species,
-        breed: event.breed ?? undefined,
-        color: event.color ?? undefined,
-        gender: event.gender ?? undefined,
-        location_lat: event.location_lat,
-        location_lng: event.location_lng,
-        address: event.address ?? undefined,
-        photos: event.photos ?? undefined,
-        body_colors: event.body_colors ?? undefined,
-        notes: event.description ?? undefined,
-        // 不挂 primary_nose_id — lost 记录不需要向量重复
-        first_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
-        last_seen_at: event.occurred_at ? event.occurred_at.toISOString() : undefined,
-        intent: 'lost',  // 显式 lost
-      } as any);
-      this.logger.log(`[EventsService.createAnimalFromEvent] intent=found → 额外生成 lost 记录`);
-    }
 
     // 关键副作用: event.animal_id 指向新动物, status=confirmed (与 confirmEvent 区分)
     // confirmEvent status=duplicated + is_duplicate=true; create_new status=confirmed

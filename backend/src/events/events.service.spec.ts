@@ -197,11 +197,11 @@ describe('EventsService', () => {
     });
 
     // ========== 阶段 1 (2026-07-06): intent 决定自动建档 ==========
-    it('【阶段 1】intent="lost" + 无 animal_id → 应自动调 AnimalsService.create 并关联动物 ID', async () => {
-      // 场景 A/B: 用户上报走失狗狗,未指定 animal_id
-      // 期望: eventsService 自动通过 animalsService.create 建一个 status=lost 的 Animal 档,
-      //       然后把生成的 animal_id 回写到事件的 animal_id 字段
-      animalsService.create.mockResolvedValue({ animal_id: 'auto-animal-id-1' });
+    // 【P0 合规改造 2026-07-09】删除 intent 自动建档,事件一律 status=PENDING 入 admin 审核流
+    it('【P0 合规】intent="lost" + 无 animal_id → 不应自动建档,事件 animal_id 保持 undefined', async () => {
+      // 流程文档第3节:"机器不能自动新建/合并/驳回档案"
+      // 用户上报走失/捡到 → 仅 INSERT RescueEvent(status=PENDING),Animal 落库由 admin 三按钮决策
+      animalsService.create.mockResolvedValue({ animal_id: 'should-not-create' });
 
       const dto = {
         event_type: 'report',
@@ -217,16 +217,16 @@ describe('EventsService', () => {
 
       await service.create(dto as any, 'user-1');
 
-      // 1. 必须调过 animalsService.create,且把 intent 透传过去(决定 Animal.status)
-      expect(animalsService.create).toHaveBeenCalledTimes(1);
-      const animalDto = animalsService.create.mock.calls[0][0];
-      expect(animalDto.intent).toBe('lost');
-      expect(animalDto.species).toBe('dog');
-      expect(animalDto.breed).toBe('shiba');
+      // 1. 关键:不应调 animalsService.create(机器不落档)
+      expect(animalsService.create).not.toHaveBeenCalled();
 
-      // 2. 事件的 animal_id 必须被回填为新建动物的 ID
+      // 2. 事件 animal_id 应保持 undefined(让 admin 在审核时挑动物)
       const savedEvent = eventRepo.save.mock.calls[0][0];
-      expect(savedEvent.animal_id).toBe('auto-animal-id-1');
+      expect(savedEvent.animal_id).toBeFalsy();
+      // 3. intent 仍持久化(给 admin 审核时 hint)
+      expect(savedEvent.intent).toBe('lost');
+      // 4. 状态应为 PENDING
+      expect(savedEvent.status).toBe(EventStatus.PENDING);
     });
 
     it('【阶段 1】intent="stray_sighting" + 无 animal_id → 不应自动建档,事件 animal_id 保持 undefined', async () => {
@@ -994,7 +994,10 @@ describe('EventsService', () => {
       // 第二次 create 是额外生成的 lost 记录 (见下一测试 case)
     });
 
-    it('【Defect 4】event.intent="found" → 应额外自动创建一条 lost 记录 (用于走失匹配)', async () => {
+    it('【P0 合规】event.intent="found" → 只调 1 次 AnimalsService.create(intent=found),不再镜像 lost 档', async () => {
+      // 阶段 B (2026-07-09) 合规改造:删除 Defect 4 的"镜像 lost 档"逻辑
+      // 理由: 镜像 lost 档是机器额外行为,违反流程文档第3节"机器不能自动新建/合并/驳回档案"
+      //       如需生成 lost 记录,admin 应再次点"同意新建"(选 lost) 显式操作
       eventRepo.findOne.mockResolvedValue(
         makeEvent({
           event_id: 'e-found',
@@ -1012,14 +1015,13 @@ describe('EventsService', () => {
 
       await service.createAnimalFromEvent('e-found');
 
-      // animalsService.create 应被调 2 次: 第一次主动物 (intent=found), 第二次 lost 记录 (intent=lost)
-      expect(animalsService.create).toHaveBeenCalledTimes(2);
-      const secondCallArg = animalsService.create.mock.calls[1][0];
-      expect(secondCallArg.intent).toBe('lost');
-      // 同一只动物 (species/breed/color 透传)
-      expect(secondCallArg.species).toBe('dog');
-      expect(secondCallArg.breed).toBe('shiba');
-      expect(secondCallArg.color).toBe('yellow');
+      // 关键:只调 1 次 animalsService.create(主动物),不生成镜像 lost 档
+      expect(animalsService.create).toHaveBeenCalledTimes(1);
+      const firstCallArg = animalsService.create.mock.calls[0][0];
+      expect(firstCallArg.intent).toBe('found');
+      expect(firstCallArg.species).toBe('dog');
+      expect(firstCallArg.breed).toBe('shiba');
+      expect(firstCallArg.color).toBe('yellow');
     });
 
     it('【Defect 4】event.intent="lost" → 只创建 1 只动物 (intent=lost → status=lost),不生成额外记录', async () => {

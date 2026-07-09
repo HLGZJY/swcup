@@ -79,6 +79,18 @@ export class CollectNoseDto {
   @IsString()
   @IsOptional()
   body_photo_url?: string;
+
+  // 【2026-07-09 补回】T3 重构 collect 时,nose.service 用到了 dto.address / dto.notes,
+  //   但 DTO 没声明这两个字段,导致 TS2345 编译错误。现补回为可选字段,前端按需发送。
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }
 
 export class CompareNoseDto {

@@ -165,11 +165,12 @@ describe('Audit 3 actions dispatcher (e2e)', () => {
 
   describe('deprecated confirm action (2026-07-09 移除)', () => {
     it('action=confirm 应抛 BadRequestException(规范已删)', async () => {
+      // 'confirm' 已不在 AdminEventAction 类型中,用 as any 强转以模拟旧客户端传错值
       await expect(
-        adminService.dispatchEventAction('E1', 'confirm'),
+        adminService.dispatchEventAction('E1', 'confirm' as any),
       ).rejects.toThrow(BadRequestException);
       await expect(
-        adminService.dispatchEventAction('E1', 'confirm', 'A1'),
+        adminService.dispatchEventAction('E1', 'confirm' as any, 'A1'),
       ).rejects.toThrow(BadRequestException);
     });
   });
