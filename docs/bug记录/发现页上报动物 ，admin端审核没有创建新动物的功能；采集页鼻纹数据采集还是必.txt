@@ -1,0 +1,146 @@
+发现页上报动物 ，admin端审核没有创建新动物的功能；采集页鼻纹数据采集还是必选项 ，不能覆盖实际场景：
+采集页现状禁止了他创建数据 ，没有开放创建pending记录的权限，相当于禁止用户点击唯一他能够点击的创建按钮；
+collect 点击的第一次一定会失败 第二次才会成功，前后有什么区别，为什么会跳出来
+发现页上报动物，admin应有由此创建动物的功能 
+
+用户在发现页创建动物 后端记录
+[Nest] 20748  - 2026/07/08 10:23:20     LOG [EventsService] [EventsService.processEvent] 事件 4bd9d022-e67b-4370-a08f-6c27856624be 走上报 AI 匹配 (无鼻纹, 用图片+GPS+文本+时间)
+[Nest] 20748  - 2026/07/08 10:23:20     LOG [MatchingService] [MatchingService] 上报 4bd9d022-e67b-4370-a08f-6c27856624be 找到 0 只候选走失动物
+
+进行比对，由于没有比对对象response
+{"code":0,"message":"success","data":{"event_id":"4bd9d022-e67b-4370-a08f-6c27856624be","status":"pending","fusion_score":null,"candidates_count":0,"matching_mode":"report","message":"上报 AI 比对完成","merge_candidate":null}}
+
+预期结果 应该是 没有找到重复的动物 就要给他 可以创建的入口 ，通过这个发现创建新的动物 鼻纹为空 
+现在的功能都是默认发现页采集的动物都只作为更新动物状态，不具备创建功能 
+
+延伸 采集页-携带鼻纹数据 也和发现页创建的动物进行比较，比较(无鼻纹, 用图片+GPS+文本+时间) ，确认重复度 发给admin端审核 确实重复则更新动物数据 新增鼻纹数据 ，增加时间线事件等等
+
+采集页对比上报 鼻纹应为可选项 所以就有两套匹配标准 三种比对需求： 1.有鼻纹之间 2.无鼻纹之间 3.有无鼻纹之间的比对方案
+
+
+采集页面测试 1.第一次采集失败 
+Request URL: http://127.0.0.1:3000/v1/nose/collect
+Request Method: POST
+Status Code: 400 Bad Request
+Remote Address: 127.0.0.1:3000
+Referrer Policy: strict-origin-when-cross-origin
+
+animal_id: null
+body_photo_url: "/static/uploads/1783478302238_1ap62tcu.jpg"
+breed: "金毛"
+color: "金色"
+device_id: "miniapp_user"
+gender: "male"
+location_lat: 31.22344
+location_lng: 121.4453
+nose_photo: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD"
+nose_photo_url: "/static/uploads/1783478309896_cwtib63b.jpg"
+species: "dog"
+timestamp: "2026-07-08T02:38:57.056Z"
+
+{"code":400,"message":"请先登录后再采集鼻纹","data":null}
+
+第二次点击开始比对按钮 没有切换登陆状态甚至是页面
+Request URL: http://127.0.0.1:3000/v1/nose/collect
+Request Method: POST
+Status Code: 201 Created
+Remote Address: 127.0.0.1:3000
+Referrer Policy: strict-origin-when-cross-origin
+
+animal_id: null
+body_photo_url: "/static/uploads/1783478302238_1ap62tcu.jpg"
+breed: "金毛"
+color: "金色"
+device_id: "miniapp_user"
+gender: "male"
+location_lat: 31.22344
+location_lng: 121.4453
+nose_photo: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD"
+nose_photo_url: "/static/uploads/1783478309896_cwtib63b.jpg"
+species: "dog"
+timestamp: "2026-07-08T02:39:00.006Z"
+
+{"code":0,"message":"success","data":{"vector_id":"6ebf15ac-bdc5-4040-89b3-ae89816a6da4","confidence_score":0.8600528105937377,"liveness_passed":true,"is_duplicate":true,"matched_animal_id":null,"matched_nose_id":"42af337f-8348-4233-a870-25a3fc35a3f8","similarity":0.9988,"next_action":"ask_link_or_new"}}
+
+第三次点击 有延迟第二次点击结果未出我又点了一下
+Request URL: http://127.0.0.1:3000/v1/nose/collect
+Request Method: POST
+Status Code: 201 Created
+Remote Address: 127.0.0.1:3000
+Referrer Policy: strict-origin-when-cross-origin 
+
+animal_id: null
+body_photo_url: "/static/uploads/1783478302238_1ap62tcu.jpg"
+breed: "金毛"
+color: "金色"
+device_id: "miniapp_user"
+gender: "male"
+location_lat: 31.22344
+location_lng: 121.4453
+nose_photo: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD"
+nose_photo_url: "/static/uploads/1783478309896_cwtib63b.jpg"
+species: "dog"
+timestamp: "2026-07-08T02:39:01.660Z"
+
+{"code":0,"message":"success","data":{"vector_id":"5bdf0e0d-f799-46f3-9168-be0d8a85c9c8","confidence_score":0.908179286276354,"liveness_passed":true,"is_duplicate":true,"matched_animal_id":null,"matched_nose_id":"6ebf15ac-bdc5-4040-89b3-ae89816a6da4","similarity":0.9988,"next_action":"ask_link_or_new"}}
+
+后端：[HttpExceptionFilter] 请先登录后再采集鼻纹
+BadRequestException: 请先登录后再采集鼻纹
+    at NoseService.collect (F:\swcup2026\backend\src\nose\nose.service.ts:268:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[NoseService.compare] vectorId: d923f8ef-c09b-406a-a202-53cdde142874 dto: {"nose_id":"d923f8ef-c09b-406a-a202-53cdde142874","species":"dog","breed":"土狮犬","color":"棕黄","gender":"male","size":"","coat_length":"","ear_type":"","tail_type":"","location_lat":31.22344,"location_lng":121.4453}
+[NoseService.compare] source record: vector_id=d923f8ef-c09b-406a-a202-53cdde142874
+
+之后刷出来可以进行创建，已经没有出现未创建孤儿的鼻纹 数据了，但是点击创建失败
+
+Request URL: http://127.0.0.1:3000/v2/animals
+Request Method: POST
+Status Code: 403 Forbidden
+Remote Address: 127.0.0.1:3000
+Referrer Policy: strict-origin-when-cross-origin
+
+address: "上海市静安区南京西路1686号"
+age_estimate: "adult"
+breed: "金毛"
+color: "金色"
+gender: "male"
+health_status: "healthy"
+intent: "found"
+location_lat: 31.22344
+location_lng: 121.4453
+notes: "亲人"
+photos: ["/static/uploads/1783478302238_1ap62tcu.jpg"]
+primary_nose_id: "5bdf0e0d-f799-46f3-9168-be0d8a85c9c8"
+species: "dog"
+sterilized: true
+
+{"code":403,"message":"Forbidden resource","data":null}
+
+vendor.js? [sm]:1227 POST http://127.0.0.1:3000/v2/animals 403 (Forbidden)(env: Windows,mp,2.01.2510260; lib: 3.15.2)
+(anonymous) @ vendor.js? [sm]:1227
+invokeApi @ vendor.js? [sm]:724
+promiseApi @ vendor.js? [sm]:1138
+(anonymous) @ api.js? [sm]:185
+request @ api.js? [sm]:172
+apiCreateAnimal @ api.js? [sm]:100
+_callee4$ @ result.js? [sm]:321
+s @ regeneratorRuntime.js?forceSync=true:1
+(anonymous) @ regeneratorRuntime.js?forceSync=true:1
+(anonymous) @ regeneratorRuntime.js?forceSync=true:1
+asyncGeneratorStep @ asyncToGenerator.js?forceSync=true:1
+c @ asyncToGenerator.js?forceSync=true:1
+(anonymous) @ asyncToGenerator.js?forceSync=true:1
+(anonymous) @ asyncToGenerator.js?forceSync=true:1
+_onCreateAnimal @ result.js? [sm]:374
+onCreateAnimal @ result.js? [sm]:299
+callWithErrorHandling @ vendor.js? [sm]:2921
+callWithAsyncErrorHandling @ vendor.js? [sm]:2928
+invoke @ vendor.js? [sm]:6381
+setTimeout (async)
+invoker @ vendor.js? [sm]:6385
+result.js? [sm]:365 [onCreateAnimal] {data: {…}, header: Proxy, statusCode: 403, cookies: Array(0), accelerateType: "none", …}accelerateType: "none"cookies: []data: {code: 403, message: "Forbidden resource", data: null}errMsg: "request:ok"header: Proxy {X-Powered-By: "Express", Access-Control-Allow-Origin: "*", Content-Type: "application/json; charset=utf-8", Content-Length: "55", ETag: "W/"37-Dl90swnk/weRTEu+xH7mvR2IkvA"", …}statusCode: 403__proto__: Object(env: Windows,mp,2.01.2510260; lib: 3.15.2)
+
+后端报错信息：[HttpExceptionFilter] Forbidden resource
+ForbiddenException: Forbidden resource
+    at canActivateFn (F:\swcup2026\backend\node_modules\@nestjs\core\router\router-execution-context.js:137:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
