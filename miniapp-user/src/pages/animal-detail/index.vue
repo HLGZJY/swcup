@@ -1,13 +1,28 @@
-﻿﻿﻿﻿﻿﻿﻿<template>
+﻿﻿<template>
+  <!-- 主内容 -->
   <view class="page" v-if="animal">
     <!-- 主图轮播 -->
     <view class="photo-section">
-      <swiper class="photo-swiper" circular :indicator-dots="true" indicator-color="rgba(255,255,255,0.4)" indicator-active-color="#FFFFFF">
-        <swiper-item v-for="(photo, idx) in (animal.photos || [])" :key="idx">
-          <image class="photo" :src="resolveImageUrl(photo) || '/static/mock/dog-placeholder.png'" mode="aspectFill" />
+      <swiper
+        class="photo-swiper"
+        circular
+        :indicator-dots="true"
+        indicator-color="rgba(255,255,255,0.4)"
+        indicator-active-color="#FFFFFF"
+      >
+        <swiper-item v-for="(photo, idx) in animal.photos || []" :key="idx">
+          <image
+            class="photo"
+            :src="resolveImageUrl(photo) || '/static/mock/dog-placeholder.png'"
+            mode="aspectFill"
+          />
         </swiper-item>
         <swiper-item v-if="(animal.photos || []).length === 0">
-          <image class="photo" src="/static/mock/dog-placeholder.png" mode="aspectFill" />
+          <image
+            class="photo"
+            src="/static/mock/dog-placeholder.png"
+            mode="aspectFill"
+          />
         </swiper-item>
       </swiper>
       <view :class="['status-badge', 'status-' + animal.status]">
@@ -20,7 +35,9 @@
       <view class="basic-header">
         <view class="basic-title">
           <text class="breed">{{ animal.breed }}</text>
-          <text class="gender">{{ animal.gender === 'male' ? '♂️ 弟弟' : '♀️ 妹妹' }}</text>
+          <text class="gender">{{
+            animal.gender === "male" ? "♂️ 弟弟" : "♀️ 妹妹"
+          }}</text>
         </view>
         <view class="fuse-score" v-if="showFuseScore">
           <text class="score-label">融合得分</text>
@@ -31,7 +48,13 @@
       <view class="info-grid">
         <view class="info-cell">
           <text class="cell-label">物种</text>
-          <text class="cell-value">{{ animal.species === 'dog' ? '🐶 狗狗' : animal.species === 'cat' ? '🐱 猫咪' : '🐾 其他' }}</text>
+          <text class="cell-value">{{
+            animal.species === "dog"
+              ? "🐶 狗狗"
+              : animal.species === "cat"
+                ? "🐱 猫咪"
+                : "🐾 其他"
+          }}</text>
         </view>
         <view class="info-cell">
           <text class="cell-label">颜色</text>
@@ -47,7 +70,9 @@
         </view>
         <view class="info-cell">
           <text class="cell-label">是否绝育</text>
-          <text class="cell-value">{{ animal.sterilized ? '✓ 已绝育' : '✗ 未绝育' }}</text>
+          <text class="cell-value">{{
+            animal.sterilized ? "✓ 已绝育" : "✗ 未绝育"
+          }}</text>
         </view>
         <view class="info-cell">
           <text class="cell-label">发现时间</text>
@@ -60,7 +85,11 @@
     <view class="section location-section" @click="openMap">
       <view class="section-header">
         <view class="section-title-wrap">
-          <image class="section-title-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
+          <image
+            class="section-title-icon"
+            src="/static/icons/icon-mappin.svg"
+            mode="aspectFit"
+          />
           <text class="section-title">发现地点</text>
         </view>
         <text class="map-nav">导航 ›</text>
@@ -68,7 +97,11 @@
       <text class="address-text">{{ animal.address }}</text>
       <view class="map-preview" v-if="animal.location_lat" @click="openMap">
         <view class="map-overlay">
-          <image class="map-icon" src="/static/icons/icon-mappin.svg" mode="aspectFit" />
+          <image
+            class="map-icon"
+            src="/static/icons/icon-mappin.svg"
+            mode="aspectFit"
+          />
           <text>点击查看地图</text>
         </view>
       </view>
@@ -77,7 +110,11 @@
     <!-- 备注信息 -->
     <view class="section notes-section" v-if="animal.notes">
       <view class="section-title-wrap">
-        <image class="section-title-icon" src="/static/icons/icon-filetext.svg" mode="aspectFit" />
+        <image
+          class="section-title-icon"
+          src="/static/icons/icon-filetext.svg"
+          mode="aspectFit"
+        />
         <text class="section-title">备注信息</text>
       </view>
       <text class="notes-text">{{ animal.notes }}</text>
@@ -95,7 +132,6 @@
     <view class="section timeline-section">
       <view class="section-header-row">
         <text class="section-title">📋 事件时间线</text>
-        <!-- 阶段 3 (2026-07-06): 跳到独立时间轴页 -->
         <text class="timeline-entry" @click="goTimeline">查看完整时间轴 ›</text>
       </view>
       <view class="timeline">
@@ -103,14 +139,18 @@
           <view class="timeline-dot"></view>
           <view class="timeline-content">
             <text class="timeline-title">首次发现</text>
-            <text class="timeline-time">{{ formatDate(animal.first_seen_at) }}</text>
+            <text class="timeline-time">{{
+              formatDate(animal.first_seen_at)
+            }}</text>
           </view>
         </view>
         <view class="timeline-item">
           <view class="timeline-dot active"></view>
           <view class="timeline-content">
             <text class="timeline-title">最近更新</text>
-            <text class="timeline-time">{{ formatDate(animal.last_seen_at) }}</text>
+            <text class="timeline-time">{{
+              formatDate(animal.last_seen_at)
+            }}</text>
           </view>
         </view>
         <view class="timeline-item" v-if="animal.status === 'claimed'">
@@ -123,231 +163,313 @@
       </view>
     </view>
 
-    <!-- 底部操作栏 -->
+    <!-- 评论入口 - 移入 page 内部 -->
+    <navigator
+      :url="'/pages/animal-detail/comments?animal_id=' + animalId"
+      hover-class="none"
+      class="comments-entry"
+      v-if="animal.animal_id"
+    >
+      <text class="comments-entry-text">查看评论 ({{ commentCount }})</text>
+    </navigator>
+
+    <!-- 底部操作栏 - 未认领状态 -->
     <view class="bottom-bar" v-if="animal.status !== 'claimed'">
       <view class="bar-left">
         <view class="bar-icon-btn" @click="onShare">
-          <image class="icon-img" src="/static/icons/icon-share.svg" mode="aspectFit" />
+          <image
+            class="icon-img"
+            src="/static/icons/icon-share.svg"
+            mode="aspectFit"
+          />
           <text class="label">分享</text>
         </view>
         <view class="bar-icon-btn" @click="onCollect">
-          <image class="icon-img" src="/static/icons/icon-fingerprint.svg" mode="aspectFit" />
+          <image
+            class="icon-img"
+            src="/static/icons/icon-fingerprint.svg"
+            mode="aspectFit"
+          />
           <text class="label">鼻纹</text>
         </view>
       </view>
-      <!-- 阶段 3 (2026-07-06): 拆成"我又看到这只"+"申请认领"两按钮 -->
       <view class="action-buttons">
-        <button class="btn-secondary" size="mini" @click="onSighting">我又看到这只</button>
-        <button class="btn-primary" size="mini" @click="onClaim">申请认领</button>
+        <button class="btn-secondary" size="mini" @click="onSighting">
+          我又看到这只
+        </button>
+        <button class="btn-primary" size="mini" @click="onClaim">
+          申请认领
+        </button>
       </view>
     </view>
 
-    <!-- 已认领状态 -->
-    <view class="bottom-bar" v-else>
+    <!-- 底部操作栏 - 已认领状态 -->
+    <view class="bottom-bar" v-if="animal.status === 'claimed'">
       <view class="claimed-notice">
         <text>该动物已被认领，等待审核中</text>
       </view>
     </view>
   </view>
 
-<navigator :url="'/pages/animal-detail/comments?animal_id=' + animalId" hover-class="none" class="comments-entry" v-if="animal && animal.animal_id"><text class="comments-entry-text">查看评论 ({{ commentCount }})</text></navigator>
-  <view class="page-loading" v-else>
+  <!-- 加载状态 - 独立的 v-if，不与 v-else 关联 -->
+  <view class="page-loading" v-if="!animal">
     <text>加载中...</text>
   </view>
 </template>
 
-<script lang="ts">
-import { resolveImageUrl } from '@/services/api'
-export default {
-  data() {
-    return {
-      statusMap: {
-        lost: '走失中', found: '发现中', claimed: '待认领', archived: '已归档'
-      },
-      commentCount: 0,
-      animalId: ''
-    }
-  },
-  onLoad(query: any) {
-    this.animalId = query?.animal_id || 'a001'
-  },
-  onShow() {
-    if (!this.animalId) return
-    apiGetComments(this.animalId, { limit: 1, offset: 0 }).then((cr: any) => {
-      if (cr && cr.code === 0 && typeof cr.data?.total === 'number') {
-        this.commentCount = cr.data.total
-      }
-    }).catch(() => { /* */ })
-  },
-  onShareAppMessage() {
-    const pages = getCurrentPages()
-    const currentPage = pages[pages.length - 1]
-    const animal = currentPage.animal
-    if (!animal) return {}
-    return {
-      title: `${animal.breed} ${this.statusMap[animal.status]} | ${animal.address}`,
-      imageUrl: resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png',
-      path: `/pages/animal-detail/index?animal_id=${animal.animal_id}`
-    }
-  },
-  onShareTimeline() {
-    const pages = getCurrentPages()
-    const currentPage = pages[pages.length - 1]
-    const animal = currentPage.animal
-    if (!animal) return {}
-    return {
-      title: `${animal.breed} ${this.statusMap[animal.status]}`,
-      imageUrl: resolveImageUrl(animal.photos?.[0]) || '/static/mock/dog-placeholder.png',
-      query: `animal_id=${animal.animal_id}`
-    }
-  }
-}
-</script>
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { apiGetAnimalDetail, apiGetComments, resolveImageUrl } from '@/services/api'
+import { ref, onMounted } from "vue";
+import {
+  onLoad,
+  onShow,
+  onShareAppMessage,
+  onShareTimeline,
+} from "@dcloudio/uni-app";
+import {
+  apiGetAnimalDetail,
+  apiCreateSighting,
+  apiGetComments,
+  resolveImageUrl,
+} from "@/services/api";
 
-const animal = ref<any>(null)
-const showFuseScore = ref(false)
-const fuseScore = ref(0)
+const animal = ref<any>(null);
+const showFuseScore = ref(false);
+const fuseScore = ref(0);
+const commentCount = ref(0);
+const animalId = ref("");
 
 const statusMap: Record<string, string> = {
-  lost: '走失中', found: '发现中', claimed: '待认领', archived: '已归档'
-}
+  lost: "走失中",
+  found: "发现中",
+  claimed: "待认领",
+  archived: "已归档",
+};
 
 const ageMap: Record<string, string> = {
-  puppy: '幼年', adult: '成年', senior: '老年', unknown: '未知'
-}
+  puppy: "幼年",
+  adult: "成年",
+  senior: "老年",
+  unknown: "未知",
+};
 
 const healthMap: Record<string, string> = {
-  healthy: '健康', injured: '受伤', ill: '生病', unknown: '未知'
-}
+  healthy: "健康",
+  injured: "受伤",
+  ill: "生病",
+  unknown: "未知",
+};
 
+// 页面加载
+onLoad((query: any) => {
+  animalId.value = query?.animal_id || "a001";
+});
+
+// 页面显示 - 获取评论数
+onShow(() => {
+  if (!animalId.value) return;
+  apiGetComments(animalId.value, { limit: 1, offset: 0 })
+    .then((cr: any) => {
+      if (cr && cr.code === 0 && typeof cr.data?.total === "number") {
+        commentCount.value = cr.data.total;
+      }
+    })
+    .catch(() => {
+      // 静默失败
+    });
+});
+
+// 页面挂载 - 获取详情
 onMounted(async () => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const animalId = currentPage?.options?.animal_id || 'a001'
-
-  uni.showLoading({ title: '加载中...' })
+  uni.showLoading({ title: "加载中..." });
   try {
-    const res: any = await apiGetAnimalDetail(animalId)
+    const res: any = await apiGetAnimalDetail(animalId.value);
     if (res.code === 0) {
-      animal.value = res.data
-      // 评论数由 options api onShow 拉,保持单一数据源    }
+      animal.value = res.data;
+    }
     // 检查是否有融合得分
-    const score = uni.getStorageSync('currentFuseScore')
+    const score = uni.getStorageSync("currentFuseScore");
     if (score) {
-      showFuseScore.value = true
-      fuseScore.value = score
+      showFuseScore.value = true;
+      fuseScore.value = score;
     }
   } catch (e) {
-    console.error('获取融合得分失败', e)
+    console.error("获取数据失败", e);
   }
-  uni.hideLoading()
+  uni.hideLoading();
 
   // 启用分享菜单
   uni.showShareMenu({
     withShareTicket: true,
-    menus: ['shareAppMessage', 'shareTimeline']
-  })
-})
+    menus: ["shareAppMessage", "shareTimeline"],
+  });
+});
 
+// 分享给朋友
+onShareAppMessage(() => {
+  if (!animal.value) return {};
+  return {
+    title: `${animal.value.breed} ${statusMap[animal.value.status]} | ${animal.value.address}`,
+    imageUrl:
+      resolveImageUrl(animal.value.photos?.[0]) ||
+      "/static/mock/dog-placeholder.png",
+    path: `/pages/animal-detail/index?animal_id=${animal.value.animal_id}`,
+  };
+});
+
+// 分享到朋友圈
+onShareTimeline(() => {
+  if (!animal.value) return {};
+  return {
+    title: `${animal.value.breed} ${statusMap[animal.value.status]}`,
+    imageUrl:
+      resolveImageUrl(animal.value.photos?.[0]) ||
+      "/static/mock/dog-placeholder.png",
+    query: `animal_id=${animal.value.animal_id}`,
+  };
+});
+
+// 格式化日期
 function formatDate(isoString: string) {
-  const d = new Date(isoString)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const d = new Date(isoString);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// 打开地图
 function openMap() {
   if (!animal.value?.location_lat || !animal.value?.location_lng) {
-    uni.showToast({ title: '暂无位置坐标', icon: 'none' })
-    return
+    uni.showToast({ title: "暂无位置坐标", icon: "none" });
+    return;
   }
-  const name = animal.value.address || `${animal.value.location_lat},${animal.value.location_lng}`
+  const name =
+    animal.value.address ||
+    `${animal.value.location_lat},${animal.value.location_lng}`;
   uni.openLocation({
     latitude: Number(animal.value.location_lat),
     longitude: Number(animal.value.location_lng),
     name,
     address: animal.value.address,
     fail: (err) => {
-      console.error('openLocation fail', err)
-      uni.showToast({ title: '地图打开失败', icon: 'none' })
-    }
-  })
+      console.error("openLocation fail", err);
+      uni.showToast({ title: "地图打开失败", icon: "none" });
+    },
+  });
 }
 
-function getStaticMapUrl(lat: number | string, lng: number | string) {
-  console.log('getStaticMapUrl 被调用, lat:', lat, 'lng:', lng)
-  const key = 'OB4BZ-D4W3R-BMFVO-3CJEN-3Y6LZ-G7F6Q'
-  const latStr = String(lat)
-  const lngStr = String(lng)
-  const url = `https://apis.map.qq.com/ws/staticmap/v2?center=${latStr},${lngStr}&zoom=15&size=400*300&maptype=roadmap&markers=size:large|color:0xFF6B6B|${latStr},${lngStr}&key=${key}`
-  console.log('生成的地图URL:', url)
-  return url
-}
-
+// 分享按钮（提示用户使用右上角菜单）
 function onShare() {
-  // 微信小程序不支持直接调起分享对话框，需要通过原生分享菜单
-  // 用户点击右上角···菜单才能分享
-  // showShareMenu 已在 onMounted 中启用
-  uni.showToast({ title: '请点击右上角···分享', icon: 'none', duration: 2000 })
+  uni.showToast({ title: "请点击右上角···分享", icon: "none", duration: 2000 });
 }
 
+// 鼻纹采集
 function onCollect() {
-  const id = animal.value?.animal_id
+  const id = animal.value?.animal_id;
   if (!id) {
-    uni.showToast({ title: '档案信息缺失', icon: 'none' })
-    return
+    uni.showToast({ title: "档案信息缺失", icon: "none" });
+    return;
   }
-  uni.navigateTo({ url: `/pages/collect/index?animal_id=${id}` })
+  uni.navigateTo({ url: `/pages/collect/index?animal_id=${id}` });
 }
 
+// 申请认领
 function onClaim() {
-  if (!animal.value) return
+  if (!animal.value) return;
   uni.navigateTo({
-    url: `/pages/claim/index?animal_id=${animal.value.animal_id}`
-  })
+    url: `/pages/claim/index?animal_id=${animal.value.animal_id}`,
+  });
 }
 
-// 阶段 3 (2026-07-06): 用户上报又看到这只动物,带 animal_id 跳到 report 页
-// BUG-018 (2026-07-06): report 是 tabBar 页面, navigateTo 不可达,改用 setStorageSync + switchTab
-//  (report 的 onShow 会读取 'pending_sighting_animal_id' 并写回 linkedAnimalId)
-function onSighting() {
-  const id = animal.value?.animal_id
+// 【2026-07-09 重构】二次目击 — 直接调 POST /animals/:id/sightings,不入审核流
+//   旧流程: setStorageSync(pending_sighting_animal_id) + switchTab 到 report/index 多步表单
+//   新流程: 拿当前位置,调 sightings 接口,refresh 列表
+async function onSighting() {
+  const id = animal.value?.animal_id;
   if (!id) {
-    uni.showToast({ title: '档案信息缺失', icon: 'none' })
-    return
+    uni.showToast({ title: "档案信息缺失", icon: "none" });
+    return;
   }
-  uni.setStorageSync('pending_sighting_animal_id', id)
-  uni.switchTab({ url: '/pages/report/index' })
+  try {
+    // 取当前位置 (无 GPS 时用兜底坐标 0,后端允许)
+    let lat: number | null = null;
+    let lng: number | null = null;
+    try {
+      const loc: any = await uni.getLocation({ type: "gcj02" });
+      if (loc && loc.latitude && loc.longitude) {
+        lat = Number(loc.latitude);
+        lng = Number(loc.longitude);
+      }
+    } catch {
+      // 静默,允许 lat/lng 为 null
+    }
+
+    await apiCreateSighting(id, {
+      reporter_lat: lat ?? 0,
+      reporter_lng: lng ?? 0,
+      photos: [],
+      seen_at: new Date().toISOString(),
+    });
+
+    uni.showToast({ title: "已记录最新目击位置", icon: "success" });
+    // 刷新当前动物详情(更新 last_seen_at/address)
+    const res: any = await apiGetAnimalDetail(id);
+    if (res.code === 0) {
+      animal.value = res.data;
+    }
+  } catch (e: any) {
+    console.error("[onSighting] 失败", e);
+    uni.showToast({ title: "记录失败,请重试", icon: "none" });
+  }
 }
 
-// 阶段 3 (2026-07-06): 跳到独立时间轴页
+// 跳转到完整时间轴
 function goTimeline() {
-  const id = animal.value?.animal_id
+  const id = animal.value?.animal_id;
   if (!id) {
-    uni.showToast({ title: '档案信息缺失', icon: 'none' })
-    return
+    uni.showToast({ title: "档案信息缺失", icon: "none" });
+    return;
   }
-  uni.navigateTo({ url: `/pages/animal-detail/timeline?id=${id}` })
+  uni.navigateTo({ url: `/pages/animal-detail/timeline?id=${id}` });
 }
-</script>
 
+// 暴露方法给模板使用
+defineExpose({
+  animal,
+  showFuseScore,
+  fuseScore,
+  commentCount,
+  animalId,
+  statusMap,
+  ageMap,
+  healthMap,
+  formatDate,
+  openMap,
+  onShare,
+  onCollect,
+  onClaim,
+  onSighting,
+  goTimeline,
+  resolveImageUrl,
+});
+</script>
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  background: #F5F5F5;
-  padding-bottom: 160rpx;
+  background: #f5f5f5;
+  padding-bottom: 200rpx; /* 增加底部内边距，为固定底部栏腾出更多空间 */
+  position: relative;
 }
 
+/* 加载状态 */
 .page-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
   color: #999999;
+  font-size: 28rpx;
+  background: #f5f5f5;
 }
 
+/* 轮播区域 */
 .photo-section {
   position: relative;
 }
@@ -359,9 +481,10 @@ function goTimeline() {
 .photo {
   width: 100%;
   height: 100%;
-  background: #E8FDF8;
+  background: #e8fdf8;
 }
 
+/* 状态标签 */
 .status-badge {
   position: absolute;
   top: 24rpx;
@@ -369,18 +492,32 @@ function goTimeline() {
   padding: 8rpx 24rpx;
   border-radius: 24rpx;
   font-size: 24rpx;
-  color: #FFFFFF;
-  background: #FF6B6B;
+  color: #ffffff;
+  background: #ff6b6b;
+  z-index: 10;
 }
 
-.status-found { background: #0FBF9F !important; }
-.status-claimed { background: #FF9F00 !important; }
+.status-found {
+  background: #0fbf9f !important;
+}
+.status-claimed {
+  background: #ff9f00 !important;
+}
+.status-archived {
+  background: #999999 !important;
+}
 
+/* 通用区块 */
 .section {
-  background: #FFFFFF;
+  background: #ffffff;
   margin: 24rpx;
   border-radius: 16rpx;
   padding: 32rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.section:first-of-type {
+  margin-top: 24rpx;
 }
 
 .section-header {
@@ -390,65 +527,10 @@ function goTimeline() {
   margin-bottom: 24rpx;
 }
 
-.breed {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: #1A1A1A;
-  display: block;
-}
-
-.gender {
-  font-size: 26rpx;
-  color: #666666;
-  display: block;
-  margin-top: 4rpx;
-}
-
-.fuse-score {
-  text-align: right;
-}
-
-.score-label {
-  font-size: 20rpx;
-  color: #999999;
-  display: block;
-}
-
-.score-val {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: #0FBF9F;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16rpx;
-}
-
-.info-cell {
-  background: #FAFAFA;
-  padding: 16rpx;
-  border-radius: 12rpx;
-}
-
-.cell-label {
-  font-size: 22rpx;
-  color: #999999;
-  display: block;
-  margin-bottom: 4rpx;
-}
-
-.cell-value {
-  font-size: 26rpx;
-  color: #1A1A1A;
-  font-weight: 600;
-}
-
-.section-header {
+.section-header-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
 .section-title-wrap {
@@ -466,12 +548,86 @@ function goTimeline() {
 .section-title {
   font-size: 28rpx;
   font-weight: 600;
-  color: #1A1A1A;
+  color: #1a1a1a;
+}
+
+/* 基本信息 */
+.basic-section .basic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24rpx;
+}
+
+.basic-title {
+  flex: 1;
+}
+
+.breed {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1a1a1a;
+  display: block;
+}
+
+.gender {
+  font-size: 26rpx;
+  color: #666666;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.fuse-score {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.score-label {
+  font-size: 20rpx;
+  color: #999999;
+  display: block;
+}
+
+.score-val {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #0fbf9f;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.info-cell {
+  background: #fafafa;
+  padding: 16rpx;
+  border-radius: 12rpx;
+}
+
+.cell-label {
+  font-size: 22rpx;
+  color: #999999;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.cell-value {
+  font-size: 26rpx;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+/* 位置信息 */
+.location-section {
+  cursor: pointer;
 }
 
 .map-nav {
   font-size: 24rpx;
-  color: #0FBF9F;
+  color: #0fbf9f;
 }
 
 .address-text {
@@ -479,21 +635,16 @@ function goTimeline() {
   color: #666666;
   margin-top: 8rpx;
   display: block;
+  line-height: 1.5;
 }
 
 .map-preview {
   height: 320rpx;
-  background: linear-gradient(135deg, #E8FDF8 0%, #D0F0E8 100%);
+  background: linear-gradient(135deg, #e8fdf8 0%, #d0f0e8 100%);
   border-radius: 24rpx;
   margin-top: 16rpx;
   overflow: hidden;
   position: relative;
-}
-
-.map-icon {
-  width: 80rpx;
-  height: 80rpx;
-  margin-bottom: 12rpx;
 }
 
 .map-overlay {
@@ -509,12 +660,13 @@ function goTimeline() {
 
 .map-overlay text {
   font-size: 24rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   background: rgba(255, 255, 255, 0.8);
   padding: 8rpx 24rpx;
   border-radius: 20rpx;
 }
 
+/* 备注信息 */
 .notes-text {
   font-size: 26rpx;
   color: #666666;
@@ -523,6 +675,7 @@ function goTimeline() {
   margin-top: 12rpx;
 }
 
+/* 标签 */
 .tags-list {
   display: flex;
   flex-wrap: wrap;
@@ -532,12 +685,13 @@ function goTimeline() {
 
 .tag {
   font-size: 24rpx;
-  color: #0FBF9F;
-  background: #E8FDF8;
+  color: #0fbf9f;
+  background: #e8fdf8;
   padding: 8rpx 20rpx;
   border-radius: 20rpx;
 }
 
+/* 时间线 */
 .timeline {
   margin-top: 16rpx;
   padding-left: 24rpx;
@@ -551,13 +705,13 @@ function goTimeline() {
 }
 
 .timeline-item::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 10rpx;
   top: 24rpx;
   bottom: -24rpx;
   width: 2rpx;
-  background: #EEEEEE;
+  background: #eeeeee;
 }
 
 .timeline-item:last-child::before {
@@ -568,14 +722,14 @@ function goTimeline() {
   width: 20rpx;
   height: 20rpx;
   border-radius: 50%;
-  background: #CCCCCC;
+  background: #cccccc;
   margin-right: 16rpx;
   flex-shrink: 0;
   margin-top: 4rpx;
 }
 
 .timeline-dot.active {
-  background: #0FBF9F;
+  background: #0fbf9f;
 }
 
 .timeline-content {
@@ -584,7 +738,7 @@ function goTimeline() {
 
 .timeline-title {
   font-size: 26rpx;
-  color: #1A1A1A;
+  color: #1a1a1a;
   font-weight: 600;
   display: block;
 }
@@ -596,6 +750,40 @@ function goTimeline() {
   margin-top: 4rpx;
 }
 
+.timeline-entry {
+  color: #0fbf9f;
+  font-size: 26rpx;
+  cursor: pointer;
+}
+
+/* 评论入口 */
+.comments-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 2rpx solid #0fbf9f;
+  border-radius: 32rpx;
+  padding: 18rpx 0;
+  margin: 24rpx 32rpx;
+  font-size: 28rpx;
+  color: #0fbf9f;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.comments-entry:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+.comments-entry-text {
+  font-size: 28rpx;
+  color: #0fbf9f;
+}
+
+/* 底部固定栏 */
 .bottom-bar {
   position: fixed;
   bottom: 0;
@@ -604,9 +792,28 @@ function goTimeline() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16rpx 32rpx 48rpx;
-  background: #FFFFFF;
-  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.06);
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom, 32rpx));
+  background: #ffffff;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bottom-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1rpx;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.06),
+    transparent
+  );
 }
 
 .bar-left {
@@ -618,10 +825,12 @@ function goTimeline() {
   display: flex;
   flex-direction: column;
   align-items: center;
+  cursor: pointer;
+  padding: 8rpx 4rpx;
 }
 
-.icon {
-  font-size: 36rpx;
+.bar-icon-btn:active {
+  opacity: 0.6;
 }
 
 .icon-img {
@@ -635,49 +844,58 @@ function goTimeline() {
   margin-top: 4rpx;
 }
 
-.btn-claim {
-  background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%);
-  color: #FFFFFF;
-  padding: 24rpx 64rpx;
-  border-radius: 40rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(255, 107, 107, 0.3);
+.action-buttons {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-buttons button {
+  flex: 1;
+  min-width: 160rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 26rpx;
+  border-radius: 32rpx;
+  border: none;
+  padding: 0 24rpx;
+  margin: 0;
+  font-weight: 500;
+}
+
+.btn-secondary {
+  background: #f2f2f2;
+  color: #333333;
+}
+
+.btn-secondary:active {
+  background: #e5e5e5;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #ff6b6b 0%, #e53a3a 100%);
+  color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(255, 107, 107, 0.3);
+}
+
+.btn-primary:active {
+  opacity: 0.85;
+  transform: scale(0.96);
 }
 
 .claimed-notice {
   flex: 1;
   text-align: center;
-  background: #F5F5F5;
-  padding: 24rpx;
+  background: #f5f5f5;
+  padding: 20rpx 24rpx;
   border-radius: 12rpx;
   font-size: 26rpx;
   color: #666666;
 }
 
-/* 阶段 3 (2026-07-06): 时间轴头部布局 + 并排按钮 */
-.section-header-row { display: flex; align-items: center; justify-content: space-between; }
-.timeline-entry { color: #0FBF9F; font-size: 26rpx; }
-.action-buttons { display: flex; gap: 16rpx; }
-.action-buttons button { flex: 1; }
-.btn-secondary { background: #F2F2F2; color: #333333; }
-.btn-primary { background: linear-gradient(135deg, #FF6B6B 0%, #E53A3A 100%); color: #FFFFFF; }
-
-/* 阶段 A 评论 (2026-07-06): 详情页入口 */
-.comments-entry {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #FFFFFF;
-  border: 2rpx solid #0FBF9F;
-  border-radius: 32rpx;
-  padding: 18rpx 0;
-  margin: 20rpx 32rpx;
-  font-size: 28rpx;
-  color: #0FBF9F;
-}
-.comments-entry-text {
-  font-size: 28rpx;
-  color: #0FBF9F;
+/* 工具类 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
