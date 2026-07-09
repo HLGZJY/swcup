@@ -47,3 +47,9 @@ Thumbs.db
 /submission/video/
 /submission/assets/architecture/old/
 /submission/assets/training/old/
+
+# Jest 测试运行临时产物（不入仓）
+/backend/test-results/
+
+# AI 服务参考项目目录（不入仓，运行时按需克隆）
+/ai-service/参考项目/
