@@ -44,15 +44,19 @@
         </view>
       </view>
 
-      <!-- 底部：操作按钮 -->
+      <!-- 底部：操作按钮 — 流程文档第2节:三按钮固定(驳回/同意新建/合并) -->
       <view class="card-footer">
         <view class="action-btn reject" @click.stop="$emit('reject', event)" aria-label="驳回">
           <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
           <text>驳回</text>
         </view>
-        <view class="action-btn confirm" @click.stop="$emit('confirm', event)" aria-label="确认通过">
-          <image class="action-icon" src="/static/icons/icon-check.svg" mode="aspectFit" />
-          <text>确认通过</text>
+        <view class="action-btn create-new" @click.stop="$emit('create-new', event)" aria-label="同意新建">
+          <image class="action-icon" src="/static/icons/icon-plus.svg" mode="aspectFit" />
+          <text>同意新建</text>
+        </view>
+        <view class="action-btn merge" @click.stop="$emit('merge', event)" aria-label="合并">
+          <image class="action-icon" src="/static/icons/icon-merge.svg" mode="aspectFit" />
+          <text>合并</text>
         </view>
       </view>
     </view>
@@ -78,10 +82,14 @@ interface Event {
 
 const props = defineProps<{ event: Event }>()
 
+// 【P1 合规改造 2026-07-09】三按钮事件:reject / create-new / merge
+//   原 confirm (调 apiConfirmEvent,旧 API 误用为"确认通过") 已删除,语义与三按钮冲突
+//   merge 跳转到 audit-detail 页(卡片层无候选列表,候选选择需在详情页完成)
 defineEmits<{
   (e: 'click', event: Event): void
-  (e: 'confirm', event: Event): void
   (e: 'reject', event: Event): void
+  (e: 'create-new', event: Event): void
+  (e: 'merge', event: Event): void
 }>()
 
 const eventTypeMap: Record<string, string> = {
@@ -313,17 +321,34 @@ function formatEventAddress(event: any) {
   height: 24rpx;
 }
 
-.action-btn.confirm {
+.action-btn.confirm,
+.action-btn.create-new {
   background: linear-gradient(135deg, #0FBF9F 0%, #07C160 100%);
   color: #FFFFFF;
   box-shadow: 0 4rpx 12rpx rgba(15, 191, 159, 0.25);
 }
 
-.action-btn.confirm .action-icon {
+.action-btn.confirm .action-icon,
+.action-btn.create-new .action-icon {
   filter: brightness(0) invert(1);
 }
 
-.action-btn.confirm:active {
+.action-btn.confirm:active,
+.action-btn.create-new:active {
+  opacity: 0.85;
+}
+
+.action-btn.merge {
+  background: linear-gradient(135deg, #4C90E6 0%, #9B7BFF 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 12rpx rgba(76, 144, 230, 0.25);
+}
+
+.action-btn.merge .action-icon {
+  filter: brightness(0) invert(1);
+}
+
+.action-btn.merge:active {
   opacity: 0.85;
 }
 

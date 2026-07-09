@@ -20,28 +20,29 @@
       <view
         v-if="t.badge && t.badge > 0"
         :class="['tab-badge', t.badgeClass]"
-      >{{ t.badge }}</view>
+        >{{ t.badge }}</view
+      >
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 export interface AuditTabItem {
-  key: string
-  label: string
-  icon: string
-  badge?: number
-  badgeClass?: string
+  key: string;
+  label: string;
+  icon: string;
+  badge?: number;
+  badgeClass?: string;
 }
 
 defineProps<{
-  modelValue: string
-  tabs: AuditTabItem[]
-}>()
+  modelValue: string;
+  tabs: AuditTabItem[];
+}>();
 
 defineEmits<{
-  'update:modelValue': [key: string]
-}>()
+  "update:modelValue": [key: string];
+}>();
 </script>
 
 <style scoped>
@@ -65,19 +66,22 @@ defineEmits<{
   position: relative;
   transition: background 0.2s;
 }
+/* 原红色渐变替换为深黑白渐变，和顶部header匹配 */
 .tab-item.active {
-  background: linear-gradient(135deg, #ff6b6b 0%, #e53a3a 100%);
+  background: linear-gradient(135deg, #383838 0%, #1a1a1a 100%);
 }
 .tab-item.active .tab-text {
   color: #ffffff;
   font-weight: 600;
 }
 .tab-item.active .tab-icon {
-  color: #ffffff;
+  /* svg图标强制白色 */
+  filter: brightness(100);
 }
+/* 默认事件角标激活态：白底+深灰文字 */
 .tab-item.active .tab-badge {
   background: #ffffff;
-  color: #ff6b6b;
+  color: #222222;
 }
 .tab-icon {
   width: 32rpx;

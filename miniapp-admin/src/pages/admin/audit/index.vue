@@ -24,9 +24,26 @@
     <AuditTab
       v-model="currentTab"
       :tabs="[
-        { key: 'events', label: '事件审核', icon: '/static/icons/icon-event.svg', badge: pendingEvents },
-        { key: 'claims', label: '认领审核', icon: '/static/icons/icon-shield.svg', badge: pendingClaims, badgeClass: 'tab-badge--claim' },
-        { key: 'clues',  label: '线索审核', icon: '/static/icons/icon-target.svg', badge: pendingClues,  badgeClass: 'tab-badge--clue' },
+        {
+          key: 'events',
+          label: '事件审核',
+          icon: '/static/icons/icon-event.svg',
+          badge: pendingEvents,
+        },
+        {
+          key: 'claims',
+          label: '认领审核',
+          icon: '/static/icons/icon-shield.svg',
+          badge: pendingClaims,
+          badgeClass: 'tab-badge--claim',
+        },
+        {
+          key: 'clues',
+          label: '线索审核',
+          icon: '/static/icons/icon-target.svg',
+          badge: pendingClues,
+          badgeClass: 'tab-badge--clue',
+        },
       ]"
     />
     <!-- 【2026-07-09 重构】待审鼻纹 tab 已删除:pending_nose_records 表废弃,审核统一走 3 按钮 -->
@@ -47,8 +64,9 @@
         v-for="item in events"
         :key="item.event_id"
         :event="item"
-        @confirm="onConfirmEvent(item.event_id)"
         @reject="onRejectEvent(item.event_id)"
+        @create-new="onCreateNew(item.event_id)"
+        @merge="onMerge(item.event_id)"
         @click="goToDetail(item.event_id)"
       />
     </view>
@@ -165,41 +183,82 @@
         <view v-for="item in clues" :key="item.match_id" class="clue-card">
           <view class="clue-header">
             <view class="score-badge" :class="scoreClass(item.match_score)">
-              <text class="score-num">{{ Math.round((item.match_score || 0) * 100) }}</text>
+              <text class="score-num">{{
+                Math.round((item.match_score || 0) * 100)
+              }}</text>
               <text class="score-label">score</text>
             </view>
             <view class="meta">
-              <text :class="['sentiment-tag', 'sentiment-' + item.sentiment]">{{ item.sentiment }}</text>
-              <text class="recorded-time">{{ formatTime(item.recorded_at) }}</text>
+              <text :class="['sentiment-tag', 'sentiment-' + item.sentiment]">{{
+                item.sentiment
+              }}</text>
+              <text class="recorded-time">{{
+                formatTime(item.recorded_at)
+              }}</text>
             </view>
           </view>
           <view class="clue-body">
             <view class="comment-block">
               <text class="comment-label">用户评论</text>
-              <text class="comment-content">{{ commentPreview[item.comment_id] || '加载中...' }}</text>
-              <view class="keyword-row" v-if="item.keywords && item.keywords.length">
-                <text class="kw-chip" v-for="k in item.keywords" :key="k">{{ k }}</text>
+              <text class="comment-content">{{
+                commentPreview[item.comment_id] || "加载中..."
+              }}</text>
+              <view
+                class="keyword-row"
+                v-if="item.keywords && item.keywords.length"
+              >
+                <text class="kw-chip" v-for="k in item.keywords" :key="k">{{
+                  k
+                }}</text>
               </view>
             </view>
-            <view class="arrow-line"><text class="arrow-text">↓ 匹配到 ↓</text></view>
+            <view class="arrow-line"
+              ><text class="arrow-text">↓ 匹配到 ↓</text></view
+            >
             <view class="event-block">
               <text class="event-label">候选事件</text>
               <view class="event-info-row">
-                <text class="event-eventid">#{{ (item.candidate_event_id || '').slice(0, 8) }}</text>
-                <text class="event-address">{{ item.candidate_event_address || '(无地址)' }}</text>
+                <text class="event-eventid"
+                  >#{{ (item.candidate_event_id || "").slice(0, 8) }}</text
+                >
+                <text class="event-address">{{
+                  item.candidate_event_address || "(无地址)"
+                }}</text>
               </view>
-              <view class="match-reasons" v-if="item.match_reasons && item.match_reasons.length">
-                <text class="reason" v-for="(r, i) in item.match_reasons" :key="i">• {{ r }}</text>
+              <view
+                class="match-reasons"
+                v-if="item.match_reasons && item.match_reasons.length"
+              >
+                <text
+                  class="reason"
+                  v-for="(r, i) in item.match_reasons"
+                  :key="i"
+                  >• {{ r }}</text
+                >
               </view>
             </view>
           </view>
           <view class="clue-actions">
-            <view class="action-btn reject" @click="onDecideClue(item, 'rejected')">
-              <image class="action-icon" src="/static/icons/icon-x.svg" mode="aspectFit" />
+            <view
+              class="action-btn reject"
+              @click="onDecideClue(item, 'rejected')"
+            >
+              <image
+                class="action-icon"
+                src="/static/icons/icon-x.svg"
+                mode="aspectFit"
+              />
               <text>驳回</text>
             </view>
-            <view class="action-btn approve" @click="onDecideClue(item, 'confirmed')">
-              <image class="action-icon" src="/static/icons/icon-check.svg" mode="aspectFit" />
+            <view
+              class="action-btn approve"
+              @click="onDecideClue(item, 'confirmed')"
+            >
+              <image
+                class="action-icon"
+                src="/static/icons/icon-check.svg"
+                mode="aspectFit"
+              />
               <text>确认关联</text>
             </view>
           </view>
@@ -214,8 +273,8 @@ import { ref, computed, onMounted } from "vue";
 import {
   apiGetAdminEvents,
   apiGetAdminClaims,
-  apiConfirmEvent,
   apiRejectEvent,
+  apiCreateAnimalFromEvent,
   apiApproveClaim,
   apiRejectClaim,
   apiUpdateAnimal,
@@ -237,10 +296,7 @@ const pendingClues = ref(0);
 const loading = ref(true);
 // 【2026-07-09 重构】pendingNoseRecords 已删除
 const pendingTotal = computed(
-  () =>
-    pendingEvents.value +
-    pendingClaims.value +
-    pendingClues.value,
+  () => pendingEvents.value + pendingClaims.value + pendingClues.value,
 );
 
 onMounted(() => {
@@ -311,27 +367,37 @@ function goToDetail(eventId: string) {
   });
 }
 
-async function onConfirmEvent(eventId: string) {
+async function onCreateNew(eventId: string) {
+  // 【P1 合规改造 2026-07-09】三按钮"同意新建"事件
+  // 流程文档第2节:三按钮固定 (驳回 / 同意新建 / 合并)
+  // "同意新建" = admin 显式创建全新动物档案,animal.status 由 event.intent 决定
+  // 后端: PUT /admin/events/:id/action body.action='create_new'
   uni.showModal({
-    title: "确认通过",
-    content: "确定要将该事件标记为重复并合并档案吗？",
-    confirmText: "确认",
+    title: "同意新建",
+    content: "确定要为该事件创建一个全新的动物档案吗？",
+    confirmText: "同意新建",
     cancelText: "取消",
     confirmColor: "#07C160",
     success: async (res) => {
       if (res.confirm) {
         try {
-          await apiConfirmEvent(eventId);
-          uni.showToast({ title: "已确认", icon: "success" });
+          await apiCreateAnimalFromEvent(eventId);
+          uni.showToast({ title: "已新建档案", icon: "success" });
           events.value = events.value.filter((e) => e.event_id !== eventId);
           pendingEvents.value = Math.max(0, pendingEvents.value - 1);
         } catch (e) {
-          console.error("确认事件失败", e);
+          console.error("同意新建失败", e);
           uni.showToast({ title: "操作失败", icon: "none" });
         }
       }
     },
   });
+}
+
+function onMerge(eventId: string) {
+  // 【P1 合规改造 2026-07-09】三按钮"合并"事件
+  // 卡片层无候选列表 → 跳转到 audit-detail,在详情页选目标动物后调 apiMergeEvent
+  goToDetail(eventId);
 }
 
 async function onRejectEvent(eventId: string) {
@@ -451,7 +517,8 @@ function scoreClass(s: number) {
 /* ============ 顶部 Hero ============ */
 .hero {
   position: relative;
-  background: linear-gradient(135deg, #ff6b6b 0%, #e53a3a 100%);
+  /* 原红色渐变替换为黑白深灰渐变 */
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d3748 100%);
   padding: 24rpx 32rpx 80rpx;
   overflow: hidden;
 }
@@ -510,14 +577,16 @@ function scoreClass(s: number) {
   backdrop-filter: blur(10rpx);
 }
 
+/* 待审圆形：更深黑白渐变 */
 .hero-stat.has-pending {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(255, 255, 255, 1);
+  background: linear-gradient(135deg, #333333, #111111);
+  border-color: #222222;
 }
 
+/* 已清圆形：浅一点的黑白渐变，区分状态 */
 .hero-stat.all-clear {
-  background: rgba(7, 193, 96, 0.95);
-  border-color: rgba(7, 193, 96, 1);
+  background: linear-gradient(135deg, #555555, #2a2a2a);
+  border-color: #333333;
 }
 
 .hero-stat .stat-num {
@@ -528,7 +597,7 @@ function scoreClass(s: number) {
 }
 
 .hero-stat.has-pending .stat-num {
-  color: #ff6b6b;
+  color: #ffffff;
 }
 .hero-stat.all-clear .stat-num {
   color: #ffffff;
@@ -541,7 +610,7 @@ function scoreClass(s: number) {
 }
 
 .hero-stat.has-pending .stat-label {
-  color: #ff6b6b;
+  color: rgba(255, 255, 255, 0.85);
 }
 .hero-stat.all-clear .stat-label {
   color: rgba(255, 255, 255, 0.9);
@@ -906,15 +975,39 @@ function scoreClass(s: number) {
   border-radius: 12rpx;
   min-width: 80rpx;
 }
-.score-badge.score-high { background: rgba(255, 107, 107, 0.15); }
-.score-badge.score-mid  { background: rgba(255, 159, 0, 0.15); }
-.score-badge.score-low  { background: rgba(153, 153, 153, 0.15); }
-.score-num { font-size: 32rpx; font-weight: 700; line-height: 1; }
-.score-high .score-num { color: #ff6b6b; }
-.score-mid  .score-num { color: #ff9f00; }
-.score-low  .score-num { color: #999999; }
-.score-label { font-size: 16rpx; color: #999; margin-top: 2rpx; }
-.meta { display: flex; flex-direction: column; align-items: flex-end; }
+.score-badge.score-high {
+  background: rgba(255, 107, 107, 0.15);
+}
+.score-badge.score-mid {
+  background: rgba(255, 159, 0, 0.15);
+}
+.score-badge.score-low {
+  background: rgba(153, 153, 153, 0.15);
+}
+.score-num {
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+.score-high .score-num {
+  color: #ff6b6b;
+}
+.score-mid .score-num {
+  color: #ff9f00;
+}
+.score-low .score-num {
+  color: #999999;
+}
+.score-label {
+  font-size: 16rpx;
+  color: #999;
+  margin-top: 2rpx;
+}
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
 .sentiment-tag {
   display: inline-block;
   padding: 4rpx 12rpx;
@@ -922,26 +1015,58 @@ function scoreClass(s: number) {
   font-size: 20rpx;
   margin-bottom: 6rpx;
 }
-.sentiment-tag.sentiment-report  { background: #fff3e0; color: #ff6b6b; }
-.sentiment-tag.sentiment-seek    { background: #e3f2fd; color: #2196f3; }
-.sentiment-tag.sentiment-thanks  { background: #e8f5e9; color: #0fbf9f; }
-.sentiment-tag.sentiment-care    { background: #fce4ec; color: #e91e63; }
-.sentiment-tag.sentiment-neutral { background: #f0f0f0; color: #666666; }
-.recorded-time { font-size: 20rpx; color: #999; }
+.sentiment-tag.sentiment-report {
+  background: #fff3e0;
+  color: #ff6b6b;
+}
+.sentiment-tag.sentiment-seek {
+  background: #e3f2fd;
+  color: #2196f3;
+}
+.sentiment-tag.sentiment-thanks {
+  background: #e8f5e9;
+  color: #0fbf9f;
+}
+.sentiment-tag.sentiment-care {
+  background: #fce4ec;
+  color: #e91e63;
+}
+.sentiment-tag.sentiment-neutral {
+  background: #f0f0f0;
+  color: #666666;
+}
+.recorded-time {
+  font-size: 20rpx;
+  color: #999;
+}
 .clue-body {
   padding: 16rpx 0;
   border-top: 1rpx solid #f0f0f0;
   border-bottom: 1rpx solid #f0f0f0;
 }
-.comment-block, .event-block { padding: 12rpx 0; }
-.comment-label, .event-label {
+.comment-block,
+.event-block {
+  padding: 12rpx 0;
+}
+.comment-label,
+.event-label {
   display: block;
   font-size: 20rpx;
   color: #999;
   margin-bottom: 8rpx;
 }
-.comment-content { display: block; color: #333; font-size: 28rpx; line-height: 1.5; }
-.keyword-row { margin-top: 12rpx; display: flex; flex-wrap: wrap; gap: 8rpx; }
+.comment-content {
+  display: block;
+  color: #333;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+.keyword-row {
+  margin-top: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
 .kw-chip {
   padding: 4rpx 12rpx;
   background: #fff3e0;
@@ -949,18 +1074,73 @@ function scoreClass(s: number) {
   border-radius: 8rpx;
   font-size: 20rpx;
 }
-.arrow-line { text-align: center; padding: 12rpx 0; }
-.arrow-text { color: #999; font-size: 22rpx; letter-spacing: 4rpx; }
-.event-info-row { display: flex; align-items: baseline; gap: 12rpx; }
-.event-eventid { color: #999; font-size: 22rpx; }
-.event-address { color: #333; font-size: 26rpx; flex: 1; }
-.match-reasons { margin-top: 12rpx; padding: 12rpx; background: #fafafa; border-radius: 8rpx; }
-.reason { display: block; color: #666; font-size: 20rpx; line-height: 1.6; }
-.clue-actions { display: flex; gap: 16rpx; padding-top: 16rpx; }
-.clue-actions .action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8rpx; padding: 16rpx; border-radius: 12rpx; }
-.clue-actions .action-btn.reject { background: #fafafa; color: #999; border: 1rpx solid #e0e0e0; }
-.clue-actions .action-btn.approve { background: linear-gradient(135deg, #ff6b6b, #ff9f00); color: #ffffff; }
-.clue-actions .action-icon { width: 28rpx; height: 28rpx; }
-.clue-actions .action-btn text { font-size: 26rpx; font-weight: 600; }
-.clue-actions .action-btn.reject text { color: #999; }
+.arrow-line {
+  text-align: center;
+  padding: 12rpx 0;
+}
+.arrow-text {
+  color: #999;
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+}
+.event-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+.event-eventid {
+  color: #999;
+  font-size: 22rpx;
+}
+.event-address {
+  color: #333;
+  font-size: 26rpx;
+  flex: 1;
+}
+.match-reasons {
+  margin-top: 12rpx;
+  padding: 12rpx;
+  background: #fafafa;
+  border-radius: 8rpx;
+}
+.reason {
+  display: block;
+  color: #666;
+  font-size: 20rpx;
+  line-height: 1.6;
+}
+.clue-actions {
+  display: flex;
+  gap: 16rpx;
+  padding-top: 16rpx;
+}
+.clue-actions .action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx;
+  border-radius: 12rpx;
+}
+.clue-actions .action-btn.reject {
+  background: #fafafa;
+  color: #999;
+  border: 1rpx solid #e0e0e0;
+}
+.clue-actions .action-btn.approve {
+  background: linear-gradient(135deg, #ff6b6b, #ff9f00);
+  color: #ffffff;
+}
+.clue-actions .action-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+.clue-actions .action-btn text {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.clue-actions .action-btn.reject text {
+  color: #999;
+}
 </style>

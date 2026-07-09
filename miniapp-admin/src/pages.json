@@ -4,16 +4,16 @@
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "管理员登录",
-        "navigationBarBackgroundColor": "#1A1A1A",
-        "navigationBarTextStyle": "white"
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
       }
     },
     {
       "path": "pages/admin/index",
       "style": {
         "navigationBarTitleText": "管理后台",
-        "navigationBarBackgroundColor": "#1A1A1A",
-        "navigationBarTextStyle": "white",
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black",
         "enablePullDownRefresh": true
       }
     },
@@ -21,8 +21,8 @@
       "path": "pages/admin/audit/index",
       "style": {
         "navigationBarTitleText": "审核中心",
-        "navigationBarBackgroundColor": "#1A1A1A",
-        "navigationBarTextStyle": "white"
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
       }
     },
     {
@@ -69,7 +69,8 @@
       "path": "pages/animals/detail/index",
       "style": {
         "navigationBarTitleText": "动物档案详情",
-        "navigationBarBackgroundColor": "#FFFFFF"
+        "navigationBarBackgroundColor": "#FFFFFF",
+        "navigationBarTextStyle": "black"
       }
     },
     {
@@ -89,7 +90,7 @@
   },
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#FF6B6B",
+    "selectedColor": "#1A1A1A",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "black",
     "list": [
