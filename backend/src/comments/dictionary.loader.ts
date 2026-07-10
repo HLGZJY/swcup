@@ -315,9 +315,10 @@ export class DictionaryLoader implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`[DictionaryLoader] ${p} 结构不合法, 使用 BUILTIN_DEFAULTS`);
         return fallback;
       }
-      if ((obj as any).version !== 1) {
+      // 【2026-07-10 阶段 E P0.0】白名单 [1, 2]: v2 扩了 size/geo 分类
+      if ((obj as any).version !== 1 && (obj as any).version !== 2) {
         this.logger.warn(
-          `[DictionaryLoader] ${p} version=${(obj as any).version} != 1, 使用 BUILTIN_DEFAULTS`,
+          `[DictionaryLoader] ${p} version=${(obj as any).version} not in [1,2], 使用 BUILTIN_DEFAULTS`,
         );
         return fallback;
       }
