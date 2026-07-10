@@ -70,6 +70,7 @@ curl http://localhost:8000/health          # AI 服务
 | [06-小程序UI设计稿.md](06-小程序UI设计稿.md) | 14+ 页面截图 + 关键流程 | ⭐⭐ |
 | [07-申报书.md](07-申报书.md) | 10-15 页：商业计划书风格 | ⭐ |
 | [08-演示视频剧本.md](08-演示视频剧本.md) | 7 分钟分镜 | ⭐⭐ |
+| [10-评论线索-地理硬过滤.md](10-评论线索-地理硬过滤.md) | 阶段 E: 10km 硬过滤 + 本地 reverseGeocode + 跨 animal 兜底软衰减 (2026-07-10) | ⭐⭐ |
 | [code/](code/) | 完整源代码 + 模型权重 + Dockerfile | ⭐⭐⭐⭐ |
 | [video/](video/) | 演示视频 mp4 | ⭐⭐ |
 | [appendix/FACT-BASELINE.md](appendix/FACT-BASELINE.md) | **事实基线**（35 个事实点，**单一权威源**） | — |
