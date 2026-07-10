@@ -15,6 +15,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RescueEvent, EventStatus } from '../events/entities/event.entity';
+import { Animal } from '../animals/entities/animal.entity';
 
 export interface EventCandidate {
   event_id: string;
@@ -23,6 +24,16 @@ export interface EventCandidate {
   occurred_at: string;
   address?: string;
   description?: string;
+  event_lat?: number;
+  event_lng?: number;
+  animal_lat?: number;
+  animal_lng?: number;
+  /**
+   * 【2026-07-10 阶段 E】召回来源
+   *   - 'same':     同 animal 最近 N 条 (主路, 硬过滤 10km)
+   *   - 'fallback': 30 天全局兜底 (跨 animal, 软衰减保留长尾)
+   */
+  source: 'same' | 'fallback';
 }
 
 const BAD_STATUSES = [EventStatus.REJECTED, EventStatus.DUPLICATED];
@@ -33,6 +44,7 @@ export class EventRecallService {
 
   constructor(
     @InjectRepository(RescueEvent) private readonly eventRepo: Repository<RescueEvent>,
+    @InjectRepository(Animal) private readonly animalRepo: Repository<Animal>,
   ) {}
 
   /**
@@ -79,25 +91,53 @@ export class EventRecallService {
       );
     }
 
-    // 合并去重 (event_id 唯一)
-    const map = new Map<string, RescueEvent>();
-    for (const e of [...same, ...fallback]) {
-      if (e && e.event_id && !map.has(e.event_id)) map.set(e.event_id, e);
+    // 合并去重 (event_id 唯一), 用 set 保留来源
+    const seenEventIds = new Set<string>();
+    const orderedMerged: { ev: RescueEvent; source: 'same' | 'fallback' }[] = [];
+    for (const e of same) {
+      if (e && e.event_id && !seenEventIds.has(e.event_id)) {
+        seenEventIds.add(e.event_id);
+        orderedMerged.push({ ev: e, source: 'same' });
+      }
     }
-    const merged = Array.from(map.values()).sort(
+    for (const e of fallback) {
+      if (e && e.event_id && !seenEventIds.has(e.event_id)) {
+        seenEventIds.add(e.event_id);
+        orderedMerged.push({ ev: e, source: 'fallback' });
+      }
+    }
+    const merged = orderedMerged.sort(
       (a, b) =>
-        new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+        new Date(b.ev.occurred_at).getTime() - new Date(a.ev.occurred_at).getTime(),
     );
 
+    // 获取动物坐标 (用于地理距离衰减)
+    let animalLat = 0;
+    let animalLng = 0;
+    try {
+      const animal = await this.animalRepo.findOne({ where: { animal_id: animalId } });
+      if (animal) {
+        animalLat = animal.location_lat ? Number(animal.location_lat) : 0;
+        animalLng = animal.location_lng ? Number(animal.location_lng) : 0;
+      }
+    } catch (e: any) {
+      this.logger.warn(`[EventRecallService] 获取动物坐标失败: ${e?.message || e}`);
+    }
+
     return merged
-      .filter((e) => !BAD_STATUSES.includes(e.status))
-      .map((e) => ({
-        event_id: e.event_id,
-        event_type: e.event_type,
-        reporter_id: e.reporter_id || '',
-        occurred_at: e.occurred_at ? new Date(e.occurred_at).toISOString() : '',
-        address: e.address || undefined,
-        description: e.description || undefined,
+      .filter(({ ev }) => !BAD_STATUSES.includes(ev.status))
+      .map(({ ev, source }) => ({
+        event_id: ev.event_id,
+        event_type: ev.event_type,
+        reporter_id: ev.reporter_id || '',
+        occurred_at: ev.occurred_at ? new Date(ev.occurred_at).toISOString() : '',
+        address: ev.address || undefined,
+        description: ev.description || undefined,
+        event_lat: ev.location_lat ? Number(ev.location_lat) : undefined,
+        event_lng: ev.location_lng ? Number(ev.location_lng) : undefined,
+        animal_lat: animalLat || undefined,
+        animal_lng: animalLng || undefined,
+        source,
       }));
   }
 }

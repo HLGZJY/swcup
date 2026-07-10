@@ -33,6 +33,24 @@ export interface ScoringRules {
   timeDecayPeak: number;
   /** match_score >= threshold 才生成 pending 线索 */
   threshold: number;
+  /**
+   * 【2026-07-10 阶段 E P0】地理硬过滤半径 (公里).
+   *   - 适用范围: source='same' 的事件 (同 animal 召回)
+   *   - 行为: animal 与 event 距离 > 此值 → 直接跳过, 不参与评分
+   *   - 默认 10, 设 0 = 关闭硬过滤 (仅用软衰减)
+   */
+  geoHardFilterKm?: number;
+  /**
+   * 【2026-07-10 阶段 E P0】跨 animal 兜底 (source='fallback') 软衰减起点 (公里).
+   *   - 行为: 距离 ≤ 此值不衰减, 之后每公里按 geoFallbackSoftDecayRate 扣分
+   *   - 默认 50
+   */
+  geoFallbackSoftDecayKm?: number;
+  /**
+   * 【2026-07-10 阶段 E P0】跨 animal 兜底软衰减斜率 (每公里扣分).
+   *   - 默认 0.005 (即 200km 扣 0.01, 与原 Haversine 软衰减一致)
+   */
+  geoFallbackSoftDecayRate?: number;
 }
 
 export const DEFAULT_RULES: ScoringRules = {

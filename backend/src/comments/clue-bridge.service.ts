@@ -32,6 +32,7 @@ import {
 import { DictionaryLoader } from './dictionary.loader';
 import { FileStateStore, MatchRecord, newMatchId } from './file-state-store';
 import { DEFAULT_RULES, ScoringRules } from './scoring-rules';
+import { GeoResolverService } from './geo-resolver.service';
 
 // ---------------- 分词器 (3 档降级) ----------------
 
@@ -139,6 +140,8 @@ interface EventLike {
   occurred_at?: string;
   address?: string;
   description?: string;
+  _lat?: number;
+  _lng?: number;
 }
 
 function _parseIso(s: string): number {
@@ -149,14 +152,32 @@ function _parseIso(s: string): number {
 }
 
 /**
+ * Haversine 公式：计算两个经纬度坐标之间的球面距离（公里）
+ */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // 地球半径（公里）
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
  * 实体命中: 评论 raw content 与 eventText (address+description) 中共同出现的 entity 词
  *  - 使用 raw 子串匹配, 避免 CJK 分词贪婪合并导致原子词被吞
  *  - 返回 [{ word, category, weight }]
+ * 【2026-07-10 阶段 E P1】geo 分类词受 allowedGeoWords 白名单约束 (其余分类不受限)
  */
 function matchEntity(
   commentText: string,
   eventText: string,
   entities: { categories: Record<string, { weight: number; words: string[] }> },
+  allowedGeoWords?: Set<string>,
 ): Array<{ word: string; category: string; weight: number }> {
   const hits: Array<{ word: string; category: string; weight: number }> = [];
   if (!eventText || !commentText) return hits;
@@ -165,6 +186,10 @@ function matchEntity(
     for (const w of cat.words) {
       if (!w) continue;
       if (commentText.indexOf(w) >= 0 && eventText.indexOf(w) >= 0) {
+        // geo 分类需要白名单 (空白名单 = 全部拒绝)
+        if (catName === 'geo' && allowedGeoWords) {
+          if (!allowedGeoWords.has(w)) continue;
+        }
         hits.push({ word: w, category: catName, weight: cat.weight || 0 });
       }
     }
@@ -228,6 +253,9 @@ function _score(
     synonyms: any;
     negations: any;
   },
+  animalLat?: number,
+  animalLng?: number,
+  allowedGeoWords?: Set<string>,
 ): ScoreOut {
   const reasons: string[] = [];
   let score = 0;
@@ -251,7 +279,8 @@ function _score(
     String(event.address || '') + ' ' + String(event.description || '');
 
   // 2) 实体命中分层加权 (用 raw content 子串匹配, 避免 CJK 分词吞词)
-  const entityHits = matchEntity(String(comment.content || ''), eventText, dicts.entities);
+  // 【2026-07-10 阶段 E P1】geo 分类受 allowedGeoWords 白名单约束
+  const entityHits = matchEntity(String(comment.content || ''), eventText, dicts.entities, allowedGeoWords);
   if (entityHits.length > 0) {
     const sum = entityHits.reduce((s, h) => s + (h.weight || 0), 0);
     const add = Math.min(rules.entityMax, sum);
@@ -318,6 +347,19 @@ function _score(
     reasons.push('self_match:-' + rules.selfMatchPenalty);
   }
 
+  // 7) 地理距离衰减 (Haversine)
+  if (animalLat && animalLng && event._lat && event._lng) {
+    const distKm = haversineKm(animalLat, animalLng, event._lat, event._lng);
+    // 5km 内不扣分; 之后每~200km 扣约 0.01, 上限 0.3
+    if (distKm > 5) {
+      const penalty = Math.min(0.3, Math.max(0, (distKm - 5) * 0.005));
+      score -= penalty;
+      reasons.push(
+        'geo_dist:' + distKm.toFixed(0) + 'km:-' + penalty.toFixed(3),
+      );
+    }
+  }
+
   return { score: Math.max(0, Math.min(1, score)), reasons };
 }
 
@@ -354,6 +396,17 @@ interface MatchInputEvent {
   occurred_at: string;
   address?: string;
   description?: string;
+  event_lat?: number;
+  event_lng?: number;
+  animal_lat?: number;
+  animal_lng?: number;
+  /**
+   * 【2026-07-10 阶段 E P0】召回来源
+   *   - 'same' (默认): 同 animal 召回, 启用 geoHardFilterKm 硬过滤
+   *   - 'fallback':     跨 animal 兜底, 保留软衰减
+   * 未传 = 旧调用方 (clue-bridge 单元测试) 兼容, 走硬过滤路径
+   */
+  source?: 'same' | 'fallback';
 }
 
 function _tryMatch(
@@ -362,6 +415,7 @@ function _tryMatch(
   rules: ScoringRules,
   dicts: { entities: any; synonyms: any; negations: any },
   store: FileStateStore,
+  allowedGeoWords?: Set<string>,
 ): MatchOut {
   const animalId = comment.animal_id || '';
   const reporterId = comment.reporter_id || '';
@@ -421,17 +475,58 @@ function _tryMatch(
     keywords: kws,
   };
 
+  const animalLat = recentEvents[0]?.animal_lat || undefined;
+  const animalLng = recentEvents[0]?.animal_lng || undefined;
+
+  // 【2026-07-10 阶段 E P0】硬过滤: 同 animal 召回 (source='same') 距离 > 阈值直接跳过
+  const hardFilterKm = rules.geoHardFilterKm ?? 10;
+  const hardFilterOn = hardFilterKm > 0;
+  let filteredOutCount = 0;
+  let filteredOutSample: string | null = null;
+
   let bestEvent: MatchInputEvent | null = null;
   let bestScore = 0;
   let bestReasons: string[] = [];
   for (const ev of recentEvents) {
     if (!ev || !ev.event_id) continue;
-    const r = _score(commentForScore, ev, rules, dicts);
+    // source 缺省视为 'same' (向后兼容旧调用方 + 单元测试 fixture)
+    const src = ev.source || 'same';
+    // 硬过滤: 仅 same 应用, fallback 走软衰减
+    if (hardFilterOn && src === 'same' && animalLat && animalLng && ev.event_lat && ev.event_lng) {
+      const distKm = haversineKm(animalLat, animalLng, ev.event_lat, ev.event_lng);
+      if (distKm > hardFilterKm) {
+        filteredOutCount++;
+        if (filteredOutSample === null) {
+          filteredOutSample = `event=${ev.event_id} dist=${distKm.toFixed(0)}km>` + `${hardFilterKm}km`;
+        }
+        continue;
+      }
+    }
+    const eventForScore: EventLike = {
+      event_id: ev.event_id,
+      event_type: ev.event_type,
+      reporter_id: ev.reporter_id,
+      occurred_at: ev.occurred_at,
+      address: ev.address,
+      description: ev.description,
+      _lat: ev.event_lat,
+      _lng: ev.event_lng,
+    };
+    const r = _score(commentForScore, eventForScore, rules, dicts, animalLat, animalLng, allowedGeoWords);
     if (r.score > bestScore) {
       bestEvent = ev;
       bestScore = r.score;
       bestReasons = r.reasons;
     }
+  }
+
+  // 调试: 记录硬过滤掉的事件 (不入 match_reasons, 仅 console.debug)
+  if (filteredOutCount > 0 && filteredOutSample) {
+    // eslint-disable-next-line no-console
+    console.debug(
+      `[ClueBridgeService._tryMatch] geo_hard_filter: animal=${animalId} ` +
+        `filtered_out=${filteredOutCount} sample=${filteredOutSample}`,
+    );
   }
 
   if (!bestEvent) {
@@ -560,6 +655,7 @@ export class ClueBridgeService {
     @Optional() @InjectRepository(RescueEvent) private readonly eventRepo?: Repository<RescueEvent>,
     private readonly dict: DictionaryLoader = new DictionaryLoader(cfg),
     private readonly store: FileStateStore = new FileStateStore(cfg),
+    @Optional() private readonly geoResolver?: GeoResolverService,
   ) {}
 
   init(): void {
@@ -628,6 +724,11 @@ export class ClueBridgeService {
       occurred_at: string;
       address?: string;
       description?: string;
+      event_lat?: number;
+      event_lng?: number;
+      animal_lat?: number;
+      animal_lng?: number;
+      source?: 'same' | 'fallback';
     }>,
   ): MatchOut {
     const dicts = {
@@ -635,7 +736,16 @@ export class ClueBridgeService {
       synonyms: this.dict.getSynonyms(),
       negations: this.dict.getNegations(),
     };
-    return _tryMatch(comment, recentEvents, this.rules, dicts, this.store);
+    // 【2026-07-10 阶段 E P1】计算 geo 白名单 (animal 坐标 + 硬过滤半径)
+    let allowedGeoWords: Set<string> | undefined;
+    if (this.geoResolver) {
+      const aLat = recentEvents[0]?.animal_lat;
+      const aLng = recentEvents[0]?.animal_lng;
+      const radiusKm = this.rules.geoHardFilterKm ?? 10;
+      const res = this.geoResolver.resolve(aLat, aLng, radiusKm);
+      allowedGeoWords = res.allowedWords;
+    }
+    return _tryMatch(comment, recentEvents, this.rules, dicts, this.store, allowedGeoWords);
   }
 
   listPending(): Record<string, MatchRecord[]> {
@@ -783,8 +893,10 @@ export class ClueBridgeService {
     event: EventLike,
     rules: ScoringRules = DEFAULT_RULES,
     dicts?: { entities: any; synonyms: any; negations: any },
+    animalLat?: number,
+    animalLng?: number,
   ): ScoreOut {
-    return _score(comment, event, rules, dicts || defaultDictsForTest());
+    return _score(comment, event, rules, dicts || defaultDictsForTest(), animalLat, animalLng);
   }
 
   getStateDir(): string {
