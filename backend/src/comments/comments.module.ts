@@ -20,6 +20,7 @@ import { TextNormalizer } from './text-normalizer';
 import { FileStateStore } from './file-state-store';
 import { EventRecallService } from './event-recall.service';
 import { ClueStatsService } from './clue-stats.service';
+import { GeoResolverService } from './geo-resolver.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Comment, Animal, RescueEvent])],
@@ -33,6 +34,7 @@ import { ClueStatsService } from './clue-stats.service';
     FileStateStore,
     EventRecallService,
     ClueStatsService,
+    GeoResolverService,
   ],
   exports: [
     CommentsService,
@@ -42,6 +44,7 @@ import { ClueStatsService } from './clue-stats.service';
     FileStateStore,
     EventRecallService,
     ClueStatsService,
+    GeoResolverService,
   ],
 })
 export class CommentsModule implements OnModuleInit {
