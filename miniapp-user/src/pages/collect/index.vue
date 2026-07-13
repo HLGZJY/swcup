@@ -388,6 +388,10 @@ import {
   apiUploadFile,
   apiGetAnimalDetail,
 } from "@/services/api";
+import {
+  COLLECT_MATCH_CONTEXT_KEY,
+  createCollectMatchContext,
+} from "@/utils/collect-match-context";
 
 const currentStep = ref(0);
 const selectedSpecies = ref("dog");
@@ -781,6 +785,14 @@ async function onNext() {
     // 【Defect 2 / 2026-07-08】透传 next_action 到 result 页
     //   无鼻纹场景后端返回 next_action=ask_user_confirm,result 页据此跳过比对直接走 Plan B
     const passedNextAction = collectRes.data?.next_action || "";
+    if (!noseId) {
+      uni.setStorageSync(
+        COLLECT_MATCH_CONTEXT_KEY,
+        createCollectMatchContext(collectRes.data),
+      );
+    } else {
+      uni.removeStorageSync(COLLECT_MATCH_CONTEXT_KEY);
+    }
     const isDuplicate = collectRes.data.is_duplicate
       ? String(collectRes.data.is_duplicate)
       : "false";

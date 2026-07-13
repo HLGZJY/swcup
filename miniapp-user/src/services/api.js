@@ -90,10 +90,10 @@ export function apiCreateSighting(animalId, params) {
   })
 }
 
-// ============ 鼻纹模块（公开）============
+// ============ 鼻纹模块 ============
 
 /**
- * 鼻纹采集
+ * 鼻纹采集（需认证）
  * POST /nose/collect
  * 请求: { nose_photo: "data:image/jpeg;base64,...", species, animal_id: null, location_lat, location_lng }
  *鼻纹采集
@@ -104,7 +104,7 @@ export function apiNoseCollect(params) {
   return request('/v1/nose/collect', {
     method: 'POST',
     body: params
-  }, { needAuth: false })
+  })
 }
 
 /**
@@ -336,7 +336,18 @@ function formatBackendError(msg) {
   if (typeof msg === 'string') return msg
   if (Array.isArray(msg)) return msg.filter(Boolean).map(String).join('；')
   if (typeof msg === 'object') {
-    try { return JSON.stringify(msg) } catch { return String(msg) }
+    // 仅透出 message / code 两个字段, 并截断到 200 字符,
+    // 避免把后端整段对象渲染给用户泄露内部结构
+    const safe = {}
+    if (msg && msg.message != null) safe.message = msg.message
+    if (msg && msg.code != null) safe.code = msg.code
+    let text
+    try {
+      text = Object.keys(safe).length > 0 ? JSON.stringify(safe) : String(msg)
+    } catch {
+      text = String(msg)
+    }
+    return text.length > 200 ? `${text.slice(0, 200)}…` : text
   }
   return String(msg)
 }

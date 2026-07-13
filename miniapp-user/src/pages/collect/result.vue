@@ -71,6 +71,20 @@
 
     <!-- 底部操作 -->
     <view class="bottom-actions">
+      <!-- 无鼻纹高分候选：人工核对主路径 + 仍要建档备选 -->
+      <view class="action-hint" v-if="isNoNoseHighMatch">
+        <text class="hint-icon">ℹ️</text>
+        <text>系统已按位置、特征和时间找到相似动物；如均不是同一只，可继续创建档案</text>
+      </view>
+      <view class="btn-primary" v-if="isNoNoseHighMatch" @click="onReport">
+        <text>查看候选动物</text>
+      </view>
+      <view class="btn-secondary" v-if="isNoNoseHighMatch" @click="onCreateAnimal">
+        <text>仍要创建档案</text>
+      </view>
+      <view class="btn-secondary" v-if="isNoNoseHighMatch" @click="onBackHome">
+        <text>返回首页</text>
+      </view>
       <!-- 确认重复: 显示"我要上报"(主) + "认领此动物"(次) -->
       <!-- 阶段 3 (2026-07-06 BUG-FIX): 用户实测反馈
            - 重复检测后只给认领按钮,无法给原档案补充发现记录
@@ -88,10 +102,10 @@
         <text>认领此动物</text>
       </view>
       <!-- 有匹配：上报此动物 -->
-      <view class="btn-primary" v-if="showMatchList && !isDuplicateConfirmed" @click="onReport">
+      <view class="btn-primary" v-if="showMatchList && !isDuplicateConfirmed && !isNoNoseHighMatch" @click="onReport">
         <text>上报此动物</text>
       </view>
-      <view class="btn-secondary" v-if="showMatchList && !isDuplicateConfirmed" @click="onBackHome">
+      <view class="btn-secondary" v-if="showMatchList && !isDuplicateConfirmed && !isNoNoseHighMatch" @click="onBackHome">
         <text>返回首页</text>
       </view>
       <!-- Plan B 无匹配：双按钮 -->
@@ -112,6 +126,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { apiNoseCompare, apiCreatePendingAnimalRequest, apiReportEvent, resolveImageUrl } from '@/services/api'
+import {
+  COLLECT_MATCH_CONTEXT_KEY,
+  createAttributeCompareResult,
+} from '@/utils/collect-match-context'
 
 const collectResult = ref<any>(null)
 const compareResult = ref<any>(null)
@@ -173,6 +191,32 @@ onMounted(async () => {
     return
   }
 
+  const storedContext = hasNoValidNose
+    ? uni.getStorageSync(COLLECT_MATCH_CONTEXT_KEY)
+    : null
+  if (hasNoValidNose) {
+    uni.removeStorageSync(COLLECT_MATCH_CONTEXT_KEY)
+  }
+
+  if (
+    hasNoValidNose
+    && passedNextAction.value === 'show_high_score_dialog'
+  ) {
+    const attributeResult = createAttributeCompareResult(
+      storedContext,
+      passedNextAction.value,
+    )
+    if (attributeResult.results.length > 0) {
+      compareResult.value = attributeResult
+    } else {
+      passedNextAction.value = 'show_no_candidate_dialog'
+      uni.showToast({
+        title: '候选信息已失效，可继续创建档案',
+        icon: 'none',
+      })
+    }
+  }
+
   // 【Defect 2 / 2026-07-08】合法无鼻纹场景 → 不设 noseId,后续 apiNoseCompare 跳过
   if (!hasNoValidNose) {
     noseId.value = nose_id
@@ -213,6 +257,14 @@ onMounted(async () => {
   //   - 用户选 "我捡到狗" 时,found → 创建档案后 animal.status=found
   if (intent === 'found' || intent === 'lost') {
     formIntent.value = intent
+  }
+
+  // 无鼻纹高分候选已由 collect 完成属性匹配，禁止再发起向量比对
+  if (
+    hasNoValidNose
+    && passedNextAction.value === 'show_high_score_dialog'
+  ) {
+    return
   }
 
   // 【Defect 2 / 2026-07-08】【2026-07-09 重构】无鼻纹场景 → 跳过比对,让 needsConfirmation (Plan B UI) 直接生效
@@ -266,6 +318,14 @@ const topScore = computed(() => {
   return (compareResult.value.results[0]?.fusion_score * 100).toFixed(0)
 })
 
+const hasNoseVector = computed(() => Boolean(noseId.value))
+
+const isNoNoseHighMatch = computed(() => (
+  !hasNoseVector.value
+  && passedNextAction.value === 'show_high_score_dialog'
+  && matchList.value.length > 0
+))
+
 const resultClass = computed(() => {
   if (!compareResult.value) return ''
   const score = compareResult.value.results[0]?.fusion_score
@@ -284,6 +344,9 @@ const statusIcon = computed(() => {
 
 const statusText = computed(() => {
   if (!compareResult.value) return ''
+  if (isNoNoseHighMatch.value) {
+    return '发现高相似候选，请核对动物档案'
+  }
   const score = compareResult.value.results[0]?.fusion_score
   if (compareResult.value.next_action === 'duplicate_detected') return '已确认重复，是否认领这只动物？'
   if (score >= 0.88) return '确认重复，系统将自动合并'
@@ -324,7 +387,7 @@ const showMatchList = computed(() => hasMatch.value)
 
 // 高相似度（确认重复）时隐藏上报按钮，显示认领引导
 const isDuplicateConfirmed = computed(() => {
-  if (!compareResult.value) return false
+  if (!hasNoseVector.value || !compareResult.value) return false
   return compareResult.value.next_action === 'duplicate_detected'
     || (compareResult.value.results[0]?.fusion_score >= 0.88 && compareResult.value.results[0]?.animal_id)
 })
@@ -339,6 +402,32 @@ function calcLocationScore(distanceM) {
 const dimensions = computed(() => {
   if (!compareResult.value || !compareResult.value.results[0]) return []
   const r = compareResult.value.results[0]
+  if (!hasNoseVector.value) {
+    const gpsValue = r.gps_distance_m == null ? '未知' : `${r.gps_distance_m}m`
+    return [
+      {
+        name: 'GPS距离',
+        value: gpsValue,
+        percent: (r.gps_similarity || 0) * 100,
+        desc: '≤500m满分，≥5km得0分',
+        color: '#FF9F00',
+      },
+      {
+        name: '文本匹配度',
+        value: `${((r.text_match_rate || 0) * 100).toFixed(0)}%`,
+        percent: (r.text_match_rate || 0) * 100,
+        desc: '品种、颜色和性别特征匹配',
+        color: '#5872E0',
+      },
+      {
+        name: '时间接近度',
+        value: `${((r.time_score || 0) * 100).toFixed(0)}%`,
+        percent: (r.time_score || 0) * 100,
+        desc: '采集时间与档案首次发现时间的接近度',
+        color: '#0FBF9F',
+      },
+    ]
+  }
   const gpsScore = calcLocationScore(r.gps_distance_m)
   return [
     { name: '鼻纹相似度', value: (r.vector_similarity * 100).toFixed(0) + '%', percent: r.vector_similarity * 100, desc: '128维特征向量余弦相似度', color: '#0FBF9F' },

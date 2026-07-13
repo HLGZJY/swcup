@@ -12,7 +12,6 @@ import { CollectNoseDto, CompareNoseDto } from './dto/nose.dto';
 export class NoseController {
   constructor(private readonly noseService: NoseService) {}
 
-  @Public()
   @Post('collect')
   @ApiOperation({ summary: '鼻纹采集' })
   collect(@Body() dto: CollectNoseDto, @Request() req: any) {
