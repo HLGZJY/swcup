@@ -78,18 +78,6 @@ export function apiGetAnimalDetail(animalId) {
   return request(`/v1/animals/${animalId}`, {}, { needAuth: false })
 }
 
-/**
- * 【2026-07-09】二次目击 — 不入审核流,仅更新 animal.last_seen_at
- * POST /v1/animals/:animal_id/sightings
- * 请求: { reporter_lat, reporter_lng, address?, photos?, note?, seen_at? }
- */
-export function apiCreateSighting(animalId, params) {
-  return request(`/v1/animals/${animalId}/sightings`, {
-    method: 'POST',
-    body: params,
-  })
-}
-
 // ============ 鼻纹模块 ============
 
 /**

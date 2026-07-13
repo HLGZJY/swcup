@@ -194,9 +194,6 @@
         </view>
       </view>
       <view class="action-buttons">
-        <button class="btn-secondary" size="mini" @click="onSighting">
-          我又看到这只
-        </button>
         <button class="btn-primary" size="mini" @click="onClaim">
           申请认领
         </button>
@@ -227,7 +224,6 @@ import {
 } from "@dcloudio/uni-app";
 import {
   apiGetAnimalDetail,
-  apiCreateSighting,
   apiGetComments,
   resolveImageUrl,
 } from "@/services/api";
@@ -378,48 +374,6 @@ function onClaim() {
   });
 }
 
-// 【2026-07-09 重构】二次目击 — 直接调 POST /animals/:id/sightings,不入审核流
-//   旧流程: setStorageSync(pending_sighting_animal_id) + switchTab 到 report/index 多步表单
-//   新流程: 拿当前位置,调 sightings 接口,refresh 列表
-async function onSighting() {
-  const id = animal.value?.animal_id;
-  if (!id) {
-    uni.showToast({ title: "档案信息缺失", icon: "none" });
-    return;
-  }
-  try {
-    // 取当前位置 (无 GPS 时用兜底坐标 0,后端允许)
-    let lat: number | null = null;
-    let lng: number | null = null;
-    try {
-      const loc: any = await uni.getLocation({ type: "gcj02" });
-      if (loc && loc.latitude && loc.longitude) {
-        lat = Number(loc.latitude);
-        lng = Number(loc.longitude);
-      }
-    } catch {
-      // 静默,允许 lat/lng 为 null
-    }
-
-    await apiCreateSighting(id, {
-      reporter_lat: lat ?? 0,
-      reporter_lng: lng ?? 0,
-      photos: [],
-      seen_at: new Date().toISOString(),
-    });
-
-    uni.showToast({ title: "已记录最新目击位置", icon: "success" });
-    // 刷新当前动物详情(更新 last_seen_at/address)
-    const res: any = await apiGetAnimalDetail(id);
-    if (res.code === 0) {
-      animal.value = res.data;
-    }
-  } catch (e: any) {
-    console.error("[onSighting] 失败", e);
-    uni.showToast({ title: "记录失败,请重试", icon: "none" });
-  }
-}
-
 // 跳转到完整时间轴
 function goTimeline() {
   const id = animal.value?.animal_id;
@@ -445,7 +399,6 @@ defineExpose({
   onShare,
   onCollect,
   onClaim,
-  onSighting,
   goTimeline,
   resolveImageUrl,
 });
