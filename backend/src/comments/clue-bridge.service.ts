@@ -542,15 +542,52 @@ function _tryMatch(
     };
   }
 
-  // 自匹配特殊状态: 在 score 已有 -0.3 惩罚 (排序), 这里再给 status=self_match (不入库)
+  // 【2026-07-14 阶段 E bug收尾】self_match 语义调整:
+  //   旧: status='self_match' + state_path='' → 不落盘 → admin 看不到
+  //       用户在自己 animal 底下发"我在 xx 路看到"评论, 召回的事件全是 self 报的,
+  //       best 永远是 self → 永远 self_match → 永远不入 admin
+  //   新: status='self_match' 但仍落盘, 保留 bestScore / candidate_event_id,
+  //       让 admin 看到"用户评论自己事件"的线索, admin 自行决定是否处理
   if (bestEvent.reporter_id && bestEvent.reporter_id === reporterId) {
+    const selfMatchId = newMatchId(
+      comment.comment_id || '',
+      animalId,
+      bestEvent.event_id,
+      sentiment,
+    );
+    const selfRec: MatchRecord = {
+      match_id: selfMatchId,
+      comment_id: comment.comment_id || '',
+      animal_id: animalId,
+      comment_reporter_id: reporterId,
+      sentiment,
+      keywords: kws,
+      created_at: comment.created_at || '',
+      candidate_event_id: bestEvent.event_id,
+      candidate_event_reporter_id: bestEvent.reporter_id || '',
+      candidate_event_address: bestEvent.address || '',
+      // 保留真实评分 (含 -0.3 self 惩罚), admin 看到低分可快速判断
+      match_score: Math.round(bestScore * 10000) / 10000,
+      match_reasons: bestReasons,
+      status: 'self_match',
+      recorded_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+      schema_version: 2,
+    };
+    try {
+      store.appendSync(animalId, selfRec);
+    } catch (e: any) {
+      console.warn(
+        '[ClueBridgeService._tryMatch] self_match appendSync failed: ' + (e?.message || e),
+      );
+    }
     return {
       ...base,
-      candidate_event_id: '',
-      candidate_event_reporter_id: '',
-      candidate_event_address: '',
-      match_score: 0,
-      match_reasons: [],
+      match_id: selfMatchId,
+      candidate_event_id: bestEvent.event_id,
+      candidate_event_reporter_id: bestEvent.reporter_id || '',
+      candidate_event_address: bestEvent.address || '',
+      match_score: Math.round(bestScore * 10000) / 10000,
+      match_reasons: bestReasons,
       status: 'self_match',
       state_path: '',
     };
@@ -773,8 +810,10 @@ export class ClueBridgeService {
         } catch {
           continue;
         }
+        // 【2026-07-14 阶段 E】同时显示 pending + self_match, 让 admin 看到用户评论自己事件的线索
+        //   self_match 记录真实 match_score (含 -0.3 惩罚), admin 可根据 score 判断是否处理
         const pending = (list as MatchRecord[]).filter(
-          (r) => r && r.status === 'pending',
+          (r) => r && (r.status === 'pending' || r.status === 'self_match'),
         );
         if (pending.length > 0) out[name.slice(0, -5)] = pending;
       }
