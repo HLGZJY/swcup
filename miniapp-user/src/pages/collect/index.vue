@@ -745,6 +745,14 @@ async function onNext() {
   uni.showLoading({ title: "采集中..." });
 
   try {
+    // 【2026-07-14 bug4】三属性 + 备注透传 — 之前仅通过 URL params 传给 result.vue
+    //   内部 state,从未写入 RescueEvent / Animal,导致 admin create_new 时丢成 null/unknown/false。
+    //   sterilized yes/no/unknown → boolean/null;空值统一传 undefined 避免 ValidationPipe 误判。
+    const sterilizedBool = sterilized.value === "yes"
+      ? true
+      : sterilized.value === "no"
+        ? false
+        : null
     const collectRes: any = await apiNoseCollect({
       nose_photo: nosePhotoBase64.value,
       species: selectedSpecies.value,
@@ -758,6 +766,15 @@ async function onNext() {
       gender: gender.value,
       body_photo_url: bodyPhotoUrl.value,
       nose_photo_url: nosePhotoUrl.value,
+      // 【2026-07-14 bug一致性】address 透传 — 之前只通过 location_lat/lng 给后端,
+      //   未传 address 字符串 → 走无鼻纹/低分分支写入 RescueEvent 的 address=null
+      //   → admin 审核页 (audit-detail L39) 显示"未知地址"
+      //   与 report/index.vue handleReportSubmit 对齐 (那里 L588 有 address: locationText.value)
+      address: locationText.value || undefined,
+      age_estimate: age.value || undefined,
+      health_status: health.value || undefined,
+      sterilized: sterilizedBool,
+      notes: notes.value || undefined,
     });
 
     collectResult.value = collectRes.data;
