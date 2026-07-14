@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "groups": [
+    { "canonical": "狗",  "aliases": ["狗狗","毛孩子","汪","汪星人","狗子","犬"] },
+    { "canonical": "猫",  "aliases": ["猫咪","咪咪","喵","喵星人","猫子"] },
+    { "canonical": "金毛","aliases": ["金毛犬","Golden Retriever","金毛巡回犬"] },
+    { "canonical": "拉布拉多","aliases": ["拉拉","Labrador"] },
+    { "canonical": "昨天",  "aliases": ["昨日","昨儿","昨天晚些时候"] },
+    { "canonical": "今天",  "aliases": ["今日","今儿","今天上午","今天下午"] },
+    { "canonical": "小区",  "aliases": ["社区","楼栋","居民区","小区里"] },
+    { "canonical": "楼下",  "aliases": ["楼底下","门楼下","楼下门口"] }
+  ]
+}

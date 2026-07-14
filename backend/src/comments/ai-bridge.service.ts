@@ -86,8 +86,9 @@ export class AiBridgeService {
       reasons.push({ layer: 'L0', detail: 'too_long:' + s.length });
       return { verdict: 'hide', suggested_action: 'hide', reasons, primary_sentiment: CommentSentiment.NEUTRAL, is_hidden: true };
     }
-    for (const w of this.dict.getBuiltinBlacklistBad()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'badword:' + w });
-    for (const w of this.dict.getBuiltinBlacklistFake()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'fake:' + w });
+    // 【2026-07-14 阶段 E】改用 6 个 JSON 加载的 getter (优先 JSON, fallback BUILTIN_DEFAULTS)
+    for (const w of this.dict.getBadwords()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'badword:' + w });
+    for (const w of this.dict.getFakeKeywords()) if (s.includes(w)) reasons.push({ layer: 'L1', detail: 'fake:' + w });
     if (recentViolationsCount >= 3) reasons.push({ layer: 'L4', detail: 'repeat_offender:' + recentViolationsCount });
     let verdict: ModerateResult['verdict'] = 'allow';
     let action: ModerateResult['suggested_action'] = 'allow';
@@ -96,10 +97,14 @@ export class AiBridgeService {
     const hasFake = reasons.some((r) => r.layer === 'L1' && r.detail.startsWith('fake'));
     if (hasBad || recentViolationsCount >= 3) { verdict = 'hide'; action = 'hide'; is_hidden = true; }
     else if (hasFake) { verdict = 'review'; action = 'needs_review'; }
+    // 【2026-07-14 bug一致性】补 SEEK 分类 — 原 stubModerate 缺 SEEK, 用户"求求大家帮找"等
+    //   评论落 NEUTRAL, 不触发 clue.matchComment → admin 看不到线索
+    //   优先级: THANKS > REPORT > SEEK > CARE (避免误分类)
     let primary: CommentSentiment = CommentSentiment.NEUTRAL;
-    if (Array.from(this.dict.getBuiltinReward()).some((w) => s.includes(w))) primary = CommentSentiment.THANKS;
-    else if (Array.from(this.dict.getBuiltinReport()).some((w) => s.includes(w))) primary = CommentSentiment.REPORT;
-    else if (Array.from(this.dict.getBuiltinPositive()).some((w) => s.includes(w))) primary = CommentSentiment.CARE;
+    if (Array.from(this.dict.getThanksKeywords()).some((w) => s.includes(w))) primary = CommentSentiment.THANKS;
+    else if (Array.from(this.dict.getReportKeywords()).some((w) => s.includes(w))) primary = CommentSentiment.REPORT;
+    else if (Array.from(this.dict.getSeekKeywords()).some((w) => s.includes(w))) primary = CommentSentiment.SEEK;
+    else if (Array.from(this.dict.getCareKeywords()).some((w) => s.includes(w))) primary = CommentSentiment.CARE;
     return { verdict, suggested_action: action, reasons, primary_sentiment: primary, is_hidden };
   }
 

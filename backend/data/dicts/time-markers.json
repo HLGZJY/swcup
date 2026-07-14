@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "markers": [
+    { "phrase": "刚刚", "offset_days": 0 },
+    { "phrase": "刚才", "offset_days": 0 },
+    { "phrase": "今天", "offset_days": 0 },
+    { "phrase": "今早", "offset_days": 0 },
+    { "phrase": "今晚", "offset_days": 0 },
+    { "phrase": "昨天", "offset_days": -1 },
+    { "phrase": "今早凌晨", "offset_days": 0 },
+    { "phrase": "前天", "offset_days": -2 },
+    { "phrase": "大前天", "offset_days": -3 },
+    { "phrase": "三小时前", "offset_days": 0 },
+    { "phrase": "上周", "offset_days": -7 },
+    { "phrase": "上个月", "offset_days": -30 }
+  ]
+}

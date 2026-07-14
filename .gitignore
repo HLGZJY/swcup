@@ -51,8 +51,8 @@ Thumbs.db
 # Jest 测试运行临时产物（不入仓）
 /backend/test-results/
 
-# 后端运行时数据 (线索状态 / 词库副本, 由应用启动期自动创建)
-/backend/data/
+# 后端运行时数据 — clue_state 状态文件不入仓(应用运行时生成)
+/backend/data/clue_state/
 
 # 本地一次性 patch 脚本 (不入仓, 保留工作区)
 /_v11patch.py

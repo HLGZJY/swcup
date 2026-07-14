@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "trigger": ["report", "seek"],
+  "scoring": {
+    "report": { "base": 0.50 },
+    "seek":   { "base": 0.40 }
+  }
+}
