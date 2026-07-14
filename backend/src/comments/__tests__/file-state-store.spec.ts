@@ -137,6 +137,39 @@ describe('FileStateStore (阶段 C)', () => {
       const list = await store.loadList('a-001');
       expect(list[0].status).toBe('pending');
     });
+
+    // 【2026-07-15 bug一致性】self_match 也应允许 admin 决策 (confirm/reject)
+    //   现场: admin 在线索审核看到 self_match 记录 (用户评论自己 animal 触发的),
+    //         点确认关联 → store.update 写死 status='pending' 过滤 → ok=false
+    //   修复: update() 接受 pending + self_match 两种状态
+    it('【2026-07-15】self_match → confirmed, 后续再 update 幂等返回 false', async () => {
+      const store = new FileStateStore(makeCfg(tmpDir));
+      await store.append(
+        'a-001',
+        sampleRec({ match_id: 'm-self', status: 'self_match' as any }),
+      );
+      const r1 = await store.update('a-001', 'm-self', {
+        status: 'confirmed',
+        decided_by: 'admin-2',
+      });
+      expect(r1).toBe(true);
+      const list = await store.loadList('a-001');
+      expect(list[0].status).toBe('confirmed');
+      expect(list[0].decided_by).toBe('admin-2');
+      // 二次 update 已 confirmed, 不再 self_match → 幂等返回 false
+      const r2 = await store.update('a-001', 'm-self', { status: 'rejected' });
+      expect(r2).toBe(false);
+    });
+
+    it('【2026-07-15】no_match / confirmed / rejected 已终态, 不允许 update', async () => {
+      const store = new FileStateStore(makeCfg(tmpDir));
+      // confirmed 走不到 update (之前已测过)
+      await store.append('a-001', sampleRec({ match_id: 'm-no', status: 'no_match' as any }));
+      const r = await store.update('a-001', 'm-no', { status: 'confirmed' });
+      expect(r).toBe(false);
+      const list = await store.loadList('a-001');
+      expect(list[0].status).toBe('no_match');
+    });
   });
 
   describe('loadList', () => {

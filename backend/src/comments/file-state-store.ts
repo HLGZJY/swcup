@@ -174,6 +174,12 @@ export class FileStateStore implements OnModuleInit {
   /**
    * 更新 1 条 (供 decide() 使用: status 流转)
    * 返回是否真改到了
+   *
+   * 【2026-07-15 bug一致性】允许更新 'pending' 和 'self_match' 两种状态
+   *   之前: 只允许 status='pending' → admin 看到 self_match 线索但无法 confirm/reject
+   *         decide 返回 ok=false, 前端显示"操作失败"
+   *   现在: pending + self_match 都允许流转 (confirmed / rejected),
+   *         no_match / confirmed / rejected 已终态, 不再允许
    */
   async update(
     animalId: string,
@@ -186,7 +192,11 @@ export class FileStateStore implements OnModuleInit {
       if (!Array.isArray(list)) return false;
       let changed = false;
       for (const r of list) {
-        if (r && r.match_id === matchId && r.status === 'pending') {
+        if (
+          r &&
+          r.match_id === matchId &&
+          (r.status === 'pending' || r.status === 'self_match')
+        ) {
           Object.assign(r, patch, { schema_version: 2 });
           changed = true;
           break;
