@@ -18,6 +18,6 @@ export function apiGetPendingClues() {
 export function apiDecideClue(animalId, matchId, decision, note) {
   return request(`/admin/clues/${animalId}/${matchId}/decide`, {
     method: 'POST',
-    data: { decision, note: note || '' },
+    body: { decision, note: note || '' },
   })
 }
