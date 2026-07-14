@@ -269,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onShow } from "vue";
 import {
   apiGetAdminEvents,
   apiGetAdminClaims,
@@ -305,6 +305,14 @@ onMounted(() => {
   if (t === "claims" || t === "clues" || t === "events") {
     currentTab.value = t;
   }
+  loadAuditData();
+});
+
+// 【2026-07-14 bug5】tabBar 切换/详情页返回时数据可能 stale
+//   现场: 同意新建 → 列表 filter 那条 → 退出 → 重新点 tabBar 进 → onMounted 不再触发
+//   原代码只 filter 不重拉,导致退出再进时拿到的是本地 stale 列表(且 badge count 可能不一致)
+//   修复: onShow 时无条件重拉一次, 跟后端状态保持唯一真相源
+onShow(() => {
   loadAuditData();
 });
 
@@ -372,6 +380,8 @@ async function onCreateNew(eventId: string) {
   // 流程文档第2节:三按钮固定 (驳回 / 同意新建 / 合并)
   // "同意新建" = admin 显式创建全新动物档案,animal.status 由 event.intent 决定
   // 后端: PUT /admin/events/:id/action body.action='create_new'
+  // 【2026-07-14 bug5】操作完成后重拉 — 之前只 filter 本地列表,退出再进 tabBar 时
+  //   onMounted 不触发,onShow 也未挂重拉,导致那条记录还在 + badge count 不一致
   uni.showModal({
     title: "同意新建",
     content: "确定要为该事件创建一个全新的动物档案吗？",
@@ -383,8 +393,8 @@ async function onCreateNew(eventId: string) {
         try {
           await apiCreateAnimalFromEvent(eventId);
           uni.showToast({ title: "已新建档案", icon: "success" });
-          events.value = events.value.filter((e) => e.event_id !== eventId);
-          pendingEvents.value = Math.max(0, pendingEvents.value - 1);
+          // 立即重拉, 与后端状态保持唯一真相源, 防止退出再进 tabBar 时列表 stale
+          await loadAuditData();
         } catch (e) {
           console.error("同意新建失败", e);
           uni.showToast({ title: "操作失败", icon: "none" });
@@ -412,8 +422,8 @@ async function onRejectEvent(eventId: string) {
         try {
           await apiRejectEvent(eventId);
           uni.showToast({ title: "已驳回", icon: "success" });
-          events.value = events.value.filter((e) => e.event_id !== eventId);
-          pendingEvents.value = Math.max(0, pendingEvents.value - 1);
+          // 【2026-07-14 bug5】操作后重拉,见 onCreateNew 注释
+          await loadAuditData();
         } catch (e) {
           console.error("驳回事件失败", e);
           uni.showToast({ title: "操作失败", icon: "none" });
@@ -441,8 +451,8 @@ async function onApproveClaim(claimId: string) {
             await apiUpdateAnimal(claim.animal_id, { status: "claimed" });
           }
           uni.showToast({ title: "已批准", icon: "success" });
-          claims.value = claims.value.filter((c) => c.claim_id !== claimId);
-          pendingClaims.value = Math.max(0, pendingClaims.value - 1);
+          // 【2026-07-14 bug5】操作后重拉,见 onCreateNew 注释
+          await loadAuditData();
         } catch (e) {
           console.error("批准认领失败", e);
           uni.showToast({ title: "操作失败", icon: "none" });
@@ -464,8 +474,8 @@ async function onRejectClaim(claimId: string) {
         try {
           await apiRejectClaim(claimId);
           uni.showToast({ title: "已驳回", icon: "success" });
-          claims.value = claims.value.filter((c) => c.claim_id !== claimId);
-          pendingClaims.value = Math.max(0, pendingClaims.value - 1);
+          // 【2026-07-14 bug5】操作后重拉,见 onCreateNew 注释
+          await loadAuditData();
         } catch (e) {
           console.error("驳回认领失败", e);
           uni.showToast({ title: "操作失败", icon: "none" });
@@ -490,8 +500,8 @@ async function onDecideClue(item: any, decision: "confirmed" | "rejected") {
         title: decision === "confirmed" ? "已确认关联" : "已驳回",
         icon: "success",
       });
-      clues.value = clues.value.filter((x) => x.match_id !== item.match_id);
-      pendingClues.value = Math.max(0, pendingClues.value - 1);
+      // 【2026-07-14 bug5】操作后重拉,见 onCreateNew 注释
+      await loadAuditData();
     } else {
       uni.showToast({ title: "操作失败", icon: "none" });
     }
