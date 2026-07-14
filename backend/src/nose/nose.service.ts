@@ -212,6 +212,10 @@ export class NoseService {
         breed: dto.breed ?? null,
         color: dto.color ?? null,
         gender: dto.gender ?? null,
+        // 【2026-07-14 bug4】三属性透传 — 用户未填时 null,Animal 列默认 unknown/false
+        age_estimate: dto.age_estimate ?? null,
+        health_status: dto.health_status ?? null,
+        sterilized: dto.sterilized ?? null,
         status: EventStatus.PENDING,
       } as Partial<RescueEvent>);
       await this.eventRepo.save(event);
@@ -383,10 +387,21 @@ export class NoseService {
         location_lng: Number(dto.location_lng) || 0,
         address: dto.address ?? null,
         description: null,
+        // 【2026-07-14 bug一致性】有鼻纹低分分支补 photos
+        //   之前只透传 nose_photo_url,未把 body_photo_url 写入 event.photos
+        //   → admin create_new 时 animal.photos=[] → 动物详情/首页标签图全 fallback 占位图
+        //   与无鼻纹分支 (L210) 对齐,过滤脏字符串后写入
+        photos: dto.body_photo_url && dto.body_photo_url !== 'undefined' && dto.body_photo_url !== 'null'
+          ? [dto.body_photo_url]
+          : null,
         species: dto.species ?? null,
         breed: dto.breed ?? null,
         color: dto.color ?? null,
         gender: dto.gender ?? null,
+        // 【2026-07-14 bug4】三属性透传
+        age_estimate: dto.age_estimate ?? null,
+        health_status: dto.health_status ?? null,
+        sterilized: dto.sterilized ?? null,
         vector_similarity: bestMatch?.cosine_similarity ?? null,
         fusion_score: null,
         gps_similarity: null,
@@ -662,6 +677,10 @@ export class NoseService {
       breed: dto.breed ?? null,
       color: dto.color ?? null,
       gender: dto.gender ?? null,
+      // 【2026-07-14 bug4】三属性透传 (主动建档同样需要)
+      age_estimate: dto.age_estimate ?? null,
+      health_status: dto.health_status ?? null,
+      sterilized: dto.sterilized ?? null,
       intent,
       status: EventStatus.PENDING,
     } as Partial<RescueEvent>);

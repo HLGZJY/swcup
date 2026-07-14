@@ -320,6 +320,51 @@ describe('NoseService', () => {
       expect(savedEvent.reporter_id).toBe('user-1');
     });
 
+    // 【2026-07-14 bug一致性】有鼻纹低分分支必须把 body_photo_url 写入 event.photos
+    //   现场: 2026-07-14 用户实测,携带 4 属性参数 + 鼻纹照采集成功后,
+    //         动物详情和首页动物标签的图片加载失败 (fallback 到 placeholder)
+    //   原因: nose.service Step 6 写 RescueEvent 时漏 photos 字段 →
+    //         admin create_new 后 animal.photos=[] → 前端 resolveImageUrl('') 返回 '' → 占位图
+    //   修复: Step 6 加 photos: dto.body_photo_url ? [dto.body_photo_url] : null
+    it('【2026-07-14 bug】低分分支 dto.body_photo_url → event.photos=[url] (admin create_new 后 animal.photos 不为空)', async () => {
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);  // 孤儿表无候选
+
+      await service.collect({
+        nose_photo: 'base64data',
+        location_lat: 39.9,
+        location_lng: 116.4,
+        body_photo_url: '/static/uploads/body_123.png',
+      } as any, 'user-1');
+
+      const savedEvent = eventRepo.save.mock.calls.find(c => c[0]?.source === EventSource.COLLECT)?.[0];
+      expect(savedEvent).toBeDefined();
+      // 关键断言: body_photo_url 必须落到 event.photos
+      expect(savedEvent.photos).toEqual(['/static/uploads/body_123.png']);
+    });
+
+    it('【2026-07-14 bug】低分分支 dto.body_photo_url 是 "undefined"/"null" 字符串 → event.photos=null', async () => {
+      // 防御: 前端 JS null 拼接时可能产出字符串 "undefined"/"null", 不能写入数据库
+      mockedAxios.post.mockResolvedValueOnce({ data: { vector: Array(128).fill(0.5) } });
+      mockedAxios.post.mockResolvedValueOnce({ data: { cosine_similarity: 0.5, l2_distance: 1 } });
+      animalRepo._qb.getMany.mockResolvedValue([makeAnimal()]);
+      noseRepo.findOne.mockResolvedValue(makeNoseFeature());
+      noseRepo._qb.getMany.mockResolvedValue([]);
+
+      await service.collect({
+        nose_photo: 'base64data',
+        location_lat: 39.9,
+        location_lng: 116.4,
+        body_photo_url: 'undefined',  // 模拟前端脏数据
+      } as any, 'user-1');
+
+      const savedEvent = eventRepo.save.mock.calls.find(c => c[0]?.source === EventSource.COLLECT)?.[0];
+      expect(savedEvent.photos).toBeNull();
+    });
+
     it('【Bug6 兜底】主链路未达阈值,但孤儿表有匹配 → ask_link_or_new', async () => {
       // 主链路: 0.5 (未达 0.88)
       mockedAxios.post
@@ -874,6 +919,37 @@ describe('NoseService', () => {
       } as any, 'user-1');
       const saved = eventRepo.save.mock.calls[0][0];
       expect(saved.intent).toBe('found');
+    });
+
+    // 【2026-07-14 bug4】三属性透传 — createPendingAnimalRequest 把 age/health/sterilized 写入 RescueEvent
+    it('【2026-07-14 bug4】dto 含 age_estimate=junior / health_status=healthy / sterilized=true → 写入 RescueEvent', async () => {
+      await service.createPendingAnimalRequest({
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        breed: '金毛',
+        location_lat: 39.9,
+        location_lng: 116.4,
+        age_estimate: 'junior',
+        health_status: 'healthy',
+        sterilized: true,
+      } as any, 'user-1');
+      const saved = eventRepo.save.mock.calls[0][0];
+      expect(saved.age_estimate).toBe('junior');
+      expect(saved.health_status).toBe('healthy');
+      expect(saved.sterilized).toBe(true);
+    });
+
+    it('【2026-07-14 bug4】dto 三字段全缺省 → 写入 null (Animal 列默认 unknown/false)', async () => {
+      await service.createPendingAnimalRequest({
+        nose_vector_id: 'v-1',
+        species: 'dog',
+        location_lat: 39.9,
+        location_lng: 116.4,
+      } as any, 'user-1');
+      const saved = eventRepo.save.mock.calls[0][0];
+      expect(saved.age_estimate).toBeNull();
+      expect(saved.health_status).toBeNull();
+      expect(saved.sterilized).toBeNull();
     });
   });
 
