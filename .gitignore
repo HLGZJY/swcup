@@ -59,3 +59,14 @@ Thumbs.db
 
 # AI 服务参考项目目录（不入仓，运行时按需克隆）
 /ai-service/参考项目/
+
+# 【2026-07-15 v1.1 冻结】训练数据集 + 测试图 (Oxford/Stanford, 单图)
+/ai-service/Stanford_Dogs/
+/ai-service/dir_train/
+/ai-service/oxford_pets_split/
+/ai-service/test_img.jpg
+
+# 【2026-07-15 v1.1 冻结】通用备份文件 (.bak, .orig 等)
+/*.bak
+/*/*.bak
+/*/*/*.bak
