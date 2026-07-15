@@ -1,0 +1,8 @@
+
+# 局部忽略 ai-service/comments 运行时数据(不入版本控制)
+clue_state/
+*.tmp
+
+# 避免 .pyc 重复忽略(根 .gitignore 已加)
+__pycache__/
+*.pyc
