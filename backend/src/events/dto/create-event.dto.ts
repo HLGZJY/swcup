@@ -1,5 +1,5 @@
 ﻿import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, IsEnum, ValidateNested, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, IsArray, IsEnum, IsBoolean, ValidateNested, registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EventType, EventSource } from '../entities/event.entity';
 import { BodyColorDto } from '../../animals/dto/create-animal.dto';
@@ -89,15 +89,20 @@ export class CreateEventDto {
   @IsOptional()
   gender?: string;
 
-  @ApiPropertyOptional({ enum: ['puppy', 'adult', 'senior'] })
+  @ApiPropertyOptional({ enum: ['junior', 'puppy', 'adult', 'senior', 'unknown'] })
   @IsString()
   @IsOptional()
   age_estimate?: string;
 
-  @ApiPropertyOptional({ enum: ['healthy', 'injured', 'ill', 'unknown'] })
+  @ApiPropertyOptional({ enum: ['healthy', 'injured', 'ill', 'sick', 'unknown'] })
   @IsString()
   @IsOptional()
   health_status?: string;
+
+  @ApiPropertyOptional({ description: 'true=已绝育, false=未绝育, null/undefined=用户未填 (Animal 默认 false)' })
+  @IsBoolean()
+  @IsOptional()
+  sterilized?: boolean | null;
 
   @ApiPropertyOptional({ description: '纬度；缺省/0 时自动从 animal_id 反查' })
   @IsNumber()

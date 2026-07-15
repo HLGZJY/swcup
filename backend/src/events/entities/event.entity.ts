@@ -166,4 +166,27 @@ export class RescueEvent {
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
+
+  // 【2026-07-14 bug4】三属性持久化 — collect 表单的 age/health/sterilized
+  //   之前只通过 URL params 透传 result.vue 内部 state,从未写入 event/animals;
+  //   现在 DTO/RescueEvent/AnimalsService.create 全链路透传,animal 列默认 unknown/false
+  //   仅在"用户未填"时生效
+  @Column({
+    type: 'enum',
+    enum: ['junior', 'adult', 'senior', 'unknown'],
+    nullable: true,
+    name: 'age_estimate',
+  })
+  age_estimate?: 'junior' | 'adult' | 'senior' | 'unknown' | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['healthy', 'injured', 'sick', 'unknown'],
+    nullable: true,
+    name: 'health_status',
+  })
+  health_status?: 'healthy' | 'injured' | 'sick' | 'unknown' | null;
+
+  @Column({ type: 'boolean', nullable: true, name: 'sterilized' })
+  sterilized?: boolean | null;
 }

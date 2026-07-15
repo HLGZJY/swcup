@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CollectNoseDto {
@@ -91,6 +91,26 @@ export class CollectNoseDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  // 【2026-07-14 bug4】三属性透传 — 之前前端只通过 URL 透传 result.vue 内部 state,
+  //   collect 端从未写入,导致 admin 审核创建动物时丢成 null/unknown/false。
+  //   扩 DTO enum 与前端 collect 表单 (junior/adult/senior/unknown + healthy/injured/sick/unknown + boolean) 对齐。
+  @ApiPropertyOptional({ enum: ['junior', 'adult', 'senior', 'unknown'] })
+  @IsEnum(['junior', 'adult', 'senior', 'unknown'])
+  @IsOptional()
+  age_estimate?: 'junior' | 'adult' | 'senior' | 'unknown';
+
+  @ApiPropertyOptional({ enum: ['healthy', 'injured', 'sick', 'unknown'] })
+  @IsEnum(['healthy', 'injured', 'sick', 'unknown'])
+  @IsOptional()
+  health_status?: 'healthy' | 'injured' | 'sick' | 'unknown';
+
+  @ApiPropertyOptional({
+    description: 'true=已绝育, false=未绝育, null/undefined=用户未填(Animal 默认 false)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  sterilized?: boolean | null;
 }
 
 export class CompareNoseDto {

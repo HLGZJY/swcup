@@ -933,6 +933,53 @@ describe('EventsService', () => {
       expect(result).toEqual({ animal_id: 'new-animal-id-1', event_id: 'e-1' });
     });
 
+    // 【2026-07-14 bug4】三属性透传 — createAnimalFromEvent 把 event.3 字段传给 animalsService.create
+    it('【2026-07-14 bug4】event.age_estimate / health_status / sterilized → animalsService.create 收到同字段', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({
+          event_id: 'e-bug4',
+          species: 'dog',
+          breed: '金毛',
+          location_lat: 30.5,
+          location_lng: 114.3,
+          age_estimate: 'junior',
+          health_status: 'healthy',
+          sterilized: true,
+        }),
+      )
+      animalsService.create.mockResolvedValue({ animal_id: 'a-bug4' })
+
+      await service.createAnimalFromEvent('e-bug4')
+
+      expect(animalsService.create).toHaveBeenCalledTimes(1)
+      const createArg = animalsService.create.mock.calls[0][0]
+      expect(createArg.age_estimate).toBe('junior')
+      expect(createArg.health_status).toBe('healthy')
+      expect(createArg.sterilized).toBe(true)
+    })
+
+    it('【2026-07-14 bug4】event 三字段全 null → animalsService.create 收到 undefined (Animal 列默认 unknown/false)', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({
+          event_id: 'e-bug4-null',
+          species: 'dog',
+          location_lat: 30.5,
+          location_lng: 114.3,
+          age_estimate: null,
+          health_status: null,
+          sterilized: null,
+        }),
+      )
+      animalsService.create.mockResolvedValue({ animal_id: 'a-bug4-null' })
+
+      await service.createAnimalFromEvent('e-bug4-null')
+
+      const createArg = animalsService.create.mock.calls[0][0]
+      expect(createArg.age_estimate).toBeUndefined()
+      expect(createArg.health_status).toBeUndefined()
+      expect(createArg.sterilized).toBeUndefined()
+    })
+
     it('event 不存在应抛 NotFoundException 且不调 animalsService.create', async () => {
       eventRepo.findOne.mockResolvedValue(null);
       await expect(service.createAnimalFromEvent('missing-event')).rejects.toThrow('Event not found');
@@ -1047,6 +1094,34 @@ describe('EventsService', () => {
 
       // 缺省 intent 不应触发额外 lost 记录 (避免重复)
       expect(animalsService.create).toHaveBeenCalledTimes(1);
+    });
+
+    // 【2026-07-14 bug新发现】photos 净化 — 过滤 "undefined"/"null" 字符串与空值
+    it('【2026-07-14 bug新发现】event.photos 含 "undefined" 字符串时, animal.photos 已过滤', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({
+          event_id: 'e-photo-filter',
+          photos: ['/static/1.jpg', 'undefined', 'null', ''] as any,
+        }),
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'a-photo-filter' });
+
+      await service.createAnimalFromEvent('e-photo-filter');
+
+      const createArg = animalsService.create.mock.calls[0][0];
+      expect(createArg.photos).toEqual(['/static/1.jpg']);
+    });
+
+    it('【2026-07-14 bug新发现】event.photos 为 null/undefined 时, animal.photos 兜底为 []', async () => {
+      eventRepo.findOne.mockResolvedValue(
+        makeEvent({ event_id: 'e-photo-null', photos: null as any }),
+      );
+      animalsService.create.mockResolvedValue({ animal_id: 'a-photo-null' });
+
+      await service.createAnimalFromEvent('e-photo-null');
+
+      const createArg = animalsService.create.mock.calls[0][0];
+      expect(createArg.photos).toEqual([]);
     });
   });
 

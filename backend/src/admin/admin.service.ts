@@ -137,7 +137,8 @@ export class AdminService {
         animal.location_lat = event.location_lat;
         animal.location_lng = event.location_lng;
         animal.address = event.address || null;
-        animal.photos = event.photos || [];
+        animal.photos = (Array.isArray(event.photos) ? event.photos : [])
+          .filter((p: any) => typeof p === 'string' && p && p !== 'undefined' && p !== 'null');
         animal.notes = event.description || null;
         animal.first_seen_at = event.occurred_at || now;
         animal.last_seen_at = event.occurred_at || now;

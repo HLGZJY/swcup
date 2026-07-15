@@ -87,6 +87,10 @@ export class EventsService {
       gender: dto.gender,
       // 【Defect 4 / 2026-07-08】持久化 intent — admin 后审 createAnimalFromEvent 需要读取
       intent: dto.intent || null,
+      // 【2026-07-14 bug一致性】三属性持久化 — 与 collect 页对齐,后端 CreateEventDto 已扩 junior/sick
+      age_estimate: dto.age_estimate ?? null,
+      health_status: dto.health_status ?? null,
+      sterilized: dto.sterilized ?? null,
     } as Partial<RescueEvent>);
     await this.eventRepo.save(event);
 
@@ -160,7 +164,9 @@ export class EventsService {
       location_lat: event.location_lat,
       location_lng: event.location_lng,
       address: event.address ?? undefined,
-      photos: event.photos ?? undefined,
+      // 【2026-07-14 bug新发现】净化 photos — 过滤 "undefined"/"null" 字符串与空值,空数组兜底为 []
+      photos: (Array.isArray(event.photos) ? event.photos : [])
+        .filter((p: any) => typeof p === 'string' && p && p !== 'undefined' && p !== 'null'),
       body_colors: event.body_colors ?? undefined,
       // event.description → Animal.notes
       notes: event.description ?? undefined,
@@ -172,6 +178,12 @@ export class EventsService {
       // 【Defect 4 / 2026-07-08】intent 透传 → AnimalsService.create 决定 status
       //   intent=found → AnimalStatus.FOUND;intent=lost/undefined → AnimalStatus.LOST
       intent: event.intent || undefined,
+      // 【2026-07-14 bug4】三属性透传 — 用户在 collect 表单选的 age/health/sterilized
+      //   已落 RescueEvent 持久化字段,这里再透传到 Animal; dto 字段为 null/undefined 时
+      //   Animal 列默认 unknown/false 生效(用户未填)
+      age_estimate: event.age_estimate ?? undefined,
+      health_status: event.health_status ?? undefined,
+      sterilized: event.sterilized ?? undefined,
     } as any);
 
     // 关键副作用: event.animal_id 指向新动物, status=confirmed (与 confirmEvent 区分)

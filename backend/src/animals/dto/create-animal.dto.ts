@@ -68,12 +68,12 @@ export class CreateAnimalDto {
   @IsOptional()
   gender?: string;
 
-  @ApiPropertyOptional({ enum: ['puppy', 'adult', 'senior'] })
+  @ApiPropertyOptional({ enum: ['junior', 'puppy', 'adult', 'senior', 'unknown'] })
   @IsString()
   @IsOptional()
   age_estimate?: string;
 
-  @ApiPropertyOptional({ enum: ['healthy', 'injured', 'ill', 'unknown'] })
+  @ApiPropertyOptional({ enum: ['healthy', 'injured', 'ill', 'sick', 'unknown'] })
   @IsString()
   @IsOptional()
   health_status?: string;

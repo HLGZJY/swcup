@@ -169,6 +169,48 @@
       </view>
 
       <view class="form-item">
+        <text class="form-label">年龄段</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in ageOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: age === opt.value }]"
+            @click="age = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">健康状况</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in healthOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: health === opt.value }]"
+            @click="health = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">是否绝育</text>
+        <view class="gender-options">
+          <view
+            v-for="opt in sterilizedOptions"
+            :key="opt.value"
+            :class="['gender-btn', { selected: sterilized === opt.value }]"
+            @click="sterilized = opt.value"
+          >
+            <text>{{ opt.label }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
         <text class="form-label">补充描述</text>
         <textarea
           class="description-input"
@@ -316,6 +358,28 @@ const genderOptions = [
 const genderLabel = computed(() => {
   return genderOptions.find((g) => g.value === gender.value)?.label || "未知";
 });
+
+// 【2026-07-14 bug一致性】三属性 + 绝育 — 与采集页对齐
+const age = ref("unknown");
+const ageOptions = [
+  { value: "unknown", label: "未知" },
+  { value: "junior", label: "幼年" },
+  { value: "adult", label: "成年" },
+  { value: "senior", label: "老年" },
+];
+const health = ref("unknown");
+const healthOptions = [
+  { value: "unknown", label: "未知" },
+  { value: "healthy", label: "健康" },
+  { value: "injured", label: "受伤" },
+  { value: "sick", label: "生病" },
+];
+const sterilized = ref("unknown");
+const sterilizedOptions = [
+  { value: "unknown", label: "未知" },
+  { value: "yes", label: "已绝育" },
+  { value: "no", label: "未绝育" },
+];
 
 // 快捷品种（按当前 species 切换）
 const breedPresets = computed(() => {
@@ -525,6 +589,14 @@ async function handleReportSubmit(_payload: Record<string, any>) {
       description: description.value,
       photos: photoUrls.value,
       animal_id: linkedAnimalId.value || undefined,
+      // 【2026-07-14 bug一致性】与采集页对齐,后端 CreateEventDto 已扩 junior/sick
+      age_estimate: age.value || undefined,
+      health_status: health.value || undefined,
+      sterilized: sterilized.value === "yes"
+        ? true
+        : sterilized.value === "no"
+          ? false
+          : null,
     });
 
     uni.hideLoading();
