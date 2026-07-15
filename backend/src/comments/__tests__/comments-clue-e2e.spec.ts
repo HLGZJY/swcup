@@ -156,3 +156,44 @@ describe('ClueBridgeService P3 e2e', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+// ============================================================
+// 2026-07-14 bug3 档位 1: stub 5 词典扩展覆盖率
+// 验证: 真实微信表达"我在 xx 路看到了"等能稳定命中 report/黑名单
+// ============================================================
+import { BUILTIN_DEFAULTS } from '../dictionary.loader'
+
+describe('BUILTIN_DEFAULTS 扩展 (bug3 stub 端到端)', () => {
+  it('report 集覆盖"我在广粤路看到了"', () => {
+    const words = BUILTIN_DEFAULTS.report
+    // 原 4 个核心目击动词必须保留
+    for (const w of ['看到', '见到', '目击', '刚发现']) expect(words.has(w)).toBe(true)
+    // 阶段 E 扩展: 路上看到 / 散步看到 / 遇到 / 碰见
+    for (const w of ['路上看到了', '路上见到', '散步看到', '遇到', '碰见', '发现']) {
+      expect(words.has(w)).toBe(true)
+    }
+  })
+  it('BLACKLIST_BAD 新增 骗子/广告/假/敲诈', () => {
+    const words = BUILTIN_DEFAULTS.blacklist_bad
+    for (const w of ['骗子', '骗人', '黑心', '敲诈', '骗']) {
+      expect(words.has(w)).toBe(true)
+    }
+  })
+  it('BLACKLIST_FAKE 新增 广告/扫码/推广', () => {
+    const words = BUILTIN_DEFAULTS.blacklist_fake
+    for (const w of ['广告', '推广', '扫码', '点链接', '出售', '买卖']) {
+      expect(words.has(w)).toBe(true)
+    }
+  })
+  it('stub 报告原文落 sentiment=report (场景: "我在广粤路看到了")', () => {
+    // 模拟 stub 行为: 文本含"看到了" 命中 report 集
+    const content = '我在虹口区广粤路那家鸿星尔克旁边看到了'
+    const hit = Array.from(BUILTIN_DEFAULTS.report).some((w) => content.includes(w))
+    expect(hit).toBe(true)
+  })
+  it('stub 屏蔽广告原文 (场景: "广告扫码领养加微信")', () => {
+    const content = '广告：扫码领养加微信'
+    const hitFake = Array.from(BUILTIN_DEFAULTS.blacklist_fake).some((w) => content.includes(w))
+    expect(hitFake).toBe(true)
+  })
+})
